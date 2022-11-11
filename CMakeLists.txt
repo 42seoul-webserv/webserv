@@ -5,9 +5,9 @@ project("webserv")
 set(CMAKE_CXX_STANDARD 98)
 
 set(SOURCE_FILES
-        src/GeneralObject.cpp
+        src/Server.cpp
         src/main.cpp
-        src/ReadConfig.cpp)
+        src/ServerManager.cpp)
 
 add_executable(webserv
         ${SOURCE_FILES}

@@ -17,4 +17,9 @@ MethodType getMethodType(const std::string& method);
 typedef unsigned int Port;
 typedef int FileDescriptor;
 
+// TODO: have to be removed before commit
+class Location
+{
+};
+
 #endif

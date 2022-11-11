@@ -1,0 +1,3 @@
+/Users/sungjpar/CLionProjects/webserv-sungjpar/build/CMakeFiles/webserv.dir
+/Users/sungjpar/CLionProjects/webserv-sungjpar/build/CMakeFiles/edit_cache.dir
+/Users/sungjpar/CLionProjects/webserv-sungjpar/build/CMakeFiles/rebuild_cache.dir
