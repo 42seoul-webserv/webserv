@@ -22,10 +22,12 @@ public:
     std::string _root;
     std::vector<MethodType> _allowMethods;
     std::vector<Location> _locations;
+
 // constructor, destructor
 public:
     Server();
     ~Server();
+    void openServer();
 };
 
 #endif

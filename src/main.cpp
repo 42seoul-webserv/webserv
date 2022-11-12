@@ -1,5 +1,5 @@
 
-#include "Server.hpp"
+#include "ServerManager.hpp"
 #include <iostream>
 
 int main(int argc, char *argv[], char *envp[])
@@ -8,8 +8,8 @@ int main(int argc, char *argv[], char *envp[])
   {
     try
     {
-      Server newServer;
-      newServer.runServer();
+      ServerManager sv("");
+      sv.run();
     }
     catch (std::exception& e)
     {
@@ -17,18 +17,18 @@ int main(int argc, char *argv[], char *envp[])
       return (1);
     }
   }
-  else
-  {
-    try
-    {
-      Server newServer(argv[1]);
-      newServer.runServer();
-    }
-    catch (std::exception &e)
-    {
-      std::cout << e.what();
-      return (1);
-    }
-  }
+//  else
+//  {
+//    try
+//    {
+//      Server newServer(argv[1]);
+//      newServer.runServer();
+//    }
+//    catch (std::exception &e)
+//    {
+//      std::cout << e.what();
+//      return (1);
+//    }
+//  }
   return (0);
 }
