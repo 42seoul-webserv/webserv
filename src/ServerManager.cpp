@@ -8,35 +8,67 @@ ServerManager::ServerManager(const std::string &configFilePath)
 
 ServerManager::~ServerManager()
 {
+  for (
+        std::vector<struct Context*>::iterator it = _contexts.begin();
+        it != _contexts.begin();
+        ++it
+    )
+  {
+    delete (*it);
+  }
 }
 
 void ServerManager::run()
 {
   struct kevent event;
-  // init kqueue
+
   if ((_kqueue = kqueue()) < 0)
     throw (std::runtime_error("Create Kqueue failed\n"));
-  // init socket
-  for (
-    std::vector<Server>::iterator it = _serverList.begin();
-    it != _serverList.end();
-    ++it)
-  {
-    if ((it->_serverFD = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-      throw (std::runtime_error("Create Socket failed\n"));
-    if (fcntl(it->_serverFD, F_SETFL, O_NONBLOCK) < 0) // control serverFD to non-block mode
-      throw (std::runtime_error("fcntl non-block failed\n"));
-    if (bind(it->_serverFD, reinterpret_cast<const sockaddr *>(&it->_socketAddr), sizeof(it->_socketAddr)) < 0)
-      throw (std::runtime_error("Bind Socket failed\n"));
-    if (listen(it->_serverFD, 10) < 0)
-      throw (std::runtime_error("Listen Socket failed\n"));
-    EV_SET(&event, it->_serverFD, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL); // set event of serverFD
-    if (kevent(_kqueue, &event, 1, NULL, 0, NULL) < 0) // event attach
-      throw (std::runtime_error("Event attach failed\n"));
-  }
-  // RUN SERVER
+  initServers();
   while (1)
   {
-    // TODO: CHECK EVENTS IN KQUEUE
+    int newEventCount = kevent(_kqueue, NULL, 0, &event, 1, NULL);
+
+    if (newEventCount > 0 && (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE))
+    {
+      struct Context* eventData = static_cast<struct Context*>(event.udata);
+      try
+      {
+        eventData->handler(eventData);
+      }
+      catch (std::exception& e)
+      {
+        std::cerr << e.what();
+      }
+    }
   }
+}
+
+FileDescriptor ServerManager::getKqueue() const
+{
+  return _kqueue;
+}
+
+void ServerManager::initServers()
+{
+  for (
+          std::vector<Server>::iterator server = _serverList.begin();
+          server != _serverList.end();
+          ++server)
+  {
+    server->openServer();
+    attatchServerEvent(*server);
+  }
+}
+
+void ServerManager::attatchServerEvent(Server &server)
+{
+  // TODO: have to control leak?
+  struct kevent events[1];
+  struct Context *context = new struct Context(server._serverFD, server._socketAddr, acceptHandler, this);
+
+  EV_SET(&events[0], server._serverFD, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, context);
+  if (kevent(_kqueue, events, 1, NULL, 0, NULL) < 0)
+    throw (std::runtime_error("Event attach failed\n"));
+  _contexts.push_back(context);
 }
