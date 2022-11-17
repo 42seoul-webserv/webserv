@@ -29,9 +29,15 @@ MethodType getMethodType(const std::string& method);
 typedef unsigned int Port;
 typedef int FileDescriptor;
 
-// TODO: have to be removed before commit
-class Location
+// FIXME
+struct Location
 {
+    std::string _location;
+    std::string _index;              // ex. index.html
+    std::string _root;               // ex ./myDir/...
+    std::vector<MethodType> _allowMethods;       // ex. GET POST DELETE ...
+    int  _clientRequestBodyMaxSize;  // (--> max size of client body request)   --> defaults to 8000 bytes
+    //t_cgiInfo		_cgiInfo;			// ex. name: cgi_tester, arg: hello_world
 };
 
 void printLog(const std::string& log, const std::string& color);

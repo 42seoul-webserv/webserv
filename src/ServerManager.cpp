@@ -2,8 +2,9 @@
 
 ServerManager::ServerManager(const std::string &configFilePath)
 {
-  ConfigParser parser; // TODO: Implement it
-  _serverList = parser.parse(configFilePath);
+  ConfigParser parser;
+  _serverList = parser.parsing(configFilePath);
+  parser.displayAll();
 }
 
 ServerManager::~ServerManager()

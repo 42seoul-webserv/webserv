@@ -26,22 +26,6 @@ std::vector<std::string> ConfigParser::GetNodeElem(size_t server_index, std::str
     return it->second;
 }
 
-std::vector<std::string> RequestParser::GetNodeElem(std::string categoly, std::string key)
-{
-    std::map<std::string, std::vector<std::string> >::iterator it;
-
-    it = nodevector[0].elem.end();
-    for (unsigned int i = 0; i < nodevector.size(); ++i)
-    {
-        if (nodevector[i].categoly == categoly)
-        {
-            it = nodevector[i].elem.find(key);
-            break;
-        }
-    }
-    return it->second;
-}
-
 void CommonParser::displayAll()
 {
     for (unsigned int i = 0; i < nodevector.size(); ++i)
@@ -197,6 +181,8 @@ void ConfigParser::getServerAttr(Server& server, unsigned int server_index)
     server._socketAddr.sin_family = AF_INET;
     server._index = *(GetNodeElem(server_index, "server", "index").begin());
     server._root = *(GetNodeElem(server_index, "server", "root").begin());
+    // FIXME
+    // server._locations = *(GetNodeElem(server_index, "location/board", )).begin();
 }
 
 std::vector<Server> ConfigParser::parsing(std::string FileRoot)
@@ -214,93 +200,4 @@ std::vector<Server> ConfigParser::parsing(std::string FileRoot)
     for (unsigned int i = 0; i < nodevector.size(); ++i)
         getServerAttr(_serverList[i], i);
     return (_serverList);
-}
-//RequestParser
-
-//private
-void RequestParser::addNode(std::string catename)
-{
-    ParserNode temp;
-
-    temp.next = NULL;
-    temp.prev = NULL;
-    temp.categoly = catename;
-    nodevector.push_back(temp);
-}
-void RequestParser::getStartLine(std::string& line)
-{
-    std::string buffer;
-    unsigned int k = 0;
-    std::vector<std::string> value;
-    std::string key[] = {"method", "path", "protocol"};
-    
-    addNode("startline");
-    for(unsigned int i = 0; i < line.size(); ++i)
-    {
-        if (isblank(line[i]))
-        {
-            value.push_back(buffer);
-            nodevector[0].elem[key[k++]] = value;
-            buffer.clear();
-            value.clear();
-        }
-        else
-            buffer += line[i];
-    }
-    value.push_back(buffer);
-    nodevector[0].elem[key[k]] = value;
-    line.clear();  
-}
-
-void RequestParser::getheader(std::string &line)
-{
-    std::string key;
-    std::string buffer;
-    std::vector<std::string> value;
-
-    for (std::string::iterator it = line.begin(); it != line.end(); ++it)
-    {
-        if (isblank(*it))
-            continue;
-        if (*it == ':')
-        {
-            key = buffer;
-            it++;
-            if (isblank(*it))
-                it++;
-            buffer.assign(it, line.end());
-            value.push_back(buffer);
-            break;
-        }
-        else
-            buffer += *it;
-    }
-    nodevector[1].elem[key] = value;
-}
-
-void RequestParser::getBody(std::string& line)
-{
-    addNode("body");
-    std::vector<std::string> value;
-
-    value.push_back(line);
-    nodevector[2].elem["body"] = value;
-}
-//public
-void RequestParser::parsing(std::string FileRoot)
-{
-    std::filebuf fb;
-    std::string line;
-
-    if (fb.open(FileRoot, std::ios::in) == NULL)
-        return;
-    std::istream is(&fb);
-    getline(is, line);
-    getStartLine(line);
-    addNode("header");
-    while (!getline(is, line).eof() && line.size() != 0)
-        getheader(line);
-    getline(is, line);
-    getBody(line);
-    fb.close();
 }

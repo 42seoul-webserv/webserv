@@ -6,6 +6,7 @@
 #include <stack>
 #include <exception>
 #include "Server.hpp"
+
 struct ParserNode
 {
     ParserNode *next;
@@ -36,17 +37,4 @@ public:
     std::vector<std::string> GetNodeElem(size_t server_index, std::string categoly ,std::string key);
     static bool vaildCheck(std::string FileRoot);
     std::vector<Server> parsing(std::string FileRoot);
-};
-
-class RequestParser : public CommonParser
-{
-private:
-    void addNode(std::string catename);
-    void getheader(std::string& line);
-    void getBody(std::string& line);
-    void getStartLine(std::string& line);
-    void parsingOneNode(std::istream& is);
-public:
-    std::vector<std::string> GetNodeElem(std::string categoly ,std::string key);
-    void parsing(std::string FileRoot);
 };

@@ -4,11 +4,11 @@
 
 int main(int argc, char *argv[], char *envp[])
 {
-  if (argc != 2)
+  if (argc == 2)
   {
     try
     {
-      ServerManager sv("");
+      ServerManager sv(argv[1]);
       sv.run();
     }
     catch (std::exception& e)
