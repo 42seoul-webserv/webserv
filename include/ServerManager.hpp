@@ -63,5 +63,6 @@ struct Context
 void readHandler(struct Context *context);
 void acceptHandler(struct Context *context);
 void responseHandler(struct Context *context);
+void handleEvent(struct kevent *event);
 
 #endif //SERVERMANAGER_HPP

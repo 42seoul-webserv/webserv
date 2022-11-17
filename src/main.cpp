@@ -13,7 +13,7 @@ int main(int argc, char *argv[], char *envp[])
     }
     catch (std::exception& e)
     {
-      std::cout << e.what();
+      printLog(e.what(), PRINT_RED);
       return (1);
     }
   }
