@@ -12,6 +12,8 @@
 #include <vector>
 #include <string>
 
+typedef int StatusCode;
+
 class Server
 {
 // attributes
@@ -20,6 +22,7 @@ public:
     struct sockaddr_in _socketAddr;
     std::string _index;
     std::string _root;
+    std::map<StatusCode, std::string> _errorPage;
     std::vector<MethodType> _allowMethods;
     std::vector<Location> _locations;
 

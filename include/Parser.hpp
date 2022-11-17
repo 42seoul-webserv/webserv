@@ -32,7 +32,10 @@ private:
     void getElem(ParserNode* temp, std::string line);
     ParserNode* EnterNode(ParserNode* temp, std::string line);
     void parsingOneNode(std::istream& is);
+    void getAllowMethods(std::vector<MethodType>& _allowMethods, std::string categoly, unsigned int server_index);
     void getServerAttr(Server& server, unsigned int server_index);
+    void getLocationAttr(Server& server, unsigned int server_index);
+    void displayServer(Server& server);
 public:
     std::vector<std::string> GetNodeElem(size_t server_index, std::string categoly ,std::string key);
     static bool vaildCheck(std::string FileRoot);
