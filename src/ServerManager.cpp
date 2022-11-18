@@ -4,7 +4,7 @@ ServerManager::ServerManager(const std::string &configFilePath)
 {
   ConfigParser parser;
   _serverList = parser.parsing(configFilePath);
-  parser.displayAll();
+  //parser.displayAll();
 }
 
 ServerManager::~ServerManager()

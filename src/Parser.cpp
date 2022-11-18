@@ -132,7 +132,7 @@ ParserNode* ConfigParser::EnterNode(ParserNode* temp, std::string line)
     temp = temp->next;
     for (std::string::iterator it = line.begin(); it != line.end(); ++it)
     {
-        if (isblank(*it) || *it == '{')
+        if ((isblank(*it) && *(it + 1) != '/') || *it == '{')
             continue;
         temp->categoly += *it;
     }
@@ -224,11 +224,11 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int server_index)
 
     for (ParserNode* temp = nodevector[server_index].next; temp != NULL; temp = temp->next)
     {
-        found = temp->categoly.find("location");
+        found = temp->categoly.find("location ");
         if (found != std::string::npos)
         {
             temp_cate = temp->categoly;
-            temp_cate.erase(temp_cate.begin(), temp_cate.begin() + 8);
+            temp_cate.erase(temp_cate.begin(), temp_cate.begin() + 9);
             location._location = temp_cate;
             location._index = *(GetNodeElem(server_index, temp->categoly, "index").begin());
             location._root = *(GetNodeElem(server_index, temp->categoly, "root").begin());
@@ -261,7 +261,7 @@ void ConfigParser::displayServer(Server& server)
         std::cout << "_index : " << server._locations[i]._index << std::endl;
         std::cout << "_root : " << server._locations[i]._root << std::endl;
         std::cout << "maxsize : " << server._locations[i].client_max_body_size << std::endl;
-        std::cout << "location : ";
+        std::cout << "location allow methods: ";
         for (unsigned int k = 0; k < server._locations[i]._allowMethods.size(); ++k)
             std::cout << server._locations[i]._allowMethods[k] << " ";
         std::cout << std::endl;
