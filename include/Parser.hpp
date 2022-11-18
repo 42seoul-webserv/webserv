@@ -36,8 +36,10 @@ private:
     void getServerAttr(Server& server, unsigned int server_index);
     void getLocationAttr(Server& server, unsigned int server_index);
     void displayServer(Server& server);
+    void getErrorPage(std::map<StatusCode, std::string>& _errorPage, unsigned int server_index);
 public:
     std::vector<std::string> GetNodeElem(size_t server_index, std::string categoly ,std::string key);
+    ParserNode* getNode(size_t server_index, std::string categoly);
     static bool vaildCheck(std::string FileRoot);
     std::vector<Server> parsing(std::string FileRoot);
 };

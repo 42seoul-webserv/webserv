@@ -14,6 +14,16 @@ ParserNode* CommonParser::GetNextNode(ParserNode node)
     return (node.next);
 }
 
+ParserNode* ConfigParser::getNode(size_t server_index, std::string categoly)
+{
+    ParserNode *temp = NULL;
+
+    temp = nodevector[server_index].next;
+    while (temp->categoly != categoly)
+            temp = temp->next;
+    return temp;
+}
+
 std::vector<std::string> ConfigParser::GetNodeElem(size_t server_index, std::string categoly, std::string key)
 {
     ParserNode *temp = NULL;
@@ -25,7 +35,10 @@ std::vector<std::string> ConfigParser::GetNodeElem(size_t server_index, std::str
             temp = temp->next;
     it = temp->elem.find(key);
     if (it == temp->elem.end())
+    {
+        empty.resize(1);
         return empty;
+    }
     return it->second;
 }
 
@@ -217,14 +230,10 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int server_index)
             temp_cate = temp->categoly;
             temp_cate.erase(temp_cate.begin(), temp_cate.begin() + 8);
             location._location = temp_cate;
-            temp2 = GetNodeElem(server_index, temp->categoly, "index");
-            if (temp2.size())
-                location._index = *temp2.begin();
-            temp2 = GetNodeElem(server_index, temp->categoly, "root");
-            if (temp2.size())
-                location._root = *temp2.begin();
+            location._index = *(GetNodeElem(server_index, temp->categoly, "index").begin());
+            location._root = *(GetNodeElem(server_index, temp->categoly, "root").begin());
             getAllowMethods(location._allowMethods, temp->categoly, server_index);
-            location._clientRequestBodyMaxSize = BUFFER_SIZE;
+            location.client_max_body_size = 10000;
             location._cgiInfo = GetNodeElem(server_index, temp->categoly, "cgi_info");
             server._locations.push_back(location);
             location._allowMethods.clear();
@@ -239,20 +248,39 @@ void ConfigParser::displayServer(Server& server)
     for (unsigned int i = 0; i < server._allowMethods.size(); ++i)
         std::cout << server._allowMethods[i] << " ";
     std::cout << std::endl;
+    std::cout << "error_page : " << std::endl;
+        for (std::map<StatusCode, std::string>::iterator it = server._errorPage.begin(); it != server._errorPage.end(); ++it)
+        {
+            std::cout << it->first << " : ";
+            std::cout << it->second << std::endl;
+        }
+    std::cout << std::endl;
     for (unsigned int i = 0; i < server._locations.size(); ++i)
     {
         std::cout << "_location : " << server._locations[i]._location << std::endl;
         std::cout << "_index : " << server._locations[i]._index << std::endl;
         std::cout << "_root : " << server._locations[i]._root << std::endl;
-        std::cout << "maxsize : " << server._locations[i]._clientRequestBodyMaxSize << std::endl;
-        std::cout << "location _allowMethods : ";
+        std::cout << "maxsize : " << server._locations[i].client_max_body_size << std::endl;
+        std::cout << "location : ";
         for (unsigned int k = 0; k < server._locations[i]._allowMethods.size(); ++k)
             std::cout << server._locations[i]._allowMethods[k] << " ";
         std::cout << std::endl;
-        std::cout << "_cgiInfo _allowMethods : ";
+        std::cout << "_cgiInfo : ";
         for (unsigned int k = 0; k < server._locations[i]._cgiInfo.size(); ++k)
             std::cout << server._locations[i]._cgiInfo[k] << " ";
-        std::cout << std::endl; 
+        std::cout << std::endl;
+    }
+}
+
+void ConfigParser::getErrorPage(std::map<StatusCode, std::string>& _errorPage, unsigned int server_index)
+{
+    ParserNode* error_page_node = getNode(server_index, "error_page");
+    std::map<std::string, std::vector<std::string> >::iterator it;
+
+    if (error_page_node)
+    {
+        for (it = error_page_node->elem.begin(); it != error_page_node->elem.end(); ++it)
+            _errorPage[std::stod(it->first)] = *(it->second.begin());
     }
 }
 //begin empty일때
@@ -269,6 +297,7 @@ void ConfigParser::getServerAttr(Server& server, unsigned int server_index)
     server._root = *(GetNodeElem(server_index, "server", "root").begin());
     getAllowMethods(server._allowMethods, "server", server_index);
     getLocationAttr(server, server_index);
+    getErrorPage(server._errorPage, server_index);
     displayServer(server);
 }
 
