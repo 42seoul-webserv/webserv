@@ -9,7 +9,8 @@ set(SOURCE_FILES
         src/main.cpp
         src/ServerManager.cpp
         src/ServerUtil.cpp
-        src/Parser.cpp)
+        src/Parser.cpp
+        )
 
 add_executable(webserv
         ${SOURCE_FILES}
