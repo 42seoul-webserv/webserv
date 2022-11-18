@@ -33,12 +33,12 @@ typedef int FileDescriptor;
 // FIXME
 struct Location
 {
-    std::string _location;
-    std::string _index;              // ex. index.html
-    std::string _root;               // ex ./myDir/...
-    std::vector<MethodType> _allowMethods;       // ex. GET POST DELETE ...
-    int  client_max_body_size;  // (--> max size of client body request)   --> defaults to 8000 bytes
-    std::vector<std::string> _cgiInfo;			// ex. name: cgi_tester, arg: hello_world
+    std::string location;
+    std::string index;              // ex. index.html
+    std::string root;               // ex ./myDir/...
+    std::vector<MethodType> allowMethods;       // ex. GET POST DELETE ...
+    int  ClientMaxBodySize;  // (--> max size of client body request)   --> defaults to 8000 bytes
+    std::vector<std::string> cgiInfo;			// ex. name: cgi_tester, arg: hello_world
 };
 
 void printLog(const std::string& log, const std::string& color);
