@@ -14,15 +14,15 @@ private:
     ServerManager& _serverManager;
     RequestProcessor();
     ~RequestProcessor();
-    HTTPResponse processGETMethod(const HTTPRequest& req, struct Context* context);
-    HTTPResponse processPOSTMethod(const HTTPRequest& req, struct Context* context);
-    HTTPResponse processPUTMethod(const HTTPRequest& req, struct Context* context);
-    HTTPResponse processDELETEMethod(const HTTPRequest& req, struct Context* context);
-    HTTPResponse processHEADMethod(const HTTPRequest& req, struct Context* context);
-    HTTPResponse processPATCHMethod(const HTTPRequest& req, struct Context* context);
-    HTTPResponse processCGI(const HTTPRequest& req, struct Context* context);
+    void processGETMethod(const HTTPRequest& req, struct Context* context);
+    void processPOSTMethod(const HTTPRequest& req, struct Context* context);
+    void processPUTMethod(const HTTPRequest& req, struct Context* context);
+    void processDELETEMethod(const HTTPRequest& req, struct Context* context);
+    void processHEADMethod(const HTTPRequest& req, struct Context* context);
+    void processPATCHMethod(const HTTPRequest& req, struct Context* context);
+    void processCGI(const HTTPRequest& req, struct Context* context);
 public:
-    HTTPResponse processRequest(const HTTPRequest& req, struct Context* context);
+    void processRequest(const HTTPRequest& req, struct Context* context);
 };
 
 #endif //REQUESTPROCESSOR_HPP
