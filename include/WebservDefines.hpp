@@ -70,5 +70,6 @@ struct Location
 void printLog(const std::string& log, const std::string& color);
 std::string encodePercentEncoding(const std::string& str);
 std::string decodePercentEncoding(const std::string& encodedURI);
+std::string getClientIP(struct sockaddr_in* addr);
 
 #endif
