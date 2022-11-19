@@ -75,6 +75,7 @@ std::string ServerManager::getServerName(in_port_t port_num) const
     }
     itr++;
   }
+  return ("webserv");
 }
 
 void ServerManager::attatchServerEvent(Server &server)
