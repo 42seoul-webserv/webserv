@@ -29,6 +29,32 @@ MethodType getMethodType(const std::string& method);
 typedef unsigned int Port;
 typedef int FileDescriptor;
 
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+typedef enum
+{
+    ST_CONTINUE = 100,
+    ST_OK = 200,
+    ST_CREATED = 201,
+    ST_ACCEPTED = 202,
+    ST_MULTIPLE_CHOICES = 300,
+    ST_MOVED_PERMANENTLY = 301,
+    ST_FOUND = 302,
+    ST_SEE_OTHER = 303,
+    ST_BAD_REQUEST = 400,
+    ST_UNAUTHORIZED = 401,
+    ST_FORBIDDEN = 403,
+    ST_NOT_FOUND = 404,
+    ST_METHOD_NOT_ALLOWED = 405,
+    ST_REQUEST_TIMEOUT = 408,
+    ST_LENGTH_REQUIRED = 411,
+    ST_PAYLOAD_TOO_LARGE = 413,
+    ST_INTERNAL_SERVER_ERROR = 500,
+    ST_NOT_IMPLEMENTED = 501,
+    ST_BAD_GATEWAY = 502,
+    ST_SERVICE_UNAVAILABLE = 503,
+} StatusCode;
+
+
 // FIXME
 struct Location
 {
