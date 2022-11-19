@@ -335,6 +335,7 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   server._socketAddr.sin_family = AF_INET;
   server._index = *(GetNodeElem(server_index, "server", "index").begin());
   server._root = *(GetNodeElem(server_index, "server", "root").begin());
+  server._server_name = *(GetNodeElem(server_index, "server", "server_name").begin());
   getAllowMethods(server._allowMethods, "server", server_index);
   getLocationAttr(server, server_index);
   getErrorPage(server._errorPage, server_index);

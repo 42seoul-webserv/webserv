@@ -21,6 +21,10 @@ public:
     void attatchServerEvent(Server& server);
     FileDescriptor getKqueue() const;
 
+    // minkyeki
+    // get Server name via port_number
+    std::string getServerName(in_port_t port_num) const;
+
 };
 
 struct Context
@@ -29,6 +33,7 @@ struct Context
     struct sockaddr_in addr;
     void (*handler)(struct Context *obj);
     ServerManager* manager;
+
     Context(int _fd,
             struct sockaddr_in _addr,
             void (*_handler)(struct Context *obj),
@@ -39,7 +44,8 @@ struct Context
       manager(_manager)
     {
     }
-};
+
+    };
 
 void readHandler(struct Context *context);
 void acceptHandler(struct Context *context);

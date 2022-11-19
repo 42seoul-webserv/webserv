@@ -26,6 +26,7 @@ public:
     std::map<StatusCode, std::string> _errorPage;
     std::vector<MethodType> _allowMethods;
     std::vector<Location> _locations;
+    std::string _server_name;
 
 // constructor, destructor
 public:
