@@ -39,9 +39,7 @@ static std::string getResponse(FileDescriptor indexFile)
   return (result);
 }
 
-// client IP is defined when accept successed...
-// TODO : separate to another file
-static std::string getClientIP(struct sockaddr_in* addr)
+std::string getClientIP(struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
   struct sockaddr_in* pV4Addr = addr;

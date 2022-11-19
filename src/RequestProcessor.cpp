@@ -1,18 +1,7 @@
 #include "RequestProcessor.hpp"
 #include "HttpResponse.hpp"
-
-// ! --------------------------------------------------------
-// ! FIXME: 이 함수는 다른 파일에 똑같이 존재함. 나중에 리팩토링할 때 include해서 사용할 것.
-static std::string getClientIP(struct sockaddr_in* addr)
-{
-  char str[INET_ADDRSTRLEN];
-  struct sockaddr_in* pV4Addr = addr;
-  struct in_addr ipAddr = pV4Addr->sin_addr;
-  inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
-  return (str);
-}
-// ! --------------------------------------------------------
-
+#include "ServerManager.hpp"
+#include <unistd.h>
 
 RequestProcessor::RequestProcessor()
 {}
@@ -119,5 +108,11 @@ void RequestProcessor::processCGI(const HttpRequest &req,
     // event attach -> write body content to pipe -> partial write 에 대한 고려
     // event attach -> read cgi result from pipe -> partial read에 대한 고려와 result를 모두 얻었을 때 response 처리
   }
+}
+
+void RequestProcessor::processRequest(const HttpRequest &req,
+                                      struct Context *context)
+{
+
 }
 
