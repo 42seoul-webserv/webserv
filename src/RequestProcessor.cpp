@@ -23,7 +23,7 @@ void RequestProcessor::processGETMethod(const HTTPRequest &req,
   *   (1). location path searching alogirithm.
   *   (2). 처리 상황에 따라 적절한 response code 설정.
   ?   (3).  큰 이미지파일일 경우 chunked로 처리 (?)
-  *   (4). 생성자에서 default response 설정.
+  // *   (4). 생성자에서 default response 설정.
   ?   (5). 큰 파일에 대한 read/write도 kevent를 통해 처리 (?)
   */ 
 

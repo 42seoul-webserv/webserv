@@ -181,6 +181,10 @@ void ConfigParser::getServerAttr(Server& server, unsigned int server_index)
     server._socketAddr.sin_family = AF_INET;
     server._index = *(GetNodeElem(server_index, "server", "index").begin());
     server._root = *(GetNodeElem(server_index, "server", "root").begin());
+
+    // added later
+    server._server_name = *(GetNodeElem(server_index, "server", "server_name").begin());
+
     // FIXME
     // server._locations = *(GetNodeElem(server_index, "location/board", )).begin();
 }

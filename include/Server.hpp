@@ -22,6 +22,7 @@ public:
     std::string _root;
     std::vector<MethodType> _allowMethods;
     std::vector<Location> _locations;
+    std::string _server_name;
 
 // constructor, destructor
 public:

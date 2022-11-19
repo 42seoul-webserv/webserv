@@ -117,7 +117,8 @@ HttpResponse::HttpResponse(const int &status_code, const std::string &status_mes
  * * TODO: 기본 설정중 서버 이름은 server config를 이용해서 적용해야 함. */
 void HttpResponse::setDefaultResponseHeader()
 {
-  this->addHeader(HttpResponse::SERVER(this->_context_ptr->server_name));
+  const in_port_t port_num = this->_context_ptr->addr.sin_port;
+  this->addHeader(HttpResponse::SERVER(this->_context_ptr->manager->getServerName(port_num)));
   this->addHeader(HttpResponse::DATE());
   this->addHeader(HttpResponse::CONNECTION("keep-alive"));
 }
