@@ -13,8 +13,6 @@
 #include <vector>
 #include <string>
 
-typedef int StatusCode;
-
 class Server
 {
 // attributes
