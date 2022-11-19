@@ -160,30 +160,32 @@ std::string HttpResponse::getBody() { return this->_body; }
 
 std::string HttpResponse::toString() const
 {
+	// (1) if _status_code is out of range, throw error
 	if (_status_code < 10 && _status_code > 599)
 		throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
+
+	// (2) if there is no status messege, throw error
 	if (_status_messege == "null")
 		throw std::runtime_error("HttpResponse::toString() : status messege is not set\n");
-	// if has "content-length", then there should be no "chunked" option
-	{
-		bool has_content_length = false;
-		if (_description.find("Content-Length") != _description.end())
-			has_content_length = true;
-		bool has_option_chunked = false;
-		HttpResponseHeader::t_iterator itr = _description.find("Transfer-Encoding");
-		if (itr != _description.end() && itr->second.find("chunked") != std::string::npos)
-			has_option_chunked = true;
-		if (has_content_length + has_option_chunked != 1)
-			throw std::runtime_error("HttpResponse header has [chunked] and [content-length] value\n");
-	}
+
+	// (3) if _transfer-encoding-chuinked is set, then ignore Content-Lengths header.
+	bool is_chunked = false;
+	HttpResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
+	if (itr != _description.end() && itr->second.find("chunked") != std::string::npos)
+		is_chunked = true;
+
 	std::string message = _version + " " + std::to_string(_status_code) + " " + _status_messege + "\r\n";
-	HttpResponseHeader::t_iterator itr = _description.begin();
+	itr = _description.begin();
 	while (itr != _description.end())
 	{
+		if (is_chunked == true && (itr->first == "Content-Length"))
+		{
+			itr++;
+			continue;
+		}
 		message += (itr->first + ": " + itr->second + "\r\n");
 		itr++;
 	}
 	message += ("\n" + _body);
-
 	return (message);
 }
