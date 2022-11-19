@@ -14,14 +14,19 @@ static std::string getClientIP(struct sockaddr_in* addr)
 // ! --------------------------------------------------------
 
 
+RequestProcessor::RequestProcessor()
+{}
 
-void RequestProcessor::processGETMethod(const HTTPRequest &req,
+RequestProcessor::~RequestProcessor()
+{}
+
+void RequestProcessor::processGETMethod(const HttpRequest &req,
                                                 struct Context *context)
 {
   /* 
   * ! TODO: 
   *   (1). location path searching alogirithm.
-  *   (2). 처리 상황에 따라 적절한 response code 설정.
+  *   (2). Request Data와 처리 상황에 따라 적절한 response code 설정.
   ?   (3).  큰 이미지파일일 경우 chunked로 처리 (?)
   // *   (4). 생성자에서 default response 설정.
   ?   (5). 큰 파일에 대한 read/write도 kevent를 통해 처리 (?)
@@ -47,37 +52,37 @@ void RequestProcessor::processGETMethod(const HTTPRequest &req,
   close(context->fd);
 }
 
-void RequestProcessor::processPOSTMethod(const HTTPRequest &req,
+void RequestProcessor::processPOSTMethod(const HttpRequest &req,
                                                  struct Context *context)
 {
 
 }
 
-void RequestProcessor::processPUTMethod(const HTTPRequest &req,
+void RequestProcessor::processPUTMethod(const HttpRequest &req,
                                                 struct Context *context)
 {
 
 }
 
-void RequestProcessor::processDELETEMethod(const HTTPRequest &req,
+void RequestProcessor::processDELETEMethod(const HttpRequest &req,
                                                    struct Context *context)
 {
 
 }
 
-void RequestProcessor::processHEADMethod(const HTTPRequest &req,
+void RequestProcessor::processHEADMethod(const HttpRequest &req,
                                                  struct Context *context)
 {
 
 }
 
-void RequestProcessor::processPATCHMethod(const HTTPRequest &req,
+void RequestProcessor::processPATCHMethod(const HttpRequest &req,
                                                   struct Context *context)
 {
 
 }
 
-void RequestProcessor::processCGI(const HTTPRequest &req,
+void RequestProcessor::processCGI(const HttpRequest &req,
                                           struct Context *context)
 {
   // check request cgi is valid
@@ -116,7 +121,3 @@ void RequestProcessor::processCGI(const HTTPRequest &req,
   }
 }
 
-RequestProcessor::~RequestProcessor()
-{
-
-}

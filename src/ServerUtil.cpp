@@ -1,4 +1,5 @@
 #include "ServerManager.hpp"
+#include "RequestProcessor.hpp"
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -69,6 +70,7 @@ void responseHandler(struct Context *context)
   printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
   close(context->fd);
   close(indexFile);
+
   delete (context);
 }
 

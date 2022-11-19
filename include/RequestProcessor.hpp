@@ -5,24 +5,29 @@
 #include "WebservDefines.hpp"
 #include <map>
 
-class HTTPResponse;
-class HTTPRequest;
+class HttpResponse;
+class HttpRequest;
+
+/// @brief Using singleton object (?)
 
 class RequestProcessor
 {
 private:
-    ServerManager& _serverManager;
+
+private:
+    // ServerManager& _serverManager;
+    void processGETMethod(const HttpRequest& req, struct Context* context);
+    void processPOSTMethod(const HttpRequest& req, struct Context* context);
+    void processPUTMethod(const HttpRequest& req, struct Context* context);
+    void processDELETEMethod(const HttpRequest& req, struct Context* context);
+    void processHEADMethod(const HttpRequest& req, struct Context* context);
+    void processPATCHMethod(const HttpRequest& req, struct Context* context);
+    void processCGI(const HttpRequest& req, struct Context* context);
+
+public:
+    void processRequest(const HttpRequest& req, struct Context* context);
     RequestProcessor();
     ~RequestProcessor();
-    void processGETMethod(const HTTPRequest& req, struct Context* context);
-    void processPOSTMethod(const HTTPRequest& req, struct Context* context);
-    void processPUTMethod(const HTTPRequest& req, struct Context* context);
-    void processDELETEMethod(const HTTPRequest& req, struct Context* context);
-    void processHEADMethod(const HTTPRequest& req, struct Context* context);
-    void processPATCHMethod(const HTTPRequest& req, struct Context* context);
-    void processCGI(const HTTPRequest& req, struct Context* context);
-public:
-    void processRequest(const HTTPRequest& req, struct Context* context);
 };
 
 #endif //REQUESTPROCESSOR_HPP
