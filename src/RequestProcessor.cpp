@@ -1,10 +1,50 @@
 #include "RequestProcessor.hpp"
+#include "HttpResponse.hpp"
+
+// ! --------------------------------------------------------
+// ! FIXME: 이 함수는 다른 파일에 똑같이 존재함. 나중에 리팩토링할 때 include해서 사용할 것.
+static std::string getClientIP(struct sockaddr_in* addr)
+{
+  char str[INET_ADDRSTRLEN];
+  struct sockaddr_in* pV4Addr = addr;
+  struct in_addr ipAddr = pV4Addr->sin_addr;
+  inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
+  return (str);
+}
+// ! --------------------------------------------------------
+
+
 
 void RequestProcessor::processGETMethod(const HTTPRequest &req,
                                                 struct Context *context)
 {
+  /* 
+  * ! TODO: 
+  *   (1). location path searching alogirithm.
+  *   (2). 처리 상황에 따라 적절한 response code 설정.
+  ?   (3).  큰 이미지파일일 경우 chunked로 처리 (?)
+  *   (4). 생성자에서 default response 설정.
+  ?   (5). 큰 파일에 대한 read/write도 kevent를 통해 처리 (?)
+  */ 
 
 
+  // (1) init request object
+  HttpResponse response(200, "OK", context);
+
+  // (2) set requested file to body (이 read부분 또한 kevent를 통해 handling?)
+  response.addHeader(HttpResponse::CONTENT_LANGUAGE("en-US"));
+  response.addHeader(HttpResponse::CONTENT_TYPE("text/html"));
+  response.setBodyandUpdateContentLength("../index.html");
+  std::string res = response.toString();
+
+  // (3) send string-converted Response Data to client.
+  if (send(context->fd, res.data(), res.size(), 0) < 0)
+  {
+    printLog("error: client: " + getClientIP(&(context->addr)) + " : send failed\n", PRINT_RED);
+    throw(std::runtime_error("Send Failed\n"));
+  }
+  printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
+  close(context->fd);
 }
 
 void RequestProcessor::processPOSTMethod(const HTTPRequest &req,

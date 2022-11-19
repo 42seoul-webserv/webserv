@@ -14,3 +14,5 @@
 https://github.dev/Rob-Yoo/WebServ
 
 (2) Content-language : 기본을 en-US로 세팅하고, Request에 언어 설정이 존재할 경우에만 해당 언어 컨텐츠 전송?
+
+----------------------------

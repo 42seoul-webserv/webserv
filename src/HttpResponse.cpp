@@ -1,4 +1,6 @@
 #include "HttpResponse.hpp"
+#include "WebservDefines.hpp"
+#include "ServerManager.hpp" // for struct Context define
 
 /**----------------------
  * * HeaderType         |
@@ -85,27 +87,42 @@ HeaderType::t_pair HeaderType::TRANSFER_ENCODING(const std::string &transfer_enc
  *----------------------*/
 HttpResponseHeader::HttpResponseHeader()
 		: _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
-{}
+{
+}
 
 HttpResponseHeader::HttpResponseHeader(const std::string &version, const int &status_code,
 									   const std::string &status_messege)
 		: _version(version), _status_code(status_code), _status_messege(status_messege)
-{}
-
+{
+}
 
 /**----------------------
  * * HttpResponse       |
  *----------------------*/
-HttpResponse::HttpResponse() // defaults to [ HTTP/1.1 | -1 | null ]
-		:HttpResponseHeader()
-{}
-
-HttpResponse::HttpResponse(const int &status_code, const std::string &status_message)
-		:HttpResponseHeader()
+HttpResponse::HttpResponse(const struct Context *const context_ptr) // defaults to [ HTTP/1.1 | -1 | null ]
+		:HttpResponseHeader(), _context_ptr(context_ptr)
 {
+	this->setDefaultResponseHeader();
+}
+
+HttpResponse::HttpResponse(const int &status_code, const std::string &status_message, const struct Context *const context_ptr)
+		:HttpResponseHeader(), _context_ptr(context_ptr)
+{
+	this->setDefaultResponseHeader();
 	_status_code = status_code;
 	_status_messege = status_message;
 }
+
+/** 
+ * * TODO: 기본 설정중 서버 이름은 server config를 이용해서 적용해야 함. */
+void HttpResponse::setDefaultResponseHeader()
+{
+  this->addHeader(HttpResponse::SERVER(this->_context_ptr->server_name));
+  this->addHeader(HttpResponse::DATE());
+  this->addHeader(HttpResponse::CONNECTION("keep-alive"));
+}
+
+
 
 void HttpResponse::setVersion(const std::string &version) // ex. HTTP/1.1
 {
@@ -122,11 +139,26 @@ void HttpResponse::setBody(const std::string &body) {
 	this->_body = body;
 }
 
+// ! --------------------------------------------------------
+// ! FIXME: 이 함수는 다른 파일에 똑같이 존재함. 나중에 리팩토링할 때 include해서 사용할 것.
+#include <arpa/inet.h>
+static std::string getClientIP(const struct sockaddr_in* addr)
+{
+  char str[INET_ADDRSTRLEN];
+  const struct sockaddr_in* pV4Addr = addr;
+  struct in_addr ipAddr = pV4Addr->sin_addr;
+  inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
+  return (str);
+}
+// ! --------------------------------------------------------
+
 void HttpResponse::setBody(const char* file_path)
 {
+	// TODO: 파일을 읽는 이 부분도 kevent를 통해 처리해야 하는지?
 	std::ifstream file(file_path);
 	if (file.fail())
 	{
+		printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) +  " : open failed\n", PRINT_RED);
 		throw std::runtime_error("File Open failed\n");
 	}
 	std::string str;
@@ -135,6 +167,7 @@ void HttpResponse::setBody(const char* file_path)
 	{
 		_body += (str + "\n");
 	}
+	file.close();
 }
 
 void HttpResponse::setBodyandUpdateContentLength(const char *file_path) {
@@ -162,11 +195,17 @@ std::string HttpResponse::toString() const
 {
 	// (1) if _status_code is out of range, throw error
 	if (_status_code < 10 && _status_code > 599)
+	{
+		printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) +  " : Response staus-code out-of-range\n", PRINT_RED);
 		throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
+	}
 
 	// (2) if there is no status messege, throw error
 	if (_status_messege == "null")
+	{
+		printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) +  " : status-messege unset\n", PRINT_RED);
 		throw std::runtime_error("HttpResponse::toString() : status messege is not set\n");
+	}
 
 	// (3) if _transfer-encoding-chuinked is set, then ignore Content-Lengths header.
 	bool is_chunked = false;
@@ -180,6 +219,7 @@ std::string HttpResponse::toString() const
 	{
 		if (is_chunked == true && (itr->first == "Content-Length"))
 		{
+			// ignore Content-Length
 			itr++;
 			continue;
 		}
