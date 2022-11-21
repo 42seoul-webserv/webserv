@@ -3,6 +3,7 @@
 
 #include "WebservDefines.hpp"
 #include "HttpResponse.hpp"
+#include "HTTPRequest.hpp"
 #include <map>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -13,8 +14,6 @@
 #include <fcntl.h>
 #include <vector>
 #include <string>
-
-class HTTPRequest;
 
 class Server
 {
@@ -29,6 +28,7 @@ public:
     std::vector<Location> _locations;
     std::string _serverName;
     int _serverPort;
+    int _clientMaxBodySize;
     HttpResponse& processGETRequest(const HTTPRequest& req);
     HttpResponse& processPOSTRequest(const HTTPRequest& req);
     HttpResponse& processPUTRequest(const HTTPRequest& req);
@@ -40,6 +40,7 @@ public:
     ~Server();
     void openServer();
     HttpResponse& processRequest(const HTTPRequest& req);
+    Location* getMatchedLocation(const HTTPRequest& req);
 };
 
 #endif

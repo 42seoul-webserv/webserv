@@ -99,3 +99,41 @@ std::vector<Server> &ServerManager::getServerList()
 {
   return (_serverList);
 }
+
+Server& ServerManager::getMatchedServer(const HTTPRequest& req)
+{
+  for (
+          std::vector<Server>::iterator it = _serverList.begin();
+          it != _serverList.end();
+          ++it
+          )
+  {
+    Server& server = *it;
+    std::string serverName = server._serverName + ':' + ft_itos(server._serverPort);
+    std::string hostName = req.header.at("host");
+    if (hostName.find(':') == std::string::npos)
+    {
+      hostName += ":80";
+    }
+    if (hostName == serverName)
+    {
+      return (server);
+    }
+  }
+  // no matched host, then check port
+  for (
+          std::vector<Server>::iterator it = _serverList.begin();
+          it != _serverList.end();
+          ++it
+          )
+  {
+    Server& server = *it;
+    std::string host = req.header.at("host");
+    std::string hostPort = host.substr(host.find(':') + 1);
+    if (server._serverPort == ft_stoi(hostPort))
+    {
+      return (server);
+    }
+  }
+  return (_serverList[0]);
+}

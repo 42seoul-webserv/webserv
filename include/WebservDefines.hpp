@@ -54,6 +54,7 @@ typedef enum
     ST_NOT_IMPLEMENTED = 501,
     ST_BAD_GATEWAY = 502,
     ST_SERVICE_UNAVAILABLE = 503,
+    ST_ERROR = -1,
 } StatusCode;
 
 
@@ -64,7 +65,7 @@ struct Location
     std::string index;              // ex. index.html
     std::string root;               // ex ./myDir/...
     std::vector<MethodType> allowMethods;       // ex. GET POST DELETE ...
-    int  ClientMaxBodySize;  // (--> max size of client body request)   --> defaults to 8000 bytes
+    int  clientMaxBodySize;  // (--> max size of client body request)   --> defaults to 8000 bytes
     std::vector<std::string> cgiInfo;			// ex. name: cgi_tester, arg: hello_world
 };
 
@@ -72,5 +73,8 @@ void printLog(const std::string& log, const std::string& color);
 std::string encodePercentEncoding(const std::string& str);
 std::string decodePercentEncoding(const std::string& encodedURI);
 std::string getClientIP(struct sockaddr_in* addr);
+std::string ft_itos(int i);
+int ft_stoi(const std::string& str);
+
 
 #endif

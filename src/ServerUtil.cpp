@@ -1,5 +1,6 @@
 #include "ServerManager.hpp"
 #include "RequestProcessor.hpp"
+#include <sstream>
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -187,4 +188,21 @@ std::string decodePercentEncoding(const std::string& str)
     }
   }
   return (result);
+}
+
+std::string ft_itos(int i)
+{
+  std::stringstream ss;
+  ss << i;
+  return (ss.str());
+}
+
+int ft_stoi(const std::string& str)
+{
+  int res;
+  std::stringstream ss;
+
+  ss << str;
+  ss >> res;
+  return (res);
 }

@@ -1,5 +1,6 @@
 #include "Parser.hpp"
 #include "Server.hpp"
+#include "WebservDefines.hpp"
 #include <cctype>
 #include <sstream>
 
@@ -238,6 +239,8 @@ void ConfigParser::getAllowMethods(std::vector<MethodType> &_allowMethods,
     MethodType method = getMethodType(methods[i]);
     _allowMethods.push_back(method);
   }
+  if (_allowMethods.empty())
+    _allowMethods.push_back(DEFAULT_ALLOW_METHODS);
 }
 
 static void setLocationDefault(Server &server, Location &location)
@@ -272,23 +275,28 @@ void ConfigParser::getLocationAttr(Server &server, unsigned int server_index)
       {
         throw (std::runtime_error("invalid config file\n"));
       }
-      location.index = *(GetNodeElem(server_index,
-                                     temp->category,
-                                     "index").begin());
-      location.root = *(GetNodeElem(server_index,
+      std::string indexString = *(GetNodeElem(server_index,
+                                              temp->category,
+                                              "index").begin());
+      if (indexString.empty())
+        location.index = DEFAULT_INDEX;
+
+      std::string rootString = *(GetNodeElem(server_index,
                                     temp->category,
                                     "root").begin());
+      if (rootString.empty())
+        location.root = DEFAULT_ROOT;
       getAllowMethods(location.allowMethods, temp->category, server_index);
       if (!GetNodeElem(server_index,
                        temp->category,
                        "client_max_body_size").begin()->empty())
       {
-        location.ClientMaxBodySize = std::stoi(*(GetNodeElem(server_index,
-                                                             temp->category,
-                                                             "client_max_body_size").begin()));
+        location.clientMaxBodySize = ft_stoi(*(GetNodeElem(server_index,
+                                                           temp->category,
+                                                           "client_max_body_size").begin()));
       } // FIXME crash 가능성
       else
-        location.ClientMaxBodySize = 10000;
+        location.clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
       location.cgiInfo = GetNodeElem(server_index, temp->category, "cgi_info");
       setLocationDefault(server, location);
       server._locations.push_back(location);
@@ -319,7 +327,7 @@ void ConfigParser::displayServer(Server &server)
     std::cout << "location : " << server._locations[i].location << std::endl;
     std::cout << "index : " << server._locations[i].index << std::endl;
     std::cout << "root : " << server._locations[i].root << std::endl;
-    std::cout << "maxsize : " << server._locations[i].ClientMaxBodySize
+    std::cout << "maxsize : " << server._locations[i].clientMaxBodySize
               << std::endl;
     std::cout << "location allow methods: ";
     for (unsigned int k = 0; k < server._locations[i].allowMethods.size(); ++k)
@@ -362,17 +370,15 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   // set server ip
   listenAddress = *(GetNodeElem(server_index, "server", "listen").begin());
   if (listenAddress.empty())
-  {
-    throw (std::runtime_error("invalid config file\n"));
-  }
+    listenAddress = DEFAULT_SOCKET_LISTEN_ADDR;
   serverListenIP = listenAddress.substr(0, listenAddress.find(':'));
   inet_pton(AF_INET, serverListenIP.c_str(), &server._socketAddr.sin_addr);
   // ser server port
   std::string portString = listenAddress.substr(listenAddress.find(':') + 1);
   if (!portString.empty())
-    serverListenPort = stoi(portString);
+    serverListenPort = ft_stoi(portString);
   else
-    serverListenPort = 80;
+    serverListenPort = DEFAULT_SERVER_PORT;
   server._socketAddr.sin_port = ntohs(serverListenPort);
   server._serverPort = ntohs(serverListenPort);
   server._socketAddr.sin_family = AF_INET;
@@ -381,24 +387,32 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   server._index = *(GetNodeElem(server_index, "server", "index").begin());
   if (server._index.empty())
   {
-    server._index = "index.html";
+    server._index = DEFAULT_INDEX;
   }
   server._root = *(GetNodeElem(server_index, "server", "root").begin());
   if (server._root.empty())
   {
-    server._serverName = "./";
+    server._serverName = DEFAULT_ROOT;
   }
   server._serverName = *(GetNodeElem(server_index,
                                      "server",
                                      "server_name").begin());
   if (server._serverName.empty())
   {
-    server._serverName = "127.0.0.1";
+    server._serverName = DEFAULT_SERVER_NAME;
   }
+  std::string clientMaxBodySize = *(GetNodeElem(server_index,
+                                                "server",
+                                                "client_max_body_size").begin());
+  if (clientMaxBodySize.empty())
+  {
+    server._clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
+  }
+  server._clientMaxBodySize = ft_stoi(clientMaxBodySize);
   getAllowMethods(server._allowMethods, "server", server_index);
   if (server._allowMethods.empty())
   {
-    server._allowMethods.push_back(GET);
+    server._allowMethods.push_back(DEFAULT_ALLOW_METHODS);
   }
   getLocationAttr(server, server_index);
   getErrorPage(server._errorPage, server_index);

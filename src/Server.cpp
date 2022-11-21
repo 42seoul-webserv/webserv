@@ -139,3 +139,43 @@ HttpResponse &Server::processRequest(const HTTPRequest &req)
   // error response
   return (*res);
 }
+
+HttpResponse &Server::processDELETERequest(const HTTPRequest &req)
+{
+  HttpResponse* res = new HttpResponse();
+  // error response
+  return (*res);
+}
+
+HttpResponse &Server::processPATCHRequest(const HTTPRequest &req)
+{
+  HttpResponse* res = new HttpResponse();
+  // error response
+  return (*res);
+}
+
+static std::string getLocation(std::string url)
+{
+  size_t lastSlashPos = url.rfind('/');
+
+  if (lastSlashPos == 0)
+    return (url);
+  else
+    return (url.substr(0, lastSlashPos));
+}
+
+Location *Server::getMatchedLocation(const HTTPRequest &req)
+{
+  for (
+          std::vector<Location>::iterator it = _locations.begin();
+          it != _locations.end();
+          ++it
+  )
+  {
+    Location& loc = *it;
+
+    if (loc.location == getLocation(req.url))
+      return (&loc);
+  }
+  return (NULL); // root case?
+}
