@@ -42,7 +42,7 @@ public:
     void attatchServerEvent(Server& server);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
-
+    std::vector<Server>& getServerList();
 };
 
 

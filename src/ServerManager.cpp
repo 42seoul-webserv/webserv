@@ -71,7 +71,7 @@ std::string ServerManager::getServerName(in_port_t port_num) const
   {
     if (itr->_socketAddr.sin_port == port_num) // if found target port
     {
-      return (itr->_server_name);
+      return (itr->_serverName);
     }
     itr++;
   }
@@ -93,4 +93,9 @@ void ServerManager::attatchServerEvent(Server &server)
     throw (std::runtime_error("Event attach failed\n"));
   }
   _contexts.push_back(context);
+}
+
+std::vector<Server> &ServerManager::getServerList()
+{
+  return (_serverList);
 }
