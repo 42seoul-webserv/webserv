@@ -1,5 +1,6 @@
 #include "ServerManager.hpp"
 #include "RequestProcessor.hpp"
+#include "HttpResponse.hpp"
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {

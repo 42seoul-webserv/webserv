@@ -6,11 +6,7 @@
 #include <fstream>
 #include <map>
 #include <ctime>
-#include <assert.h>
-
 #include "WebservDefines.hpp"
-
-// TODO: 이거 나중에 hpp 파일로 빼기.
 #include "ServerManager.hpp" // for struct Context define
 
 /**
@@ -63,7 +59,7 @@ public:
   /* 본문을 이해하는데 가장 적절한 언어 */
   static t_pair CONTENT_LANGUAGE(const std::string& lan);
 
-  /* 리소스의 media type 명시 ex) application/json, text/html. */
+  /* 리소스의 media type 명시 ex. application/json, text/html. */
   static t_pair CONTENT_TYPE(const std::string& type);
 
   /* HTTP/1.1 어플리케이션은 트랜잭션이 끝난 다음 커넥션을 끊으려면 Connection:close 헤더를 명시해야 한다.
@@ -113,14 +109,18 @@ public: // constructor & destuctor & copy operator
 
 	HTTPResponseHeader(const struct Context * const context_ptr)
     : _context_ptr(context_ptr), _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
-  {}
+  {
+    setDefaultHeaderDescription();
+  }
 
 	HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege, const struct Context * const context_ptr)
     : _version("HTTP/1.1"), 
       _status_code(-1), 
       _status_messege("null"), 
       _context_ptr(context_ptr)
-  {}
+  {
+    setDefaultHeaderDescription();
+  }
 
   HTTPResponseHeader(const HTTPResponseHeader& header)
   {
@@ -139,7 +139,7 @@ public: // constructor & destuctor & copy operator
 public: // setter functions
 	void addHeader(const std::pair<std::string, std::string>& description_pair)
   {
-    this->_description[description_pair.first] = description_pair.second;;
+    this->_description[description_pair.first] = description_pair.second;
   } // add Header via std::pair type argument
 
 	void addHeader(const std::string& key, const std::string& value)
@@ -181,15 +181,20 @@ public: // getter functions
     return this->_description;
   }
 
-public: // * Interface Functions.
+  int getContentLength() const
+  {
+    std::string len = this->_description.find("Content-Length")->second;
+    return atoi(len.c_str());
+  }
 
+public: // * Interface Functions.
   // join headers to std::string, then return.
   std::string toString() const
   {
     // (1) if _status_code is out of range, throw error
-    if (_status_code < 10 && _status_code > 599)
+    if (_status_code < 10 || _status_code > 599)
     {
-      printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : Response staus-code out-of-range\n", PRINT_RED);
+      printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : Response status-code out-of-range\n", PRINT_RED);
       throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
     }
 
@@ -200,7 +205,6 @@ public: // * Interface Functions.
       throw std::runtime_error("HttpResponse::toString() : status messege is not set\n");
     }
 
-
     // * FIX: std::to_string은 C++11이라 쓰면 안된다!
     std::string header_message = _version + " " + std::to_string(_status_code) + " " + _status_messege + "\r\n";
     HTTPResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
@@ -208,7 +212,7 @@ public: // * Interface Functions.
     bool is_chunked = isTransferChunked();
     while (itr != _description.end())
     {
-      if (is_chunked == true && (itr->first == "Content-Length"))
+      if (is_chunked && (itr->first == "Content-Length"))
       {
         // ignore Content-Length
         itr++;
@@ -232,13 +236,25 @@ public: // * Interface Functions.
 
 
 private: // helper functions
-	void setDefaultResponseHeader()
+	void setDefaultHeaderDescription()
   {
+    // 여기서 이걸 쓰는게 맞나...?
     const in_port_t port_num = this->_context_ptr->addr.sin_port;
     this->addHeader(HTTPResponseHeader::SERVER(this->_context_ptr->manager->getServerName(port_num)));
     this->addHeader(HTTPResponseHeader::DATE());
     this->addHeader(HTTPResponseHeader::CONNECTION("keep-alive"));
+    this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(-1));
   } // 헤더 초기값 자동 설정
+
+private: // helper function
+  std::string getClientIP(const struct sockaddr_in* addr) const
+  {
+    char str[INET_ADDRSTRLEN];
+    const struct sockaddr_in* pV4Addr = addr;
+    struct in_addr ipAddr = pV4Addr->sin_addr;
+    inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
+    return (str);
+  }
 };
 
 
@@ -279,128 +295,142 @@ private: // helper functions
 };
 
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <iostream>
+#include <sys/event.h>
+#include <fcntl.h>
+#include <vector>
+#include <string>
 
-/*
 
-* [ * 다시다시. 너가 잘못 생각함. ]
-일단 Content Leghth 정보가 들어온다.
-Content Leght가 0이거나, 
+struct ResponseContext
+{
+  int fd_file; // fd for file read
+  int fd_socket; // fd for socket send
+  std::string buffer; // string
+  struct sockaddr_in addr;
+  void (*handler)(struct Context *obj);
+  ServerManager* manager;
 
-상태코드가 300~500 사이면 body는 없다.
-따라서 fd를 읽지 말고, 그냥 header만 send한다.
+  ResponseContext(int _fd_file, int _fd_socket,
+          std::string _buffer,
+          struct sockaddr_in _addr,
+          void (*_handler)(struct Context *obj),
+          ServerManager* _manager):
+          fd_file(_fd_file), fd_socket(_fd_socket),
+          buffer(_buffer),
+          addr(_addr),
+          handler(_handler),
+          manager(_manager)
+  {
+  }
+};
 
-만약 body가 있다면, (정상코드이고  Content Length가 있다면)
-fd를 kevent로 읽고, 버퍼에 데이터를 가져오는데, read size 가 0보다 크면,
-이걸 socketSendHandler kevent로 넘긴다.
+// send body string to socket
+void socketSendHandler(struct Context *context)
+{
 
-soocketSendHandler는 socket에 계속해서 이를 받아서 쏜다.
+  free(context);
+}
 
-만약 read size가 0보다 작거나 ContentLenght와 같아진다면
-소켓을 완전히 닫고, fd도 닫는다. (connection close?) */
+// if fd is not -1, then read data
+void bodyFdReadHandler(struct ResponseContext *context)
+{
+  char buffer[1023] = {0}; // * 버퍼의 크기는 추후에 조정할 것.
+  struct kevent event;
 
-/*
-    HttpResponse response;
-    .. after this code, response data is set.
-    * 이대, 해당 reponse에 대한 context는 포인터로 저장되어 있음.
-    ResponseProcessor(response).process();
-    1. 생성자에서 response를 받아서, _header를 세팅.
+  // 만약 데이터가 끝났다면, kevent 종료, fd close
+  ssize_t rd_size = read(context->fd_file, buffer, sizeof(buffer));
+  if (rd_size <= 0)
+  {
+    // ...
+    close(context->fd_file);
+    free(context);
+  }
+  // 데이터가 들어왔다면, 소켓에 현재 버퍼에 있는 데이터를 전송하는 event를 등록.
+  else
+  {
+    // copy buffer to responseContext's buffer
+    struct kevent event;
 
-*/
+    // (2-1) kevent에 write할 소켓 fd를 등록 > 근데 socket 주소 어떻게 넘기냐.. 그리고 read한 데이터는 또 어떻게 넘겨?
+    struct ResponseContext* newContext = new struct ResponseContext(context->fd_file, context->fd_socket, std::string(buffer), context->addr, socketSendHandler, context->manager);
+
+    EV_SET(&event, newContext->fd_socket, EVFILT_WRITE, EV_ADD | EV_CLEAR, -1, 0, newContext);
+    if (kevent(context->manager->getKqueue(), &event, 0, NULL, 0, NULL) < 0)
+    {
+      printLog("error: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
+      throw (std::runtime_error("Event attach failed (response)\n"));
+    }
+    // 그리고 리턴.
+    return ;
+    // (2-2) 이걸 socketSendHandler kevent로 넘긴다.
+  }
+}
+
+
 class ResponseProcessor {
 
-public:
+public: // Constructor & Destructor
     ResponseProcessor();
     ~ResponseProcessor();
 
-private:
-    void bodyFdReadHander(struct Context *context); // if fd is not -1, then read data
-    void socketSendHandler(struct Context *context); // send string to socket
+
+    // *?  아니 어케하지... sendHandler는 보낼 소켓의 상태를 감지해서 send하는 거고
+    // *?  readHandler는 읽을 파일 fd의 상태를 감지해서 read하는 거고...
 
 
 public:
-    void processResponse(const HTTPResponse& res)
+    // * processResponse를 호출하는 바깥쪽에서 kevent에 등록을 해줘야 할 듯.
+    void processResponse(const HTTPResponse& res, struct Context* context)
     {
+      // * (1) send header
+      {
+        //일단 Content Leghth 정보가 들어온다. Content Leght가 0이거나, 상태코드가 300~500 사이면 body는 없다.
+        //따라서 fd를 읽지 말고, 그냥 header만 send한다.
+        //이때, 404 page 일 경우 body가 있을 수도 있기 때문에, 204만 별도로 처리한다.
+        const std::string header = res.getHeader().toString();
+        if (send(context->fd, header.data(), header.size(), 0) < 0)
+        {
+          printLog("error: client: " + getClientIP(&context->addr) +  " : send failed\n", PRINT_RED);
+          throw (std::runtime_error("Send Failed\n"));
+        }
+        else {
+          // ...
+        }
+      }
 
+      // * (2) if body exists, read body and store them to buffer
+      // *    만약 body가 있다면, (정상코드이고  Content Length가 있다면) 읽는다
+      if (res.getFd() != -1 && res.getContentLength() > 0 && res.getStatusCode() != 204)
+      {
+        // * register read handler
+        struct kevent event;
+        std::string buffer;
+        // (2-1) kevent에 read할 fd를 등록 (이제 read_fd가 read 가능해지면 bodyFdReadHandler가 호출된다.
+
+//        struct ResponseContext* newContext = new struct ResponseContext(context->fd, res.getFd(), std::string(), context->addr, bodyFdReadHandler, context->manager);
+        EV_SET(&event, newContext->fd_file, EVFILT_READ, EV_ADD | EV_CLEAR, -1, 0, newContext);
+        if (kevent(context->manager->getKqueue(), &event, 0, NULL, 0, NULL) < 0)
+        {
+          printLog("error: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
+          throw (std::runtime_error("Event attach failed (response)\n"));
+        }
+
+
+      }
+      else
+        // if body doesn't exit, then just close socket.
+      {
+        //소켓을 완전히 닫고, fd도 닫는다. (connection close?) */
+        close(context->fd);
+        close(res.getFd());
+      }
+      delete (context);
     }
-
-public: // Constructor & Destructor
-
-
-public: // Setters
-	// void setBody(const std::string& body)
-  // {
-    // _body = body;
-  // }
-
-  /*
-	void setBody(const char* file_path)
-  {
-    // TODO: 파일을 읽는 이 부분도 kevent를 통해 처리해야 하는지?
-    std::ifstream file(file_path);
-    if (file.fail())
-    {
-      printLog("error: client: " + getClientIP(&(getContextPtr()->addr)) + " : open failed\n", PRINT_RED);
-      throw std::runtime_error("File Open failed\n");
-    }
-    std::string str;
-    std::string total_read;
-    while (getline(file, str))
-    {
-      _body += (str + "\n");
-    }
-    file.close();
-  }
-
-  // set Body with given file located in [file_path]
-	// NOTE: this sets file's total length to header.
-	void setBodyandUpdateContentLength(const char* file_path)
-  {
-    this->setBody(file_path);
-    this->_header.addHeader(HTTPResponse::CONTENT_LENGTH(_body.size()));
-  }
-  */
-
-public: // Getters
-	// std::string getBody() const
-  // {
-    // return _body;
-  // }
-
-  // const Context* getContextPtr() const
-  // {
-    // return (_header.getContextPtr());
-  // }
-
-public: // Interface Functions
-    // void process()
-    // {
-      // (0) send Header first. (no Kqueue)
-      // TODO:  일단 이렇게 해보고, 헤더도 kevent 써야 하는지 테스트하기.
-       
-
-
-      // (1) check if given HTTPResponse's Fd is -1. 
-      // if fd == -1, then don't send body.
-
-      // (2) read data from _body_fd
-    // }
-
-// * 제일 중요한 부분.
-// private: // Callback for kevent
-
-// private: // Inner Interface functions
-    // void sendHeader()
-    // {
-
-    // }
-
-    // * if header is set to chunked, then sendBody will not send data at once.
-    // void sendBody()
-    // {
-
-    // }
-    // sendBody()
-    // message += ("\n" + _body);
 };
 
 #endif
