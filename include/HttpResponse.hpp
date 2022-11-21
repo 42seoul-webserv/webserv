@@ -8,6 +8,9 @@
 #include <ctime>
 #include <assert.h>
 
+#include "WebservDefines.hpp"
+#include "ServerManager.hpp" // for struct Context define
+
 /**
  * *--------------------------------------------------------------*
  * * [ HeaderType ]                                               |
@@ -68,7 +71,8 @@ public:
   /* Allow 헤더는 Access-Control-Allow-Methods랑 비슷하지만, CORS 요청 외에도 적용된다는 데에 차이가 있습니다. 
    즉 GET www.zerocho.com은 되고, POST www.zerocho.com은 허용하지 않는 경우, 
    405 Method Not Allowed 에러를 응답하면서 헤더로 Allow: GET 를 같이 보내면 됩니다. 
-   이는 GET 요청만 받겠다는 뜻입니다. */
+   이는 GET 요청만 받겠다는 뜻입니다. 
+   * @WARN: Allow: [GET, POST, HEAD] 와 같이 ','와 공백을 넣어야 합니다. */
   static t_pair ALLOW(const std::string& allowed_method);
 
   /* 300번대 응답이나 201 Created 응답일 때 어느 페이지로 이동할지를 알려주는 헤더입니다.
@@ -88,65 +92,224 @@ private: // Helper functions
 };
 
 /**----------------------
- * * HttpResponseHeader |
+ * * HTTPResponseHeader |
  *----------------------*/
-class HttpResponseHeader : public HeaderType {
+class HTTPResponseHeader : public HeaderType {
+
+protected:
+	// 내부에서 예외처리를 하기 위한 Context pointer.
+	const struct Context* _context_ptr;
+
 protected:
 	std::string _version;                            // HTTP/1.1
 	int _status_code;                                // 201
 	std::string _status_messege;                     // OK
 	std::map<std::string, std::string> _description; // other datas...
 
-public:
+public: // constructor & destuctor & copy operator
 	typedef std::map<std::string, std::string>::const_iterator t_iterator;
-	HttpResponseHeader();
-	HttpResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege);
+
+	HTTPResponseHeader(const struct Context * const context_ptr)
+    : _context_ptr(context_ptr), _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
+  {}
+
+	HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege, const struct Context * const context_ptr)
+    : _version("HTTP/1.1"), 
+      _status_code(-1), 
+      _status_messege("null"), 
+      _context_ptr(context_ptr)
+  {}
+
+  HTTPResponseHeader(const HTTPResponseHeader& header)
+  {
+    *this = header;
+  }
+
+  HTTPResponseHeader& operator= (const HTTPResponseHeader& header)
+  {
+    _version = header._version;
+    _status_code = header._status_code;
+    _status_messege = header._status_messege;
+    _description = header._description;
+    _context_ptr = header._context_ptr;
+  }
+
+public: // setter functions
+	void addHeader(const std::pair<std::string, std::string>& description_pair)
+  {
+    this->_description[description_pair.first] = description_pair.second;;
+  } // add Header via std::pair type argument
+
+	void addHeader(const std::string& key, const std::string& value)
+  {
+    this->_description[key] = value;
+  } // simplest version of addHeader
+
+	void setVersion(const std::string& version) { this->_version = version; };
+
+	void setStatus(const int &status_code, const std::string &status_messege)
+  {
+    	this->_status_code = status_code;
+      this->_status_messege = status_messege;
+  };
+
+public: // getter functions
+	std::string getVersion()
+  {
+    return this->_version;
+  };
+
+	int	        getStatusCode()
+  {
+    return this->_status_code;
+  };
+
+	std::string getStatusMessege()
+  {
+    return this->_status_messege;
+  };
+
+private: // helper functions
+	void setDefaultResponseHeader()
+  {
+    const in_port_t port_num = this->_context_ptr->addr.sin_port;
+    this->addHeader(HTTPResponseHeader::SERVER(this->_context_ptr->manager->getServerName(port_num)));
+    this->addHeader(HTTPResponseHeader::DATE());
+    this->addHeader(HTTPResponseHeader::CONNECTION("keep-alive"));
+  } // 헤더 초기값 자동 설정
 };
 
+
+
+// ResponseProcessor가 넘겨 받는 데이터.
+// 이거의 이름을 HttpResponse로 바꾸기.
+class HTTPResponse : public HTTPResponseHeader {
+private:
+  FileDescriptor  _fd;
+
+public: // constructor & destuctor
+  HTTPResponse()
+  {}
+
+  ~HTTPResponse()
+  {}
+
+public: // setter functions
+  FileDescriptor setFd(const FileDescriptor& fd)
+  {
+    _fd = fd;
+  }
+
+public: // getter functions
+  HTTPResponseHeader getHeader()
+  {
+    // *? 이렇게 다운캐스팅 해서 보내면 될지?
+    return static_cast<HTTPResponseHeader>(*this);
+  }
+
+  FileDescriptor getFd()
+  {
+    return _fd;
+  }
+
+
+private: // helper functions
+
+};
+
+
 /*
- [ HttpResponse TODO ]
- * (1) content-length일 경우 Connection: close를 해준다 (필수는 아님)
- * (2) Transfer-Encoding: chunked 일 경우 content-length 헤더를 없애고 chunked 방식 전송을 진행한다. */
+    HttpResponse response;
+    .. after this code, response data is set.
+    * 이대, 해당 reponse에 대한 context는 포인터로 저장되어 있음.
+    ResponseProcessor(response).process() 하면 끝.
 
-class HttpResponse : public HttpResponseHeader {
-private:
-	// 내부에서 예외처리를 하기 위한 Context pointer.
-	const struct Context * const _context_ptr;
+*/
+
+// ResponseProcessor가 변환하는 데이터
+// TODO:  이걸  ResponseProcessor에서 그대로 상속받으면 됨. 이 헤더파일에서는 지울 것.
+// Response Processor에서는 HttpResponse를 받아서
+class ResponseProcessor {
 
 private:
-	// Response body.
-	std::string	_body;
+  HTTPResponseHeader  _header;  // Response header.
+	std::string	        _body;    // Response body.
 
 public: // Constructor & Destructor
-	HttpResponse(const struct Context *const context_ptr);
-	HttpResponse(const int& status_code, const std::string& status_message, const struct Context *const context_ptr);
+
+  // 여기에는 res가 들어온다. header와 fd만 존재한다.
+	ResponseProcessor(const HTTPResponse& res)
+  {};
+
+	~ResponseProcessor()
+  {};
+
 public: // Setters
-	void setVersion(const std::string& version);
-	void setStatus(const int &status_code, const std::string &status_messege);
 	void setBody(const std::string& body);
 	void setBody(const char* file_path);
-
 	// set Body with given file located in [file_path]
 	// NOTE: this sets file's total length to header.
 	void setBodyandUpdateContentLength(const char* file_path);
 
-    // add Header via std::pair type argument
-	void addHeader(const std::pair<std::string, std::string>& description_pair);
-
-	// simplest version of addHeader
-	void addHeader(const std::string& key, const std::string& value);
-
 public: // Getters
-	std::string getVersion();
-	int	getStatusCode();
-	std::string getStatusMessege();
 	std::string getBody();
 
-public: // Interface Functions
-	std::string	toString() const;
 
-private: // Helper functions
-	void setDefaultResponseHeader(); // 헤더 초기값 자동 설정
+public: // Interface Functions
+    // * Process response using given _fd.
+    void process(const HTTPResponse& res);
+
+
+
+private: // Callback for kevent
+    void bodyFdReadHander(); // if fd is not -1, then read data
+    void socketSendHandler(); // send string to socket
+
+private: // Inner Interface functions
+
+    // sendHeader()
+    // sendBody()
+
+    // * join header and body string, change to full string data
+	  std::string	exportToString() const
+    {
+      // (1) if _status_code is out of range, throw error
+      if (_header.getStatusCode() < 10 && _header.getStatusCode() > 599)
+      {
+        printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : Response staus-code out-of-range\n", PRINT_RED);
+        throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
+      }
+
+      // (2) if there is no status messege, throw error
+      if (_status_messege == "null")
+      {
+        printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : status-messege unset\n", PRINT_RED);
+        throw std::runtime_error("HttpResponse::toString() : status messege is not set\n");
+      }
+
+      // (3) if _transfer-encoding-chuinked is set, then ignore Content-Lengths header.
+      bool is_chunked = false;
+      HTTPResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
+      if (itr != _description.end() && itr->second.find("chunked") != std::string::npos)
+        is_chunked = true;
+
+      std::string message = _version + " " + std::to_string(_status_code) + " " + _status_messege + "\r\n";
+      itr = _description.begin();
+      while (itr != _description.end())
+      {
+        if (is_chunked == true && (itr->first == "Content-Length"))
+        {
+          // ignore Content-Length
+          itr++;
+          continue;
+        }
+        message += (itr->first + ": " + itr->second + "\r\n");
+        itr++;
+      }
+      message += ("\n" + _body);
+      return (message);
+    }
+
 };
 
 

@@ -82,117 +82,133 @@ HeaderType::t_pair HeaderType::TRANSFER_ENCODING(const std::string &transfer_enc
   return (std::pair<std::string, std::string>("Transfer-Encoding", transfer_encoding_type));
 }
 
+HeaderType::t_pair HeaderType::ALLOW(const std::string &allowd_method) {
+  return (std::pair<std::string, std::string>("Allow", allowd_method));
+}
+
+HeaderType::t_pair HeaderType::LOCATION(const std::string &redirect_location) {
+  return (std::pair<std::string, std::string>("Location", redirect_location));
+}
+
+HeaderType::t_pair HeaderType::SET_COOKIE(const std::string &entity) {
+  return (std::pair<std::string, std::string>("Set-Cookie", entity));
+}
+
 /**----------------------
  * * HttpResponseHeader |
  *----------------------*/
-HttpResponseHeader::HttpResponseHeader()
-		: _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
-{
-}
+// HttpResponseHeader::HttpResponseHeader()
+// 		: _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
+// {
+// }
 
-HttpResponseHeader::HttpResponseHeader(const std::string &version, const int &status_code,
-									   const std::string &status_messege)
-		: _version(version), _status_code(status_code), _status_messege(status_messege)
-{
-}
+// HttpResponseHeader::HttpResponseHeader(const std::string &version, const int &status_code,
+// 									   const std::string &status_messege)
+		// : _version(version), _status_code(status_code), _status_messege(status_messege)
+// {
+// }
 
 /**----------------------
  * * HttpResponse       |
  *----------------------*/
-HttpResponse::HttpResponse(const struct Context *const context_ptr) // defaults to [ HTTP/1.1 | -1 | null ]
-		:HttpResponseHeader(), _context_ptr(context_ptr)
-{
-	this->setDefaultResponseHeader();
-}
+// * FIXME : context ptr이 free되면 우째 ?
 
-HttpResponse::HttpResponse(const int &status_code, const std::string &status_message, const struct Context *const context_ptr)
-		:HttpResponseHeader(), _context_ptr(context_ptr)
-{
-	this->setDefaultResponseHeader();
-	_status_code = status_code;
-	_status_messege = status_message;
-}
+// HttpResponse::HttpResponse(const struct Context *const context_ptr) // defaults to [ HTTP/1.1 | -1 | null ]
+		// :HttpResponseHeader(), _context_ptr(context_ptr)
+// {
+	// this->setDefaultResponseHeader();
+// }
+
+// HttpResponse::HttpResponse(const int &status_code, const std::string &status_message, const struct Context *const context_ptr)
+		// :HttpResponseHeader(), _context_ptr(context_ptr)
+// {
+	// this->setDefaultResponseHeader();
+	// _status_code = status_code;
+	// _status_messege = status_message;
+// }
 
 /** 
  * * TODO: 기본 설정중 서버 이름은 server config를 이용해서 적용해야 함. */
-void HttpResponse::setDefaultResponseHeader()
-{
-  const in_port_t port_num = this->_context_ptr->addr.sin_port;
-  this->addHeader(HttpResponse::SERVER(this->_context_ptr->manager->getServerName(port_num)));
-  this->addHeader(HttpResponse::DATE());
-  this->addHeader(HttpResponse::CONNECTION("keep-alive"));
-}
+// void HttpResponse::setDefaultResponseHeader()
+// {
+ 
+// }
 
 
-
-void HttpResponse::setVersion(const std::string &version) // ex. HTTP/1.1
+void HTTPResponseHeader::setVersion(const std::string &version) // ex. HTTP/1.1
 {
 	this->_version = version;
 }
 
-void HttpResponse::setStatus(const int &status_code, const std::string &status_messege) // ex. 404 PageNotFound
+void HTTPResponseHeader::setStatus(const int &status_code, const std::string &status_messege) // ex. 404 PageNotFound
 {
 	this->_status_code = status_code;
 	this->_status_messege = status_messege;
 }
 
-void HttpResponse::setBody(const std::string &body) {
-	this->_body = body;
-}
 
-// ! --------------------------------------------------------
-// ! FIXME: 이 함수는 다른 파일에 똑같이 존재함. 나중에 리팩토링할 때 include해서 사용할 것.
-#include <arpa/inet.h>
-static std::string getClientIP(const struct sockaddr_in* addr)
-{
-  char str[INET_ADDRSTRLEN];
-  const struct sockaddr_in* pV4Addr = addr;
-  struct in_addr ipAddr = pV4Addr->sin_addr;
-  inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
-  return (str);
-}
-// ! --------------------------------------------------------
 
-void HttpResponse::setBody(const char* file_path)
-{
-	// TODO: 파일을 읽는 이 부분도 kevent를 통해 처리해야 하는지?
-	std::ifstream file(file_path);
-	if (file.fail())
-	{
-		printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) +  " : open failed\n", PRINT_RED);
-		throw std::runtime_error("File Open failed\n");
-	}
-	std::string str;
-	std::string total_read;
-	while (getline(file, str))
-	{
-		_body += (str + "\n");
-	}
-	file.close();
-}
 
-void HttpResponse::setBodyandUpdateContentLength(const char *file_path) {
-	setBody(file_path);
-	addHeader(HeaderType::CONTENT_LENGTH(_body.size()));
-}
 
-void HttpResponse::addHeader(const std::pair<std::string, std::string> &description_pair) {
-	this->_description[description_pair.first] = description_pair.second;
-}
 
-void HttpResponse::addHeader(const std::string &key, const std::string &value) {
-	this->_description[key] = value;
-}
 
-std::string HttpResponse::getVersion() { return this->_version; }
 
-int HttpResponse::getStatusCode() { return this->_status_code; }
 
-std::string HttpResponse::getStatusMessege() { return this->_status_messege; }
 
-std::string HttpResponse::getBody() { return this->_body; }
 
-std::string HttpResponse::toString() const
+
+
+// void HttpResponse::setBody(const std::string &body) {
+// 	this->_body = body;
+// }
+
+// void HttpResponse::setBody(const char* file_path)
+// {
+// 	// TODO: 파일을 읽는 이 부분도 kevent를 통해 처리해야 하는지?
+// 	std::ifstream file(file_path);
+// 	if (file.fail())
+// 	{
+// 		printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) +  " : open failed\n", PRINT_RED);
+// 		throw std::runtime_error("File Open failed\n");
+// 	}
+// 	std::string str;
+// 	std::string total_read;
+// 	while (getline(file, str))
+// 	{
+// 		_body += (str + "\n");
+// 	}
+// 	file.close();
+// }
+
+// void HttpResponse::setBodyandUpdateContentLength(const char *file_path) {
+// 	setBody(file_path);
+// 	addHeader(HeaderType::CONTENT_LENGTH(_body.size()));
+// }
+
+// void HTTPResponseHeader::addHeader(const std::pair<std::string, std::string> &description_pair) {
+// 	this->_description[description_pair.first] = description_pair.second;
+// }
+
+// void HTTPResponseHeader::addHeader(const std::string &key, const std::string &value) {
+// 	this->_description[key] = value;
+// }
+
+// std::string HTTPResponseHeader::getVersion() { return this->_version; }
+
+// int HTTPResponseHeader::getStatusCode() { return this->_status_code; }
+
+// std::string HTTPResponseHeader::getStatusMessege() { return this->_status_messege; }
+
+
+
+
+
+
+
+
+std::string HTTPResponse::getBody() { return this->_body; }
+
+std::string HTTPResponse::toString() const
 {
 	// (1) if _status_code is out of range, throw error
 	if (_status_code < 10 && _status_code > 599)
@@ -210,7 +226,7 @@ std::string HttpResponse::toString() const
 
 	// (3) if _transfer-encoding-chuinked is set, then ignore Content-Lengths header.
 	bool is_chunked = false;
-	HttpResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
+	HTTPResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
 	if (itr != _description.end() && itr->second.find("chunked") != std::string::npos)
 		is_chunked = true;
 
