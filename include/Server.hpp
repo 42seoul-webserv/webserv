@@ -2,6 +2,7 @@
 #define SERVER_HPP
 
 #include "WebservDefines.hpp"
+#include <map>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -23,14 +24,21 @@ public:
     struct sockaddr_in _socketAddr;
     std::string _index;
     std::string _root;
+    std::map<StatusCode, std::string> _errorPage;
     std::vector<MethodType> _allowMethods;
     std::vector<Location> _locations;
+<<<<<<< HEAD
     HTTPResponse& processGETRequest(const HTTPRequest& req);
     HTTPResponse& processPOSTRequest(const HTTPRequest& req);
     HTTPResponse& processPUTRequest(const HTTPRequest& req);
     HTTPResponse& processDELETERequest(const HTTPRequest& req);
     HTTPResponse& processPATCHRequest(const HTTPRequest& req);
     HTTPResponse& processHEADRequest(const HTTPRequest& req);
+=======
+    std::string _server_name;
+
+// constructor, destructor
+>>>>>>> develop
 public:
     Server();
     ~Server();

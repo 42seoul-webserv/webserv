@@ -1,4 +1,5 @@
 #include "ServerManager.hpp"
+#include "RequestProcessor.hpp"
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -38,9 +39,7 @@ static std::string getResponse(FileDescriptor indexFile)
   return (result);
 }
 
-// client IP is defined when accept successed...
-// TODO : separate to another file
-static std::string getClientIP(struct sockaddr_in* addr)
+std::string getClientIP(struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
   struct sockaddr_in* pV4Addr = addr;
@@ -69,6 +68,7 @@ void responseHandler(struct Context *context)
   printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
   close(context->fd);
   close(indexFile);
+
   delete (context);
 }
 
@@ -137,4 +137,54 @@ void handleEvent(struct kevent *event)
   {
     printLog(e.what(), PRINT_RED);
   }
+}
+
+//https://stackoverflow.com/questions/154536/encode-decode-urls-in-c
+std::string encodePercentEncoding(const std::string& str)
+{
+  std::ostringstream escaped;
+  escaped.fill('0');
+  escaped << std::hex;
+
+  for (std::string::const_iterator i = str.begin(), n = str.end(); i != n; ++i)
+  {
+    std::string::value_type c = (*i);
+    // Keep alphanumeric and other accepted characters intact
+    if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+    {
+      escaped << c;
+      continue;
+    }
+    // Any other characters are percent-encoded
+    escaped << std::uppercase;
+    escaped << '%' << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
+    escaped << std::nouppercase;
+  }
+  return (escaped.str());
+}
+
+std::string decodePercentEncoding(const std::string& str)
+{
+  std::string result;
+
+  for (std::string::const_iterator i = str.begin(), n = str.end(); i != n; ++i)
+  {
+    std::string::value_type c = (*i);
+
+    if (c == '%')
+    {
+      std::stringstream ss;
+      int byte;
+      char hexCode[3] = {*++i, *++i, 0};
+
+      ss << std::hex << hexCode;
+      ss >> byte;
+      result += static_cast<char>(byte);
+    }
+    else
+    {
+      result += c;
+    }
+  }
+  return (result);
 }

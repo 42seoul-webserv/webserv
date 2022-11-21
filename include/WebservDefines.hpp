@@ -2,6 +2,7 @@
  #define WEBSERV_DEFINES_HPP
 
 #include <string>
+#include <vector>
 
 #define BUFFER_SIZE 8192
 #define LISTEN_QUEUE_SIZE 1024
@@ -59,15 +60,17 @@ typedef enum
 // FIXME
 struct Location
 {
-    std::string _location;
-    std::string _index;              // ex. index.html
-    std::string _root;               // ex ./myDir/...
-    std::vector<MethodType> _allowMethods;       // ex. GET POST DELETE ...
-    int  _clientRequestBodyMaxSize;  // (--> max size of client body request)   --> defaults to 8000 bytes
-    //t_cgiInfo		_cgiInfo;			// ex. name: cgi_tester, arg: hello_world
+    std::string location;
+    std::string index;              // ex. index.html
+    std::string root;               // ex ./myDir/...
+    std::vector<MethodType> allowMethods;       // ex. GET POST DELETE ...
+    int  ClientMaxBodySize;  // (--> max size of client body request)   --> defaults to 8000 bytes
+    std::vector<std::string> cgiInfo;			// ex. name: cgi_tester, arg: hello_world
 };
 
 void printLog(const std::string& log, const std::string& color);
-
+std::string encodePercentEncoding(const std::string& str);
+std::string decodePercentEncoding(const std::string& encodedURI);
+std::string getClientIP(struct sockaddr_in* addr);
 
 #endif
