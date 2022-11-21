@@ -28,17 +28,17 @@ void RequestProcessor::processGETMethod(const HttpRequest &req,
   // (2) set requested file to body (이 read부분 또한 kevent를 통해 handling?)
   response.addHeader(HTTPResponse::CONTENT_LANGUAGE("en-US"));
   response.addHeader(HTTPResponse::CONTENT_TYPE("text/html"));
-  response.setBodyandUpdateContentLength("../index.html");
-  std::string res = response.toString();
+  // response.setBodyandUpdateContentLength("../index.html");
+  // std::string res = response.toString();
 
   // (3) send string-converted Response Data to client.
-  if (send(context->fd, res.data(), res.size(), 0) < 0)
-  {
-    printLog("error: client: " + getClientIP(&(context->addr)) + " : send failed\n", PRINT_RED);
-    throw(std::runtime_error("Send Failed\n"));
-  }
-  printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
-  close(context->fd);
+  // if (send(context->fd, res.data(), res.size(), 0) < 0)
+  // {
+    // printLog("error: client: " + getClientIP(&(context->addr)) + " : send failed\n", PRINT_RED);
+    // throw(std::runtime_error("Send Failed\n"));
+  // }
+  // printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
+  // close(context->fd);
 }
 
 void RequestProcessor::processPOSTMethod(const HttpRequest &req,
