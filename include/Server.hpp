@@ -12,6 +12,9 @@
 #include <vector>
 #include <string>
 
+class HTTPRequest;
+class HTTPResponse;
+
 class Server
 {
 // attributes
@@ -22,12 +25,17 @@ public:
     std::string _root;
     std::vector<MethodType> _allowMethods;
     std::vector<Location> _locations;
-
-// constructor, destructor
+    HTTPResponse& processGETRequest(const HTTPRequest& req);
+    HTTPResponse& processPOSTRequest(const HTTPRequest& req);
+    HTTPResponse& processPUTRequest(const HTTPRequest& req);
+    HTTPResponse& processDELETERequest(const HTTPRequest& req);
+    HTTPResponse& processPATCHRequest(const HTTPRequest& req);
+    HTTPResponse& processHEADRequest(const HTTPRequest& req);
 public:
     Server();
     ~Server();
     void openServer();
+    HTTPResponse& processRequest(const HTTPRequest& req);
 };
 
 #endif

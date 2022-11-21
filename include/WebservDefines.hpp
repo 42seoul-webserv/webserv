@@ -22,6 +22,7 @@ typedef enum
     PUT = 2,
     PATCH = 3,
     DELETE = 4,
+    HEAD = 5,
     UNDEFINED = 9
 } MethodType;
 

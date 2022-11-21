@@ -75,3 +75,8 @@ void ServerManager::attatchServerEvent(Server &server)
   }
   _contexts.push_back(context);
 }
+
+std::vector<Server> &ServerManager::getServerList()
+{
+  return (_serverList);
+}

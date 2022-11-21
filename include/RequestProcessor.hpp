@@ -8,21 +8,19 @@
 class HTTPResponse;
 class HTTPRequest;
 
+// Request Processor
+// HTTPRequest 를 바탕으로 해당 Request를 처리함
+// 서버의 메인 로직은 해당 Request Proccessor 에서 모두 처리함.
 class RequestProcessor
 {
 private:
-    ServerManager& _serverManager;
-    RequestProcessor();
-    ~RequestProcessor();
-    void processGETMethod(const HTTPRequest& req, struct Context* context);
-    void processPOSTMethod(const HTTPRequest& req, struct Context* context);
-    void processPUTMethod(const HTTPRequest& req, struct Context* context);
-    void processDELETEMethod(const HTTPRequest& req, struct Context* context);
-    void processHEADMethod(const HTTPRequest& req, struct Context* context);
-    void processPATCHMethod(const HTTPRequest& req, struct Context* context);
-    void processCGI(const HTTPRequest& req, struct Context* context);
+    StatusCode isValidHeader(const HTTPRequest& req);
+    HTTPResponse* createResponse(const HTTPRequest& req);
 public:
-    void processRequest(const HTTPRequest& req, struct Context* context);
+    void processRequest(struct Context* context);
+// attributes
+private:
+    ServerManager& _serverManager;
 };
 
 #endif //REQUESTPROCESSOR_HPP

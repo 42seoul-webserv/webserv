@@ -20,7 +20,7 @@ public:
     void initServers();
     void attatchServerEvent(Server& server);
     FileDescriptor getKqueue() const;
-
+    std::vector<Server>& getServerList();
 };
 
 struct Context
