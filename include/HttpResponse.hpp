@@ -9,6 +9,8 @@
 #include <assert.h>
 
 #include "WebservDefines.hpp"
+
+// TODO: 이거 나중에 hpp 파일로 빼기.
 #include "ServerManager.hpp" // for struct Context define
 
 /**
@@ -154,20 +156,80 @@ public: // setter functions
   };
 
 public: // getter functions
-	std::string getVersion()
+	std::string getVersion() const
   {
     return this->_version;
   };
 
-	int	        getStatusCode()
+	int	        getStatusCode() const
   {
     return this->_status_code;
   };
 
-	std::string getStatusMessege()
+	std::string getStatusMessege() const
   {
     return this->_status_messege;
   };
+
+  const Context* getContextPtr() const
+  {
+    return this->_context_ptr;
+  }
+
+  const std::map<std::string, std::string>& getDescription() const
+  {
+    return this->_description;
+  }
+
+public: // * Interface Functions.
+
+  // join headers to std::string, then return.
+  std::string toString() const
+  {
+    // (1) if _status_code is out of range, throw error
+    if (_status_code < 10 && _status_code > 599)
+    {
+      printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : Response staus-code out-of-range\n", PRINT_RED);
+      throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
+    }
+
+    // (2) if there is no status messege, throw error
+    if (_status_messege == "null")
+    {
+      printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : status-messege unset\n", PRINT_RED);
+      throw std::runtime_error("HttpResponse::toString() : status messege is not set\n");
+    }
+
+
+    // * FIX: std::to_string은 C++11이라 쓰면 안된다!
+    std::string header_message = _version + " " + std::to_string(_status_code) + " " + _status_messege + "\r\n";
+    HTTPResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
+    itr = _description.begin();
+    bool is_chunked = isTransferChunked();
+    while (itr != _description.end())
+    {
+      if (is_chunked == true && (itr->first == "Content-Length"))
+      {
+        // ignore Content-Length
+        itr++;
+        continue;
+      }
+      header_message += (itr->first + ": " + itr->second + "\r\n");
+      itr++;
+    }
+    return header_message;
+  }
+
+  // check if header has [transfer_encoding : chunked] type
+  bool isTransferChunked() const
+  {
+    bool is_chunked = false;
+    HTTPResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
+    if (itr != _description.end() && itr->second.find("chunked") != std::string::npos)
+      is_chunked = true;
+    return (is_chunked);
+  }
+
 
 private: // helper functions
 	void setDefaultResponseHeader()
@@ -188,7 +250,8 @@ private:
   FileDescriptor  _fd;
 
 public: // constructor & destuctor
-  HTTPResponse()
+  HTTPResponse(const struct Context* context_ptr)
+    : HTTPResponseHeader(context_ptr)
   {}
 
   ~HTTPResponse()
@@ -201,116 +264,143 @@ public: // setter functions
   }
 
 public: // getter functions
-  HTTPResponseHeader getHeader()
+  HTTPResponseHeader getHeader() const
   {
     // *? 이렇게 다운캐스팅 해서 보내면 될지?
     return static_cast<HTTPResponseHeader>(*this);
   }
 
-  FileDescriptor getFd()
+  FileDescriptor getFd() const
   {
     return _fd;
   }
 
-
 private: // helper functions
-
 };
 
+
+
+/*
+
+* [ * 다시다시. 너가 잘못 생각함. ]
+일단 Content Leghth 정보가 들어온다.
+Content Leght가 0이거나, 
+
+상태코드가 300~500 사이면 body는 없다.
+따라서 fd를 읽지 말고, 그냥 header만 send한다.
+
+만약 body가 있다면, (정상코드이고  Content Length가 있다면)
+fd를 kevent로 읽고, 버퍼에 데이터를 가져오는데, read size 가 0보다 크면,
+이걸 socketSendHandler kevent로 넘긴다.
+
+soocketSendHandler는 socket에 계속해서 이를 받아서 쏜다.
+
+만약 read size가 0보다 작거나 ContentLenght와 같아진다면
+소켓을 완전히 닫고, fd도 닫는다. (connection close?) */
 
 /*
     HttpResponse response;
     .. after this code, response data is set.
     * 이대, 해당 reponse에 대한 context는 포인터로 저장되어 있음.
-    ResponseProcessor(response).process() 하면 끝.
+    ResponseProcessor(response).process();
+    1. 생성자에서 response를 받아서, _header를 세팅.
 
 */
-
-// ResponseProcessor가 변환하는 데이터
-// TODO:  이걸  ResponseProcessor에서 그대로 상속받으면 됨. 이 헤더파일에서는 지울 것.
-// Response Processor에서는 HttpResponse를 받아서
 class ResponseProcessor {
 
+public:
+    ResponseProcessor();
+    ~ResponseProcessor();
+
 private:
-  HTTPResponseHeader  _header;  // Response header.
-	std::string	        _body;    // Response body.
+    void bodyFdReadHander(struct Context *context); // if fd is not -1, then read data
+    void socketSendHandler(struct Context *context); // send string to socket
+
+
+public:
+    void processResponse(const HTTPResponse& res)
+    {
+
+    }
 
 public: // Constructor & Destructor
 
-  // 여기에는 res가 들어온다. header와 fd만 존재한다.
-	ResponseProcessor(const HTTPResponse& res)
-  {};
-
-	~ResponseProcessor()
-  {};
 
 public: // Setters
-	void setBody(const std::string& body);
-	void setBody(const char* file_path);
-	// set Body with given file located in [file_path]
+	// void setBody(const std::string& body)
+  // {
+    // _body = body;
+  // }
+
+  /*
+	void setBody(const char* file_path)
+  {
+    // TODO: 파일을 읽는 이 부분도 kevent를 통해 처리해야 하는지?
+    std::ifstream file(file_path);
+    if (file.fail())
+    {
+      printLog("error: client: " + getClientIP(&(getContextPtr()->addr)) + " : open failed\n", PRINT_RED);
+      throw std::runtime_error("File Open failed\n");
+    }
+    std::string str;
+    std::string total_read;
+    while (getline(file, str))
+    {
+      _body += (str + "\n");
+    }
+    file.close();
+  }
+
+  // set Body with given file located in [file_path]
 	// NOTE: this sets file's total length to header.
-	void setBodyandUpdateContentLength(const char* file_path);
+	void setBodyandUpdateContentLength(const char* file_path)
+  {
+    this->setBody(file_path);
+    this->_header.addHeader(HTTPResponse::CONTENT_LENGTH(_body.size()));
+  }
+  */
 
 public: // Getters
-	std::string getBody();
+	// std::string getBody() const
+  // {
+    // return _body;
+  // }
 
+  // const Context* getContextPtr() const
+  // {
+    // return (_header.getContextPtr());
+  // }
 
 public: // Interface Functions
-    // * Process response using given _fd.
-    void process(const HTTPResponse& res);
+    // void process()
+    // {
+      // (0) send Header first. (no Kqueue)
+      // TODO:  일단 이렇게 해보고, 헤더도 kevent 써야 하는지 테스트하기.
+       
 
 
+      // (1) check if given HTTPResponse's Fd is -1. 
+      // if fd == -1, then don't send body.
 
-private: // Callback for kevent
-    void bodyFdReadHander(); // if fd is not -1, then read data
-    void socketSendHandler(); // send string to socket
+      // (2) read data from _body_fd
+    // }
 
-private: // Inner Interface functions
+// * 제일 중요한 부분.
+// private: // Callback for kevent
 
-    // sendHeader()
+// private: // Inner Interface functions
+    // void sendHeader()
+    // {
+
+    // }
+
+    // * if header is set to chunked, then sendBody will not send data at once.
+    // void sendBody()
+    // {
+
+    // }
     // sendBody()
-
-    // * join header and body string, change to full string data
-	  std::string	exportToString() const
-    {
-      // (1) if _status_code is out of range, throw error
-      if (_header.getStatusCode() < 10 && _header.getStatusCode() > 599)
-      {
-        printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : Response staus-code out-of-range\n", PRINT_RED);
-        throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
-      }
-
-      // (2) if there is no status messege, throw error
-      if (_status_messege == "null")
-      {
-        printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : status-messege unset\n", PRINT_RED);
-        throw std::runtime_error("HttpResponse::toString() : status messege is not set\n");
-      }
-
-      // (3) if _transfer-encoding-chuinked is set, then ignore Content-Lengths header.
-      bool is_chunked = false;
-      HTTPResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
-      if (itr != _description.end() && itr->second.find("chunked") != std::string::npos)
-        is_chunked = true;
-
-      std::string message = _version + " " + std::to_string(_status_code) + " " + _status_messege + "\r\n";
-      itr = _description.begin();
-      while (itr != _description.end())
-      {
-        if (is_chunked == true && (itr->first == "Content-Length"))
-        {
-          // ignore Content-Length
-          itr++;
-          continue;
-        }
-        message += (itr->first + ": " + itr->second + "\r\n");
-        itr++;
-      }
-      message += ("\n" + _body);
-      return (message);
-    }
-
+    // message += ("\n" + _body);
 };
-
 
 #endif

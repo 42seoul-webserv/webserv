@@ -23,11 +23,11 @@ void RequestProcessor::processGETMethod(const HttpRequest &req,
 
 
   // (1) init request object
-  HttpResponse response(200, "OK", context);
+  HTTPResponse response(context);
 
   // (2) set requested file to body (이 read부분 또한 kevent를 통해 handling?)
-  response.addHeader(HttpResponse::CONTENT_LANGUAGE("en-US"));
-  response.addHeader(HttpResponse::CONTENT_TYPE("text/html"));
+  response.addHeader(HTTPResponse::CONTENT_LANGUAGE("en-US"));
+  response.addHeader(HTTPResponse::CONTENT_TYPE("text/html"));
   response.setBodyandUpdateContentLength("../index.html");
   std::string res = response.toString();
 

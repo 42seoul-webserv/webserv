@@ -39,10 +39,10 @@ static std::string getResponse(FileDescriptor indexFile)
   return (result);
 }
 
-std::string getClientIP(struct sockaddr_in* addr)
+std::string getClientIP(const struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
-  struct sockaddr_in* pV4Addr = addr;
+  const struct sockaddr_in* pV4Addr = addr;
   struct in_addr ipAddr = pV4Addr->sin_addr;
   inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
 
