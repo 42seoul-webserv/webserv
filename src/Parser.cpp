@@ -359,7 +359,7 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   std::string serverListenIP;
   int serverListenPort;
 
-  // set server ip, port
+  // set server ip
   listenAddress = *(GetNodeElem(server_index, "server", "listen").begin());
   if (listenAddress.empty())
   {
@@ -367,9 +367,16 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   }
   serverListenIP = listenAddress.substr(0, listenAddress.find(':'));
   inet_pton(AF_INET, serverListenIP.c_str(), &server._socketAddr.sin_addr);
-  serverListenPort = stoi(listenAddress.substr(listenAddress.find(':') + 1));
+  // ser server port
+  std::string portString = listenAddress.substr(listenAddress.find(':') + 1);
+  if (!portString.empty())
+    serverListenPort = stoi(portString);
+  else
+    serverListenPort = 80;
   server._socketAddr.sin_port = ntohs(serverListenPort);
+  server._serverPort = ntohs(serverListenPort);
   server._socketAddr.sin_family = AF_INET;
+
   // set server config
   server._index = *(GetNodeElem(server_index, "server", "index").begin());
   if (server._index.empty())
@@ -379,14 +386,14 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   server._root = *(GetNodeElem(server_index, "server", "root").begin());
   if (server._root.empty())
   {
-    server._server_name = "./";
+    server._serverName = "./";
   }
-  server._server_name = *(GetNodeElem(server_index,
-                                      "server",
-                                      "server_name").begin());
-  if (server._server_name.empty())
+  server._serverName = *(GetNodeElem(server_index,
+                                     "server",
+                                     "server_name").begin());
+  if (server._serverName.empty())
   {
-    server._server_name = "webserv";
+    server._serverName = "127.0.0.1";
   }
   getAllowMethods(server._allowMethods, "server", server_index);
   if (server._allowMethods.empty())

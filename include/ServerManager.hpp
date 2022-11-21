@@ -6,27 +6,7 @@
 #include <Parser.hpp>
 #include <RequestProcessor.hpp>
 
-<<<<<<< HEAD
-struct Context;
-
-class ServerManager
-{
-private:
-    std::vector<Server> _serverList;
-    std::vector<struct Context *> _contexts;
-    FileDescriptor _kqueue;
-public:
-    ServerManager(const std::string& configFilePath);
-    ~ServerManager();
-    void run();
-    void initServers();
-    void attatchServerEvent(Server& server);
-    FileDescriptor getKqueue() const;
-    std::vector<Server>& getServerList();
-};
-=======
 class ServerManager;
->>>>>>> develop
 
 struct Context
 {
@@ -62,7 +42,7 @@ public:
     void attatchServerEvent(Server& server);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
-
+    std::vector<Server>& getServerList();
 };
 
 

@@ -71,7 +71,7 @@ std::string ServerManager::getServerName(in_port_t port_num) const
   {
     if (itr->_socketAddr.sin_port == port_num) // if found target port
     {
-      return (itr->_server_name);
+      return (itr->_serverName);
     }
     itr++;
   }
