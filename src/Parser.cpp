@@ -382,7 +382,7 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   server._socketAddr.sin_port = ntohs(serverListenPort);
   server._serverPort = ntohs(serverListenPort);
   server._socketAddr.sin_family = AF_INET;
-
+  
   // set server config
   server._index = *(GetNodeElem(server_index, "server", "_index").begin());
   if (server._index.empty())

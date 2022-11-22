@@ -8,10 +8,9 @@
 typedef enum
 {
     END,
-    HEADEROK,
+    HEADER,
     READING,
-    ERROR,
-    ERROR_PAYLOAD_TOO_LARGE
+    ERROR
 } RequestStatus;
 
 typedef enum
