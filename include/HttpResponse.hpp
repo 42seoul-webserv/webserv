@@ -1,8 +1,15 @@
 #ifndef HTTP_RESPONSE_HPP
 #define HTTP_RESPONSE_HPP
 
-#include <string>
+#include <sys/socket.h>
+#include <sys/event.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include <iostream>
+#include <fcntl.h>
+#include <vector>
+#include <string>
 #include <fstream>
 #include <map>
 #include <ctime>
@@ -79,10 +86,6 @@ public:
 	이런 응답이 왔다면 브라우저는 / 주소로 리다이렉트합니다. */
   static t_pair LOCATION(const std::string& redirect_location);
 
-
- 
-
-
 private: // Helper functions
 	static std::string GET_DAY(long tm_wday);
 	static std::string GET_MON(long tm_wmon);
@@ -95,10 +98,6 @@ private: // Helper functions
 class HTTPResponseHeader : public HeaderType {
 
 protected:
-	// 내부에서 예외처리를 하기 위한 Context pointer.
-	const struct Context* _context_ptr;
-
-protected:
 	std::string _version;                            // HTTP/1.1
 	int _status_code;                                // 201
 	std::string _status_messege;                     // OK
@@ -107,17 +106,16 @@ protected:
 public: // constructor & destuctor & copy operator
 	typedef std::map<std::string, std::string>::const_iterator t_iterator;
 
-	HTTPResponseHeader(const struct Context * const context_ptr)
-    : _context_ptr(context_ptr), _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
+	HTTPResponseHeader()
+    : _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
   {
     setDefaultHeaderDescription();
   }
 
-	HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege, const struct Context * const context_ptr)
+	HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege)
     : _version("HTTP/1.1"), 
       _status_code(-1), 
-      _status_messege("null"), 
-      _context_ptr(context_ptr)
+      _status_messege("null")
   {
     setDefaultHeaderDescription();
   }
@@ -133,7 +131,6 @@ public: // constructor & destuctor & copy operator
     _status_code = header._status_code;
     _status_messege = header._status_messege;
     _description = header._description;
-    _context_ptr = header._context_ptr;
   }
 
 public: // setter functions
@@ -171,11 +168,6 @@ public: // getter functions
     return this->_status_messege;
   };
 
-  const Context* getContextPtr() const
-  {
-    return this->_context_ptr;
-  }
-
   const std::map<std::string, std::string>& getDescription() const
   {
     return this->_description;
@@ -194,15 +186,19 @@ public: // * Interface Functions.
     // (1) if _status_code is out of range, throw error
     if (_status_code < 10 || _status_code > 599)
     {
-      printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : Response status-code out-of-range\n", PRINT_RED);
       throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
     }
 
     // (2) if there is no status messege, throw error
     if (_status_messege == "null")
     {
-      printLog("error: client: " + getClientIP(&(this->_context_ptr->addr)) + " : status-messege unset\n", PRINT_RED);
-      throw std::runtime_error("HttpResponse::toString() : status messege is not set\n");
+      throw std::runtime_error("HttpResponse::toString() : status messege unset\n");
+    }
+
+    // (3) if server name unset.
+    if (this->_description.find("Server")->second == "null")
+    {
+      throw std::runtime_error("HttpResponse::toString() : server name unset.\n");
     }
 
     // * FIX: std::to_string은 C++11이라 쓰면 안된다!
@@ -238,43 +234,58 @@ public: // * Interface Functions.
 private: // helper functions
 	void setDefaultHeaderDescription()
   {
-    // 여기서 이걸 쓰는게 맞나...?
-    const in_port_t port_num = this->_context_ptr->addr.sin_port;
-    this->addHeader(HTTPResponseHeader::SERVER(this->_context_ptr->manager->getServerName(port_num)));
+    this->addHeader(HTTPResponseHeader::SERVER("null"));
     this->addHeader(HTTPResponseHeader::DATE());
     this->addHeader(HTTPResponseHeader::CONNECTION("keep-alive"));
     this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(-1));
   } // 헤더 초기값 자동 설정
 
 private: // helper function
-  std::string getClientIP(const struct sockaddr_in* addr) const
+};
+
+struct ResponseContext
+{
+  int fd_file;        // fd for file read
+  int fd_socket;      // fd for socket send
+  std::string buffer; // string
+  struct sockaddr_in addr;
+  void (*handler)(struct ResponseContext *obj);
+  ServerManager *manager;
+
+public: // contructor
+  ResponseContext(int _fd_file, int _fd_socket,
+                  std::string _buffer,
+                  struct sockaddr_in _addr,
+                  void (*_handler)(struct ResponseContext *obj),
+                  ServerManager *_manager)
+      : fd_file(_fd_file), fd_socket(_fd_socket),
+        buffer(_buffer),
+        addr(_addr),
+        handler(_handler),
+        manager(_manager)
   {
-    char str[INET_ADDRSTRLEN];
-    const struct sockaddr_in* pV4Addr = addr;
-    struct in_addr ipAddr = pV4Addr->sin_addr;
-    inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
-    return (str);
   }
 };
 
-
-
 // ResponseProcessor가 넘겨 받는 데이터.
 // 이거의 이름을 HttpResponse로 바꾸기.
-class HTTPResponse : public HTTPResponseHeader {
+class HTTPResponse : public HTTPResponseHeader
+{
 private:
-  FileDescriptor  _fd;
+  FileDescriptor _fd;
 
 public: // constructor & destuctor
-  HTTPResponse(const struct Context* context_ptr)
-    : HTTPResponseHeader(context_ptr)
-  {}
+  HTTPResponse()
+      : HTTPResponseHeader()
+  {
+  }
 
   ~HTTPResponse()
-  {}
+  {
+  }
 
 public: // setter functions
-  FileDescriptor setFd(const FileDescriptor& fd)
+  FileDescriptor setFd(const FileDescriptor &fd)
   {
     _fd = fd;
   }
@@ -291,146 +302,134 @@ public: // getter functions
     return _fd;
   }
 
-private: // helper functions
-};
-
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <iostream>
-#include <sys/event.h>
-#include <fcntl.h>
-#include <vector>
-#include <string>
-
-
-struct ResponseContext
-{
-  int fd_file; // fd for file read
-  int fd_socket; // fd for socket send
-  std::string buffer; // string
-  struct sockaddr_in addr;
-  void (*handler)(struct Context *obj);
-  ServerManager* manager;
-
-  ResponseContext(int _fd_file, int _fd_socket,
-          std::string _buffer,
-          struct sockaddr_in _addr,
-          void (*_handler)(struct Context *obj),
-          ServerManager* _manager):
-          fd_file(_fd_file), fd_socket(_fd_socket),
-          buffer(_buffer),
-          addr(_addr),
-          handler(_handler),
-          manager(_manager)
+public: // interface functions.
+  void sendToClient(const HTTPResponse &res, int socket_fd)
   {
   }
-};
 
-// send body string to socket
-void socketSendHandler(struct Context *context)
-{
-
-  free(context);
-}
-
-// if fd is not -1, then read data
-void bodyFdReadHandler(struct ResponseContext *context)
-{
-  char buffer[1023] = {0}; // * 버퍼의 크기는 추후에 조정할 것.
-  struct kevent event;
-
-  // 만약 데이터가 끝났다면, kevent 종료, fd close
-  ssize_t rd_size = read(context->fd_file, buffer, sizeof(buffer));
-  if (rd_size <= 0)
+private: // Helper function
+  // * processResponse를 호출하는 바깥쪽에서 kevent에 등록을 해줘야 할 듯.
+  void processResponse(const HTTPResponse &res, struct Context *context)
   {
-    // ...
-    close(context->fd_file);
-    free(context);
+    // * (1) send header
+    {
+      //일단 Content Leghth 정보가 들어온다. Content Leght가 0이거나, 상태코드가 300~500 사이면 body는 없다.
+      //따라서 fd를 읽지 말고, 그냥 header만 send한다.
+      //이때, 404 page 일 경우 body가 있을 수도 있기 때문에, 204만 별도로 처리한다.
+      struct kevent event;
+
+      struct ResponseContext *newContext = new struct ResponseContext(context->fd, res.getFd(), res.getHeader().toString(), context->addr, socketSendHandler, context->manager);
+
+      // event 세팅
+      EV_SET(&event, newContext->fd_file, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+
+      // kevent에 등록한다.
+      if (kevent(context->manager->getKqueue(), &event, 0, NULL, 0, NULL) < 0)
+      {
+        printLog("error: " + getClientIP(&context->addr) + " : event attach failed\n", PRINT_RED);
+        throw(std::runtime_error("Event attach failed (response)\n"));
+      }
+    }
+
+    // * --------------------------------------------------------------------------
+    // * | WARN : 이렇게 하면 순서가 꼬여서 헤더보다 바디가 먼저 전송되는거 아니야? 한번 체크해보자.  |
+    // * --------------------------------------------------------------------------
+
+    // (2) if body exists, read body and store them to buffer
+    //     만약 body가 있다면, (정상코드이고  Content Length가 있다면) 읽는다
+    if (res.getFd() != -1 && res.getContentLength() > 0 && res.getStatusCode() != 204)
+    {
+      // register read handler
+      struct kevent event;
+      std::string buffer;
+
+      // (2-1) kevent에 read할 fd를 등록 (이제 read_fd가 read 가능해지면 bodyFdReadHandler가 호출된다.
+
+      // ResponseContext 생성.
+      struct ResponseContext *newContext = new struct ResponseContext(context->fd, res.getFd(), std::string(""), context->addr, socketSendHandler, context->manager);
+
+      // event 세팅
+      EV_SET(&event, newContext->fd_file, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);
+
+      // kevent에 등록한다.
+      if (kevent(context->manager->getKqueue(), &event, 0, NULL, 0, NULL) < 0)
+      {
+        printLog("error: " + getClientIP(&context->addr) + " : event attach failed\n", PRINT_RED);
+        throw(std::runtime_error("Event attach failed (response)\n"));
+      }
+    }
+    else
+    // if body doesn't exit, then just close socket.
+    {
+      //소켓을 완전히 닫고, fd도 닫는다. (connection close?) */
+      close(context->fd);
+      close(res.getFd());
+    }
+    delete (context);
   }
-  // 데이터가 들어왔다면, 소켓에 현재 버퍼에 있는 데이터를 전송하는 event를 등록.
-  else
+
+  // send body string to socket
+  static void socketSendHandler(struct ResponseContext *context)
   {
-    // copy buffer to responseContext's buffer
+    // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
+    if (send(context->fd_socket, context->buffer.c_str(), context->buffer.size(), MSG_DONTWAIT) < 0)
+    {
+      printLog("error: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
+      throw(std::runtime_error("Send Failed\n"));
+    }
+    delete (context);
+  }
+
+  // if fd is not -1, then read data
+  static void bodyFdReadHandler(struct ResponseContext *context)
+  {
+    char buffer[1024] = {0}; // * 버퍼의 크기는 추후에 조정할 것.
     struct kevent event;
 
-    // (2-1) kevent에 write할 소켓 fd를 등록 > 근데 socket 주소 어떻게 넘기냐.. 그리고 read한 데이터는 또 어떻게 넘겨?
-    struct ResponseContext* newContext = new struct ResponseContext(context->fd_file, context->fd_socket, std::string(buffer), context->addr, socketSendHandler, context->manager);
-
-    EV_SET(&event, newContext->fd_socket, EVFILT_WRITE, EV_ADD | EV_CLEAR, -1, 0, newContext);
-    if (kevent(context->manager->getKqueue(), &event, 0, NULL, 0, NULL) < 0)
+    // 만약 데이터가 끝났다면, kevent 종료, fd close
+    ssize_t rd_size = read(context->fd_file, buffer, sizeof(buffer));
+    if (rd_size < 0)
     {
-      printLog("error: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attach failed (response)\n"));
+      // if read failed
+      printLog("error: client: " + getClientIP(&context->addr) + " : read failed\n", PRINT_RED);
+      throw(std::runtime_error("Read Failed\n"));
     }
-    // 그리고 리턴.
-    return ;
-    // (2-2) 이걸 socketSendHandler kevent로 넘긴다.
+    else if (rd_size == 0)
+    {
+      // if there is nothing to read [ = read done ]
+      close(context->fd_file);
+    }
+    // 데이터가 들어왔다면, 소켓에 현재 버퍼에 있는 데이터를 전송하는 event를 등록.
+    else
+    {
+      // copy buffer to responseContext's buffer
+      struct kevent event;
+
+      // ResponseContext를 만들어서 넘긴다.
+      struct ResponseContext *newContext = new struct ResponseContext(context->fd_file, context->fd_socket, std::string(buffer), context->addr, socketSendHandler, context->manager);
+
+      // event를 세팅한다.
+      EV_SET(&event, newContext->fd_socket, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+
+      // kevent에 등록한다.
+      if (kevent(context->manager->getKqueue(), &event, 0, NULL, 0, NULL) < 0)
+      {
+        printLog("error: " + getClientIP(&context->addr) + " : event attach failed\n", PRINT_RED);
+        throw(std::runtime_error("Event attach failed (response)\n"));
+      }
+    }
+
+    delete (context);
   }
-}
 
-
-class ResponseProcessor {
-
-public: // Constructor & Destructor
-    ResponseProcessor();
-    ~ResponseProcessor();
-
-
-    // *?  아니 어케하지... sendHandler는 보낼 소켓의 상태를 감지해서 send하는 거고
-    // *?  readHandler는 읽을 파일 fd의 상태를 감지해서 read하는 거고...
-
-
-public:
-    // * processResponse를 호출하는 바깥쪽에서 kevent에 등록을 해줘야 할 듯.
-    void processResponse(const HTTPResponse& res, struct Context* context)
-    {
-      // * (1) send header
-      {
-        //일단 Content Leghth 정보가 들어온다. Content Leght가 0이거나, 상태코드가 300~500 사이면 body는 없다.
-        //따라서 fd를 읽지 말고, 그냥 header만 send한다.
-        //이때, 404 page 일 경우 body가 있을 수도 있기 때문에, 204만 별도로 처리한다.
-        const std::string header = res.getHeader().toString();
-        if (send(context->fd, header.data(), header.size(), 0) < 0)
-        {
-          printLog("error: client: " + getClientIP(&context->addr) +  " : send failed\n", PRINT_RED);
-          throw (std::runtime_error("Send Failed\n"));
-        }
-        else {
-          // ...
-        }
-      }
-
-      // * (2) if body exists, read body and store them to buffer
-      // *    만약 body가 있다면, (정상코드이고  Content Length가 있다면) 읽는다
-      if (res.getFd() != -1 && res.getContentLength() > 0 && res.getStatusCode() != 204)
-      {
-        // * register read handler
-        struct kevent event;
-        std::string buffer;
-        // (2-1) kevent에 read할 fd를 등록 (이제 read_fd가 read 가능해지면 bodyFdReadHandler가 호출된다.
-
-//        struct ResponseContext* newContext = new struct ResponseContext(context->fd, res.getFd(), std::string(), context->addr, bodyFdReadHandler, context->manager);
-        EV_SET(&event, newContext->fd_file, EVFILT_READ, EV_ADD | EV_CLEAR, -1, 0, newContext);
-        if (kevent(context->manager->getKqueue(), &event, 0, NULL, 0, NULL) < 0)
-        {
-          printLog("error: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
-          throw (std::runtime_error("Event attach failed (response)\n"));
-        }
-
-
-      }
-      else
-        // if body doesn't exit, then just close socket.
-      {
-        //소켓을 완전히 닫고, fd도 닫는다. (connection close?) */
-        close(context->fd);
-        close(res.getFd());
-      }
-      delete (context);
-    }
+  static std::string getClientIP(const struct sockaddr_in *addr)
+  {
+    char str[INET_ADDRSTRLEN];
+    const struct sockaddr_in *pV4Addr = addr;
+    struct in_addr ipAddr = pV4Addr->sin_addr;
+    inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
+    return (str);
+  }
 };
 
-#endif
+#endif // HTTPResponse.hpp
