@@ -19,21 +19,21 @@ static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType me
 }
 
 // ASSUMPTION : request contain complete header...
-StatusCode RequestProcessor::isValidHeader(const HTTPRequest &req)
+StatusCode RequestProcessor::checkValidHeader(const HTTPRequest &req)
 {
   Server& matchedServer = _serverManager.getMatchedServer(req);
 
-  // find location
+  // find _location
   Location* loc = matchedServer.getMatchedLocation(req);
-  // check location
-  if (loc == NULL) // root case
+  // check _location
+  if (loc == NULL) // _root case
   {
-    if (req.url != "/")
+    if (req._url != "/")
       return (ST_NOT_FOUND);
-    if (!isAllowedMethod(matchedServer._allowMethods, req.method))
+    if (!isAllowedMethod(matchedServer._allowMethods, req._method))
       return (ST_METHOD_NOT_ALLOWED);
 
-    std::string contentLengthString = req.header.at("Content-Length");
+    std::string contentLengthString = req._headers.at("Content-Length");
     if (contentLengthString.empty())
       return (ST_LENGTH_REQUIRED);
     int contentLength = ft_stoi(contentLengthString);
@@ -42,10 +42,10 @@ StatusCode RequestProcessor::isValidHeader(const HTTPRequest &req)
   }
   else
   {
-    if (!isAllowedMethod(loc->allowMethods, req.method))
+    if (!isAllowedMethod(loc->allowMethods, req._method))
       return (ST_METHOD_NOT_ALLOWED);
 
-    std::string contentLengthString = req.header.at("Content-Length");
+    std::string contentLengthString = req._headers.at("Content-Length");
     if (contentLengthString.empty())
       return (ST_LENGTH_REQUIRED);
     int contentLength = ft_stoi(contentLengthString);
@@ -57,18 +57,70 @@ StatusCode RequestProcessor::isValidHeader(const HTTPRequest &req)
 
 void RequestProcessor::processRequest(struct Context *context)
 {
-  // ! GET, HEAD 일 때, Header 가 완성 되면 이후 body 는 무시함.
-  // file 이 실제로 존재 하는 지는 response 를 처리할 때 판단 (HEADER만 필요한 GET, HEADER와 이외의 경우가 다르기 때문)
   // check context http request
+  if (context == NULL || context->req == NULL)
+    throw (std::runtime_error("NULL context"));
+  // delete current event;
+  struct kevent currentEvent;
+  EV_SET(&currentEvent, context->fd, EVFILT_READ, EV_DELETE | EV_CLEAR, 0, 0, NULL);
+  context->manager->attachNewEvent(context, currentEvent);
+  // check request status
+  HTTPRequest& req = *context->req;
+  if (req._status == ERROR)
+  {
+    HttpResponse* response = new HttpResponse(ST_BAD_REQUEST, "bad request", context);
 
-  // if context http request status == HEADER -> check is valid
-  //  if header is invalid, response error status
-  //  else if header is valid and GET, HEAD method, processRequest
-  //  otherwise, read All data
-  // else if status == END
-  //  processResponse
-  // else (status == ERROR)
-  //  response error (server failed)
+    // call response processor
+    context->req = NULL;
+    delete (&req);
+    return ;
+  }
+  else if (req._status == HEADEROK)
+  {
+    StatusCode status = checkValidHeader(req);
+
+    if (status != ST_OK)
+    {
+      HttpResponse* response = new HttpResponse(status, "", context);
+
+      // call response processor
+      context->req = NULL;
+      delete (&req);
+      return ;
+    }
+    if (req._method == GET || req._method == HEAD) // not consider body
+    {
+      Server& server = _serverManager.getMatchedServer(req);
+
+      server.processRequest(context);
+      context->req = NULL;
+      delete (&req);
+      return ;
+    }
+    else
+    {
+      // attach new event to read remain data
+      struct kevent newEvent;
+
+      EV_SET(&newEvent, context->fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, context);
+      _serverManager.attachNewEvent(context, newEvent); // callback Request Parser
+      return ;
+    }
+  }
+  else if (req._status == READING)
+  {
+    delete (&req);
+    throw (std::runtime_error("READING Status is invalid in processing\n"));
+  }
+  else // status == END
+  {
+    ServerManager& svm = *context->manager;
+    Server& server = svm.getMatchedServer(req);
+
+    server.processRequest(context);
+    delete (&req);
+    return ;
+  }
 }
 
 RequestProcessor::RequestProcessor(ServerManager &svm):

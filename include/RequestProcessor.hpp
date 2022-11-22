@@ -13,13 +13,13 @@ class ServerManager;
 class RequestProcessor
 {
 private:
-    StatusCode isValidHeader(const HTTPRequest& req);
+    StatusCode checkValidHeader(const HTTPRequest& req);
 public:
     void processRequest(struct Context* context);
+    RequestProcessor(ServerManager& svm);
 // attributes
 private:
     ServerManager& _serverManager;
-    RequestProcessor(ServerManager& svm);
 };
 
 #endif //REQUESTPROCESSOR_HPP

@@ -1,12 +1,22 @@
 #include "Server.hpp"
-#include <algorithm>
 #include "HttpResponse.hpp"
+#include "ServerManager.hpp"
+#include <fcntl.h>
+#include <unistd.h>
 
-static const struct sockaddr_in DEFAULT_ADDR ={
-        inet_addr("0.0.0.0"),
-        AF_INET,
-        htons(42424),
-};
+static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
+{
+  for (
+          std::vector<MethodType>::iterator it = allowMethods.begin();
+          it != allowMethods.end();
+          ++it
+  )
+  {
+    if (*it == method)
+      return (true);
+  }
+  return (false);
+}
 
 Server::Server()
 {
@@ -33,138 +43,317 @@ void Server::openServer()
     throw (std::runtime_error("Listen Socket failed\n"));
 }
 
-HttpResponse &Server::processGETRequest(const HTTPRequest &req)
+HttpResponse &Server::processGETRequest(const struct Context* context)
 {
-  // check valid path
+  HTTPRequest& req = *context->req;
 
-  // check cgi first..
-  // response body ( open file and add fd to res )
-  /*
- * ! TODO:
- *   (1). location path searching alogirithm.
- *   (2). Request Data와 처리 상황에 따라 적절한 response code 설정.
- ?   (3).  큰 이미지파일일 경우 chunked로 처리 (?)
- // *   (4). 생성자에서 default response 설정.
- ?   (5). 큰 파일에 대한 read/write도 kevent를 통해 처리 (?)
- */
-
-
-  // (1) init request object
-  HttpResponse* response = new HttpResponse(200, "OK", context);
-
-  // (2) set requested file to body (이 read부분 또한 kevent를 통해 handling?)
-  response.addHeader(HttpResponse::CONTENT_LANGUAGE("en-US"));
-  response.addHeader(HttpResponse::CONTENT_TYPE("text/html"));
-  response.setBodyandUpdateContentLength("../index.html");
-  std::string res = response.toString();
-  return (*res);
-}
-
-HttpResponse &Server::processPOSTRequest(const HTTPRequest &req)
-{
-  HttpResponse* res = new HttpResponse();
-
-  // check valid path
-  // check cgi first
-  // if upload file,
-  return (*res);
-}
-
-HttpResponse &Server::processPUTRequest(const HTTPRequest &req)
-{
-  HttpResponse* res = new HttpResponse();
-
-  return (*res);
-}
-
-HttpResponse &Server::processHEADRequest(const HTTPRequest &req)
-{
-  HttpResponse* res = new HttpResponse();
-
-  return (*res);
-}
-
-static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
-{
-  for (
-          std::vector<MethodType>::iterator it = allowMethods.begin();
-          it != allowMethods.end();
-          ++it
-  )
+  // check matched location
+  Location* matchedLocation = getMatchedLocation(req);
+  std::string filePath;
+  if (matchedLocation == NULL)
   {
-    if (*it == method)
-      return (true);
+    // check request file exists on root
+    if (req._url.rfind('/') == 0) // root case
+    {
+      filePath = req._url;
+      if (filePath.length() == 1)
+      {
+        filePath += _index;
+      }
+    }
+    else // there are no matched location
+    {
+      HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+      return (*response);
+    }
   }
-  return (false);
+  else
+  {
+    filePath = matchedLocation->convertURLToLocationPath(req._url);
+  }
+  // check this file is CGI path
+
+  // check is valid file
+  if (access(filePath.c_str(), R_OK) == FAILED)
+  {
+    HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+    return (*response);
+  }
+  else
+  {
+    HttpResponse* response = new HttpResponse(ST_OK, std::string("not found"), context);
+    response->setBody(filePath); // FIXME: fd로 변경 될 것임.
+    return (*response);
+  }
 }
 
-HttpResponse &Server::processRequest(const HTTPRequest &req)
+HttpResponse &Server::processPOSTRequest(const struct Context* context)
 {
-  const MethodType requestMethod = req.getMethod();
+  HTTPRequest& req = *context->req;
 
-  if (!isAllowedMethod(_allowMethods, requestMethod))
+  // check matched location
+  Location* matchedLocation = getMatchedLocation(req);
+  std::string filePath;
+  if (matchedLocation == NULL)
   {
-    HttpResponse*const  res = new HttpResponse();
-    // 405 not allowed method response
-    return (*res);
+    // check request file exists on root
+    if (req._url.rfind('/') == 0) // root case
+    {
+      filePath = req._url;
+      if (filePath.length() == 1)
+      {
+        filePath += _index;
+      }
+    }
+    else // there are no matched location
+    {
+      HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+      return (*response);
+    }
   }
+  else
+  {
+    filePath = matchedLocation->convertURLToLocationPath(req._url);
+  }
+  // check this file is CGI path
+
+  // check is valid file
+  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
+  {
+    HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+    return (*response);
+  }
+  else
+  {
+    HttpResponse* response = new HttpResponse(ST_OK, std::string("not found"), context);
+    response->setBody(filePath); // FIXME : POST에 맞는 결과가 나올 것.
+    return (*response);
+  }
+}
+
+HttpResponse &Server::processPUTRequest(const struct Context* context)
+{
+  HTTPRequest& req = *context->req;
+
+  // check matched location
+  Location* matchedLocation = getMatchedLocation(req);
+  std::string filePath;
+  if (matchedLocation == NULL)
+  {
+    // check request file exists on root
+    if (req._url.rfind('/') == 0) // root case
+    {
+      filePath = req._url;
+      if (filePath.length() == 1)
+      {
+        filePath += _index;
+      }
+    }
+    else // there are no matched location
+    {
+      HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+      return (*response);
+    }
+  }
+  else
+  {
+    filePath = matchedLocation->convertURLToLocationPath(req._url);
+  }
+  // check this file is CGI path
+
+  // check is valid file
+  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
+  {
+    HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+    return (*response);
+  }
+  else
+  {
+    HttpResponse* response = new HttpResponse(ST_OK, std::string("not found"), context);
+    response->setBody(filePath); // FIXME:  결과 없음 (-1)
+    return (*response);
+  }
+}
+
+HttpResponse &Server::processHEADRequest(const struct Context* context)
+{
+  HTTPRequest& req = *context->req;
+
+  // check matched location
+  Location* matchedLocation = getMatchedLocation(req);
+  std::string filePath;
+  if (matchedLocation == NULL)
+  {
+    // check request file exists on root
+    if (req._url.rfind('/') == 0) // root case
+    {
+      filePath = req._url;
+      if (filePath.length() == 1)
+      {
+        filePath += _index;
+      }
+    }
+    else // there are no matched location
+    {
+      HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+      return (*response);
+    }
+  }
+  else
+  {
+    filePath = matchedLocation->convertURLToLocationPath(req._url);
+  }
+  // check this file is CGI path
+
+  // check is valid file
+  if (access(filePath.c_str(), R_OK) == FAILED)
+  {
+    HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+    return (*response);
+  }
+  else
+  {
+    HttpResponse* response = new HttpResponse(ST_OK, std::string("not found"), context);
+    response->setBody(filePath); // FIXME: HEADER만 필요해서 안쓸거임 (-1)
+    return (*response);
+  }
+}
+
+
+HttpResponse &Server::processDELETERequest(const struct Context* context)
+{
+  HTTPRequest& req = *context->req;
+
+  // check matched location
+  Location* matchedLocation = getMatchedLocation(req);
+  std::string filePath;
+  if (matchedLocation == NULL)
+  {
+    // check request file exists on root
+    if (req._url.rfind('/') == 0) // root case
+    {
+      filePath = req._url;
+      if (filePath.length() == 1)
+      {
+        filePath += _index;
+      }
+    }
+    else // there are no matched location
+    {
+      HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+      return (*response);
+    }
+  }
+  else
+  {
+    filePath = matchedLocation->convertURLToLocationPath(req._url);
+  }
+  // check this file is CGI path
+
+  // check is valid file
+  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
+  {
+    HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+    return (*response);
+  }
+  else
+  {
+    HttpResponse* response = new HttpResponse(ST_OK, std::string("not found"), context);
+    response->setBody(filePath); // FIXME:  결과 없음 (-1)
+    return (*response);
+  }
+}
+
+HttpResponse &Server::processPATCHRequest(const struct Context* context)
+{
+  HTTPRequest& req = *context->req;
+
+  // check matched location
+  Location* matchedLocation = getMatchedLocation(req);
+  std::string filePath;
+  if (matchedLocation == NULL)
+  {
+    // check request file exists on root
+    if (req._url.rfind('/') == 0) // root case
+    {
+      filePath = req._url;
+      if (filePath.length() == 1)
+      {
+        filePath += _index;
+      }
+    }
+    else // there are no matched location
+    {
+      HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+      return (*response);
+    }
+  }
+  else
+  {
+    filePath = matchedLocation->convertURLToLocationPath(req._url);
+  }
+  // check this file is CGI path
+
+  // check is valid file
+  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
+  {
+    HttpResponse* response = new HttpResponse(ST_NOT_FOUND, std::string("not found"), context);
+    return (*response);
+  }
+  else
+  {
+    HttpResponse* response = new HttpResponse(ST_OK, std::string("not found"), context);
+    response->setBody(filePath); // FIXME:  결과 없음 (-1)
+    return (*response);
+  }
+}
+
+void Server::processRequest(const struct Context* context)
+{
+  const HTTPRequest& req = *context->req;
+  const MethodType requestMethod = req._method;
+
+  // undefined method 는 앞서서 처리함.
   switch (requestMethod)
   {
     case GET:
     {
-      return (processGETRequest(req));
+      // call response processor
+      HttpResponse& res = (processGETRequest(context));
+
+      return ;
     }
     case POST:
     {
-      return (processPOSTRequest(req));
+      HttpResponse& res = (processPOSTRequest(context));
+      return ;
     }
     case PUT:
     {
-      return (processPUTRequest(req));
+      HttpResponse& res = (processPUTRequest(context));
+      return ;
     }
     case HEAD:
     {
-      return (processHEADRequest(req));
+      HttpResponse& res = (processHEADRequest(context));
+      return ;
     }
     case PATCH:
     {
-      return (processPATCHRequest(req));
+      HttpResponse& res = (processPATCHRequest(context));
+      return ;
     }
     case DELETE:
     {
-      return (processDELETERequest(req));
+      HttpResponse& res = (processDELETERequest(context));
+      return ;
     }
+    case UNDEFINED:
+      throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
   }
-  HttpResponse* res = new HttpResponse();
-  // error response
-  return (*res);
 }
 
-HttpResponse &Server::processDELETERequest(const HTTPRequest &req)
-{
-  HttpResponse* res = new HttpResponse();
-  // error response
-  return (*res);
-}
-
-HttpResponse &Server::processPATCHRequest(const HTTPRequest &req)
-{
-  HttpResponse* res = new HttpResponse();
-  // error response
-  return (*res);
-}
-
-static std::string getLocation(std::string url)
-{
-  size_t lastSlashPos = url.rfind('/');
-
-  if (lastSlashPos == 0)
-    return (url);
-  else
-    return (url.substr(0, lastSlashPos));
-}
-
-Location *Server::getMatchedLocation(const HTTPRequest &req)
+Location *Server::getMatchedLocation(const HTTPRequest& req)
 {
   for (
           std::vector<Location>::iterator it = _locations.begin();
@@ -174,8 +363,8 @@ Location *Server::getMatchedLocation(const HTTPRequest &req)
   {
     Location& loc = *it;
 
-    if (loc.location == getLocation(req.url))
+    if (loc.isMatchedLocation(req._url))
       return (&loc);
   }
-  return (NULL); // root case?
+  return (NULL); // _root case?
 }

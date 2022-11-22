@@ -55,7 +55,7 @@ void responseHandler(struct Context *context)
 {
   FileDescriptor indexFile ;
 
-  if ((indexFile = open("../index.html", O_RDONLY)) < 0)
+  if ((indexFile = open("../_index.html", O_RDONLY)) < 0)
   {
     printLog("error: client: " + getClientIP(&context->addr) +  " : open failed\n", PRINT_RED);
     throw (std::runtime_error("Open Failed\n"));
@@ -94,8 +94,8 @@ void readHandler(struct Context *context)
     EV_SET(&event, newContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
     if (kevent(context->manager->getKqueue(), &event, 1, NULL, 0, NULL) < 0)
     {
-      printLog("error: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attach failed (response)\n"));
+      printLog("error: " + getClientIP(&context->addr) +  " : event attachServerEvent failed\n", PRINT_RED);
+      throw (std::runtime_error("Event attachServerEvent failed (response)\n"));
     }
     delete (context);
   }
@@ -121,8 +121,8 @@ void acceptHandler(struct Context *context)
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);
     if (kevent(context->manager->getKqueue(), &event, 1, NULL, 0, NULL) < 0)
     {
-      printLog("error: client: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attach failed (read)\n"));
+      printLog("error: client: " + getClientIP(&context->addr) +  " : event attachServerEvent failed\n", PRINT_RED);
+      throw (std::runtime_error("Event attachServerEvent failed (read)\n"));
     }
   }
 }
