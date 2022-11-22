@@ -245,13 +245,13 @@ void ConfigParser::getAllowMethods(std::vector<MethodType> &_allowMethods,
 
 static void setLocationDefault(Server &server, Location &location)
 {
-  if (location.root.empty())
+  if (location._root.empty())
   {
-    location.root = server._root;
+    location._root = server._root;
   }
-  if (location.index.empty())
+  if (location._index.empty())
   {
-    location.index = server._index;
+    location._index = server._index;
   }
 }
 
@@ -265,27 +265,27 @@ void ConfigParser::getLocationAttr(Server &server, unsigned int server_index)
   for (ParserNode *temp = _nodeVector[server_index].next;
        temp != NULL; temp = temp->next)
   {
-    found = temp->category.find("location ");
+    found = temp->category.find("_location ");
     if (found != std::string::npos)
     {
       temp_cate = temp->category;
       temp_cate.erase(temp_cate.begin(), temp_cate.begin() + 9);
-      location.location = temp_cate;
-      if (location.location.empty())
+      location._location = temp_cate;
+      if (location._location.empty())
       {
         throw (std::runtime_error("invalid config file\n"));
       }
       std::string indexString = *(GetNodeElem(server_index,
                                               temp->category,
-                                              "index").begin());
+                                              "_index").begin());
       if (indexString.empty())
-        location.index = DEFAULT_INDEX;
+        location._index = DEFAULT_INDEX;
 
       std::string rootString = *(GetNodeElem(server_index,
                                     temp->category,
-                                    "root").begin());
+                                    "_root").begin());
       if (rootString.empty())
-        location.root = DEFAULT_ROOT;
+        location._root = DEFAULT_ROOT;
       getAllowMethods(location.allowMethods, temp->category, server_index);
       if (!GetNodeElem(server_index,
                        temp->category,
@@ -324,12 +324,12 @@ void ConfigParser::displayServer(Server &server)
   std::cout << std::endl;
   for (unsigned int i = 0; i < server._locations.size(); ++i)
   {
-    std::cout << "location : " << server._locations[i].location << std::endl;
-    std::cout << "index : " << server._locations[i].index << std::endl;
-    std::cout << "root : " << server._locations[i].root << std::endl;
+    std::cout << "_location : " << server._locations[i]._location << std::endl;
+    std::cout << "_index : " << server._locations[i]._index << std::endl;
+    std::cout << "_root : " << server._locations[i]._root << std::endl;
     std::cout << "maxsize : " << server._locations[i].clientMaxBodySize
               << std::endl;
-    std::cout << "location allow methods: ";
+    std::cout << "_location allow methods: ";
     for (unsigned int k = 0; k < server._locations[i].allowMethods.size(); ++k)
     {
       std::cout << server._locations[i].allowMethods[k] << " ";
@@ -384,12 +384,12 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
   server._socketAddr.sin_family = AF_INET;
 
   // set server config
-  server._index = *(GetNodeElem(server_index, "server", "index").begin());
+  server._index = *(GetNodeElem(server_index, "server", "_index").begin());
   if (server._index.empty())
   {
     server._index = DEFAULT_INDEX;
   }
-  server._root = *(GetNodeElem(server_index, "server", "root").begin());
+  server._root = *(GetNodeElem(server_index, "server", "_root").begin());
   if (server._root.empty())
   {
     server._serverName = DEFAULT_ROOT;

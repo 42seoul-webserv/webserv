@@ -1,20 +1,44 @@
-//
-// Created by Sungjun Park on 2022/11/21.
-//
-
 #ifndef HTTPREQUEST_HPP
-#define HTTPREQUEST_HPP
+# define HTTPREQUEST_HPP
 
-#include <map>
 #include <string>
+#include <map>
+#include "WebservDefines.hpp"
 
-typedef struct
+typedef enum
 {
-    std::string url;
-    MethodType method;
-    std::string version;
-    std::map<std::string, std::string> header;
-    std::string body;
+    END,
+    HEADEROK,
+    READING,
+    ERROR,
+    ERROR_PAYLOAD_TOO_LARGE
+} RequestStatus;
+
+typedef enum
+{
+    CRLF,
+    STARTLINE,
+    HEADER
+} CheckLevel;
+
+typedef struct HTTPRequest
+{
+    std::string _message;
+    std::string _body;
+    MethodType _method;
+    std::string _url;
+    std::string _version;
+    std::map<std::string, std::string> _headers;
+    bool _chunckedFlag;
+    RequestStatus _status;
+    CheckLevel _checkLevel;
+    HTTPRequest()
+    {
+      _chunckedFlag = false;
+      _method = UNDEFINED;
+      _status = READING;
+      _checkLevel = CRLF;
+    }
 } HTTPRequest;
 
-#endif //HTTPREQUEST_HPP
+#endif 
