@@ -114,7 +114,6 @@ void acceptHandler(struct Context *context)
   else
   {
     printLog(getClientIP(&context->addr) +  " : connect\n", PRINT_GREEN);
-
     struct Context* newContext = new struct Context(newSocket, context->addr, readHandler, context->manager);
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);

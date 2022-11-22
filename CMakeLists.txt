@@ -13,6 +13,7 @@ set(SOURCE_FILES
         src/ServerManager.cpp
         src/ServerUtil.cpp
         src/Parser.cpp
+        src/RequestParser.cpp
         )
 
 add_executable(webserv

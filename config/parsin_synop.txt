@@ -1,0 +1,51 @@
+#cr=13 LF=nl=10
+1. \r\n 이 3개 이상인지 체크
+2. 스타트 라인 vaild체크
+3. 메서드 get이면 다 읽은거, 아니면 엔터티 더 들어옴
+4. 헤더 vaild체크 하면서 청크인지 확인
+
+
+#헤더에 length도 없고 CRLF도 없어서 무한정 읽어서 string터질 경우 exeption날리고 400날리면 될듯
+<메서드><SP><요청 URL><SP><버전>CRLF
+<이름><:><선택적인공백><값><CRLF>
+<이름><:><선택적인공백><값><CRLF>
+<이름><:><선택적인공백><값><CRLF>
+<이름><:><선택적인공백><값><CRLF>
+CRLF
+<엔터티 본문>
+
+get, head 메소드 :
+<메서드><공백><요청 URL><공백><버전>CRLF
+<헤더>CRLF
+CRLF
+
+URL : 
+  %decoding 돌리기
+
+버전: 
+  HTTP/<메이저>.<마이너>  메이저, 마이너 둘다 정수
+
+헤더 : 
+  <이름><:><선택적인공백><값><CRLF>
+  이름은 대소문자를 구분하지 않음
+Server: Test Server
+<최소 하나의 sp, tp>Version 1.0 → Server: “Test Server Version 1.0” 
+
+단순전송 : 
+- ****Content-Length: 3423 무조건 포함 되어야함****
+- ****Transfer-Encoding: chunked 일 경우 Content-Length 무시****
+    - 분할전송시
+      start-line
+      header:
+      CRLF
+      5
+      hello
+      5
+      world
+      0
+      CRLF
+
+header완성
+-> context.serverManager.RequestProccessor(HTTPRequest);
+    HTTPRequest [Header, body, Status]
+   

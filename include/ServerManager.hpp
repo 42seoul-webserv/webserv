@@ -4,8 +4,9 @@
 #include <vector>
 #include <Server.hpp>
 #include <Parser.hpp>
-
+#include <stdexcept>
 struct Context;
+struct HTTPrequest;
 
 class ServerManager
 {
@@ -36,9 +37,11 @@ struct Context
       fd(_fd),
       addr(_addr),
       handler(_handler),
-      manager(_manager)
+      manager(_manager),
+      _request(NULL)
     {
     }
+    HTTPrequest* _request;
 };
 
 void readHandler(struct Context *context);

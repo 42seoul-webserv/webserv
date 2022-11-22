@@ -316,7 +316,7 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string> &_errorPage,
     for (it = errorPageNode->elem.begin();
          it != errorPageNode->elem.end(); ++it)
     {
-      _errorPage[std::stod(it->first)] = *(it->second.begin());
+      _errorPage[std::strtod(it->first.c_str(), NULL)] = *(it->second.begin());
     }
   }
 }
