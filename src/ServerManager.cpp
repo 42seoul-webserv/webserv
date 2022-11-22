@@ -62,8 +62,6 @@ void ServerManager::initServers()
   }
 }
 
-// minkyeki, 11/19 추가.
-// 서버 리스트를 돌면서 동일한 포트주소를 갖는지 체크, 동일하다면 해당 서버의 이름을 리턴.
 std::string ServerManager::getServerName(in_port_t port_num) const
 {
   std::vector<Server>::const_iterator itr = this->_serverList.begin();
