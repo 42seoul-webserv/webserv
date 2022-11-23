@@ -87,9 +87,7 @@ public:
 
 private: // Helper functions
     static std::string GET_DAY(long tm_wday);
-
     static std::string GET_MON(long tm_wmon);
-
     static std::string getDate();
 };
 
@@ -109,13 +107,10 @@ public: // * constructor & destuctor & copy operator
     typedef std::map<std::string, std::string>::const_iterator t_iterator;
 
     HTTPResponseHeader();
-
     HTTPResponseHeader(const std::string& version, const int& statusCode,
                        const std::string& statusMessage,
                        const std::string& serverName);
-
     HTTPResponseHeader(const HTTPResponseHeader& header);
-
     HTTPResponseHeader& operator=(const HTTPResponseHeader& header);
 
 public:                                                                        // * setter functions
@@ -124,18 +119,13 @@ public:                                                                        /
     void addHeader(const std::string& key,
                    const std::string& value);            // simplest version of addHeader
     void setVersion(const std::string& version);
-
     void setStatus(const int& statusCode, const std::string& statusMessage);
 
 public: // * getter functions
     std::string getVersion() const;
-
     int getStatusCode() const;
-
     std::string getStatusMessage() const;
-
     const std::map<std::string, std::string>& getDescription() const;
-
     int getContentLength() const;
 
 public:                           // * Interface Functions.
@@ -155,9 +145,7 @@ struct ResponseContext
     int socketFD;      // fd for socket send
     std::string buffer; // string buffer
     struct sockaddr_in addr;
-
     void (* handler)(struct ResponseContext* obj);
-
     ServerManager* manager;
     size_t totalReadSize;  // Content-Length와 비교
     size_t contentLength; // response content length.
@@ -194,7 +182,6 @@ public: // * constructor & destuctor
     // set statusCode, statusMessage, and serverName.
     HTTPResponse(const int& statusCode, const std::string& statusMessage,
                  const std::string& serverName);
-
     ~HTTPResponse();
 
 public: // * setter functions
@@ -202,7 +189,6 @@ public: // * setter functions
 
 public: // * getter functions
     HTTPResponseHeader getHeader() const;
-
     FileDescriptor getFd() const;
 
 public: // * interface functions
@@ -211,9 +197,7 @@ public: // * interface functions
 
 private: // * helper functions
     static void socketSendHandler(struct ResponseContext* context);
-
     static void bodyFdReadHandler(struct ResponseContext* context);
-
     static std::string getClientIP(const struct sockaddr_in* addr);
 };
 

@@ -29,11 +29,8 @@ protected:
     std::vector<ParserNode> _nodeVector;
 public:
     bool isNodeElementEmpty(ParserNode node);
-
     ParserNode* getNextNode(ParserNode node);
-
     ~CommonParser();
-
     void displayAll();
 };
 
@@ -41,21 +38,14 @@ class ConfigParser : public CommonParser
 {
 private:
     void getElem(ParserNode* temp, const std::string& line);
-
     ParserNode* enterNode(ParserNode* temp, const std::string& line);
-
     void parseOneNode(std::istream& is);
-
     void getAllowMethods(std::vector<MethodType>& allowMethods,
                          const std::string& category,
                          unsigned int serverIndex);
-
     void getServerAttr(Server& server, unsigned int serverIndex);
-
     void getLocationAttr(Server& server, unsigned int serverIndex);
-
     void displayServer(Server& server);
-
     void getErrorPage(std::map<StatusCode, std::string>& _errorPage,
                       unsigned int serverIndex);
 
@@ -63,10 +53,7 @@ public:
     std::vector<std::string> GetNodeElem(size_t serverIndex,
                                          const std::string& category,
                                          const std::string& key);
-
     ParserNode* getNode(size_t server_index, const std::string& category);
-
     static bool isValidFile(const std::string& configFilePath);
-
     std::vector<Server> parseConfigFile(const std::string& configFilePath);
 };

@@ -15,9 +15,7 @@ public:
 
 public:
     bool isMatchedLocation(const std::string& url) const;
-
     bool isCGIRequest(const std::string& file);
-
     std::string convertURLToLocationPath(const std::string& url) const;
 };
 
