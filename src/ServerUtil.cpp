@@ -1,10 +1,6 @@
 #include "ServerManager.hpp"
 #include "RequestProcessor.hpp"
-<<<<<<< HEAD
-#include "HttpResponse.hpp"
-=======
 #include <sstream>
->>>>>>> upstream/develop
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
