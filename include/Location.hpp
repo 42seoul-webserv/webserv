@@ -3,7 +3,6 @@
 
 #include "WebservDefines.hpp"
 
-// FIXME
 class Location
 {
 public:
@@ -11,13 +10,15 @@ public:
     std::string _index;              // ex. _index.html
     std::string _root;               // ex ./myDir/...
     std::vector<MethodType> allowMethods;       // ex. GET POST DELETE ...
-    int  clientMaxBodySize;  // (--> max size of client body request)   --> defaults to 8000 bytes
-    std::vector<std::string> cgiInfo;			// ex. name: cgi_tester, arg: hello_world
+    int clientMaxBodySize;  // (--> max size of client body request)   --> defaults to 8000 bytes
+    std::vector<std::string> cgiInfo;      // ex. name: cgi_tester, arg: hello_world
 
 public:
-    bool isMatchedLocation(const std::string& url);
+    bool isMatchedLocation(const std::string& url) const;
+
     bool isCGIRequest(const std::string& file);
-    std::string convertURLToLocationPath(const std::string& url);
+
+    std::string convertURLToLocationPath(const std::string& url) const;
 };
 
 #endif //LOCATION_HPP

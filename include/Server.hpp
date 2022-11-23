@@ -2,7 +2,6 @@
 #define SERVER_HPP
 
 #include "WebservDefines.hpp"
-#include "HttpResponse.hpp"
 #include "HTTPRequest.hpp"
 #include "Location.hpp"
 #include <map>
@@ -15,6 +14,8 @@
 #include <fcntl.h>
 #include <vector>
 #include <string>
+
+class HTTPResponse;
 
 class Server
 {
@@ -37,13 +38,12 @@ public:
     Server();
     ~Server();
 private:
-    HttpResponse& processGETRequest(const struct Context* context);
-    HttpResponse& processPOSTRequest(const struct Context* context);
-    HttpResponse& processPUTRequest(const struct Context* context);
-    HttpResponse& processDELETERequest(const struct Context* context);
-    HttpResponse& processPATCHRequest(const struct Context* context);
-    HttpResponse& processHEADRequest(const struct Context* context);
-    FileDescriptor getRequestFile(const HTTPRequest& req); // 단순히 해당 url을 체크해서 파일이 존재하는지 확인...?
+    HTTPResponse& processGETRequest(const struct Context* context);
+    HTTPResponse& processPOSTRequest(const struct Context* context);
+    HTTPResponse& processPUTRequest(const struct Context* context);
+    HTTPResponse& processDELETERequest(const struct Context* context);
+    HTTPResponse& processPATCHRequest(const struct Context* context);
+    HTTPResponse& processHEADRequest(const struct Context* context);
 };
 
 #endif

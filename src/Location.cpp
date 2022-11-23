@@ -1,16 +1,20 @@
 #include "Location.hpp"
 
-static std::string getLocation(std::string url)
+static std::string getLocation(const std::string& url)
 {
   size_t lastSlashPos = url.rfind('/');
 
   if (lastSlashPos == 0)
+  {
     return (url);
+  }
   else
+  {
     return (url.substr(0, lastSlashPos));
+  }
 }
 
-bool Location::isMatchedLocation(const std::string &url)
+bool Location::isMatchedLocation(const std::string& url) const
 {
   std::string urlLocation = getLocation(url);
 
@@ -18,7 +22,7 @@ bool Location::isMatchedLocation(const std::string &url)
 }
 
 // check url is in location first...
-std::string Location::convertURLToLocationPath(const std::string &url)
+std::string Location::convertURLToLocationPath(const std::string& url) const
 {
   if (!isMatchedLocation(url))
   {
@@ -34,16 +38,18 @@ std::string Location::convertURLToLocationPath(const std::string &url)
   return (result);
 }
 
-bool Location::isCGIRequest(const std::string &file)
+bool Location::isCGIRequest(const std::string& file)
 {
   for (
           std::vector<std::string>::iterator it = cgiInfo.begin();
           it != cgiInfo.end();
           ++it
-      )
+          )
   {
     if (file == *it)
+    {
       return (true);
+    }
   }
   return (false);
 }

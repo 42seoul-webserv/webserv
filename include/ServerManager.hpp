@@ -12,13 +12,14 @@ struct Context
 {
     int fd;
     struct sockaddr_in addr;
-    void (*handler)(struct Context *obj);
+    void (* handler)(struct Context* obj);
     ServerManager* manager;
     HTTPRequest* req;
+
     Context(int _fd,
             struct sockaddr_in _addr,
-            void (*_handler)(struct Context *obj),
-            ServerManager* _manager):
+            void (* _handler)(struct Context* obj),
+            ServerManager* _manager) :
             fd(_fd),
             addr(_addr),
             handler(_handler),
@@ -26,14 +27,13 @@ struct Context
             req(NULL)
     {
     }
-    HTTPRequest* _request;
 };
 
 class ServerManager
 {
 private:
     std::vector<Server> _serverList;
-    std::vector<struct Context *> _contexts;
+    std::vector<struct Context*> _contexts;
     FileDescriptor _kqueue;
     RequestProcessor _processor;
 public:
@@ -49,10 +49,9 @@ public:
     Server& getMatchedServer(const HTTPRequest& req);
 };
 
-
-void readHandler(struct Context *context);
-void acceptHandler(struct Context *context);
-void responseHandler(struct Context *context);
-void handleEvent(struct kevent *event);
+void readHandler(struct Context* context);
+void acceptHandler(struct Context* context);
+void responseHandler(struct Context* context);
+void handleEvent(struct kevent* event);
 
 #endif //SERVERMANAGER_HPP
