@@ -8,12 +8,12 @@ add_compile_options(-g3 -fsanitize=address)
 add_link_options(-g3 -fsanitize=address)
 
 set(SOURCE_FILES
-        src/Server.cpp
         src/main.cpp
-        src/ServerManager.cpp
-        src/ServerUtil.cpp
-        src/Parser.cpp
         src/RequestParser.cpp
+        src/ServerUtil.cpp
+        src/ServerManager.cpp
+        src/Server.cpp
+        src/Parser.cpp
         src/HTTPResponse.cpp
         src/RequestProcessor.cpp
         src/Location.cpp

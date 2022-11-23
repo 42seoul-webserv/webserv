@@ -204,26 +204,51 @@ void RequestParser::getHeader(HTTPRequest* request, size_t begin, size_t endPOS)
   }
 }
 
-//두개 추가 구현 해야함
-void RequestParser::eraseFragment(HTTPRequest* request)
-{
-}
-
 void RequestParser::getQuery(HTTPRequest* request)
 {
+    size_t queryPOS;
+    std::string querySTR;
+    std::string key;
+    std::string buffer;
+
+    queryPOS = request->url.find("?");
+    if (queryPOS == std::string::npos)
+    {
+        return;
+    }
+    querySTR.assign(request->url.begin() + queryPOS + 1, request->url.end());
+    request->url.resize(queryPOS);
+    for (std::string::iterator it = querySTR.begin(); it != querySTR.end(); ++it)
+    {
+        if (*it == '&')
+        {
+            request->query[key] = buffer;
+            key.clear();
+            buffer.clear();
+        }
+        else if (*it == '=' && key.size())
+        {
+            key = buffer;
+            buffer.clear();
+        }
+        else
+        {
+            buffer += *it;
+        }
+    }
+    request->query[key] = buffer;
 }
 
 void RequestParser::checkCRLF(HTTPRequest* request)
 {
   size_t endPOS = request->message.find("\r\n\r\n");
-  size_t nowPOS;
+  size_t nowPOS = 0;
 
   std::cout << "endPOS : " << endPOS << std::endl;
   if (endPOS != std::string::npos)
   {
     request->checkLevel = STARTLINE;
     getStartLine(request, nowPOS);
-    eraseFragment(request);
     getQuery(request);
     getHeader(request, nowPOS + 2, endPOS + 2);
   }
@@ -284,4 +309,12 @@ void RequestParser::displayAll(HTTPRequest* request)
     std::cout << it->first << " : " << it->second << std::endl;
   }
   std::cout << "body : " << request->body << std::endl;
+  std::cout << "query key, value" << std::endl;
+  for (
+          std::map<std::string, std::string>::iterator it = request->query.begin(); \
+            it != request->query.end(); it++
+          )
+  {
+    std::cout << it->first << " : " << it->second << std::endl;
+  }
 }
