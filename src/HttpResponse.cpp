@@ -281,14 +281,6 @@ void HTTPResponseHeader::setDefaultHeaderDescription()
   this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(-1));
 }
 
-void HTTPResponseHeader::setDefaultHeaderDescription()
-{
-  this->addHeader(HTTPResponseHeader::SERVER("null"));
-  this->addHeader(HTTPResponseHeader::DATE());
-  this->addHeader(HTTPResponseHeader::CONNECTION("keep-alive"));
-  this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(-1));
-}
-
 /**----------------------
  * * HttpResponse       |
  *----------------------*/
