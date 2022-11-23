@@ -7,6 +7,14 @@
 #include <exception>
 #include "Server.hpp"
 
+#define DEFAULT_CLIENT_MAX_BODY_SIZE 10000
+#define DEFAULT_SERVER_NAME "127.0.0.1"
+#define DEFAULT_SERVER_PORT 80
+#define DEFAULT_INDEX "_index.html"
+#define DEFAULT_ROOT "./"
+#define DEFAULT_SOCKET_LISTEN_ADDR "0.0.0.0:80"
+#define DEFAULT_ALLOW_METHODS GET
+
 struct ParserNode
 {
     ParserNode *next;

@@ -1,6 +1,7 @@
 #include "ServerManager.hpp"
 
-ServerManager::ServerManager(const std::string &configFilePath)
+ServerManager::ServerManager(const std::string &configFilePath):
+  _processor(*this)
 {
   ConfigParser parser;
   _serverList = parser.parsing(configFilePath);
@@ -58,7 +59,7 @@ void ServerManager::initServers()
           ++server)
   {
     server->openServer();
-    attatchServerEvent(*server);
+    attachServerEvent(*server);
   }
 }
 
@@ -78,7 +79,7 @@ std::string ServerManager::getServerName(in_port_t port_num) const
   return ("webserv");
 }
 
-void ServerManager::attatchServerEvent(Server &server)
+void ServerManager::attachServerEvent(Server &server)
 {
   // TODO: have to control leak?
   struct kevent events[1];
@@ -89,8 +90,8 @@ void ServerManager::attatchServerEvent(Server &server)
   // 등록하는 kevent
   if (kevent(_kqueue, events, 1, NULL, 0, NULL) < 0)
   {
-    printLog("error: server: event attach failed\n", PRINT_RED);
-    throw (std::runtime_error("Event attach failed\n"));
+    printLog("error: server: event attachServerEvent failed\n", PRINT_RED);
+    throw (std::runtime_error("Event attachServerEvent failed\n"));
   }
   _contexts.push_back(context);
 }
@@ -98,4 +99,51 @@ void ServerManager::attatchServerEvent(Server &server)
 std::vector<Server> &ServerManager::getServerList()
 {
   return (_serverList);
+}
+
+Server& ServerManager::getMatchedServer(const HTTPRequest& req)
+{
+  for (
+          std::vector<Server>::iterator it = _serverList.begin();
+          it != _serverList.end();
+          ++it
+          )
+  {
+    Server& server = *it;
+    std::string serverName = server._serverName + ':' + ft_itos(server._serverPort);
+    std::string hostName = req._headers.at("host");
+    if (hostName.find(':') == std::string::npos)
+    {
+      hostName += ":80";
+    }
+    if (hostName == serverName)
+    {
+      return (server);
+    }
+  }
+  // no matched host, then check port
+  for (
+          std::vector<Server>::iterator it = _serverList.begin();
+          it != _serverList.end();
+          ++it
+          )
+  {
+    Server& server = *it;
+    std::string host = req._headers.at("host");
+    std::string hostPort = host.substr(host.find(':') + 1);
+    if (server._serverPort == ft_stoi(hostPort))
+    {
+      return (server);
+    }
+  }
+  return (_serverList[0]);
+}
+
+void ServerManager::attachNewEvent(struct Context *context, const struct kevent &event)
+{
+  // 등록하는 kevent
+  if (kevent(_kqueue, &event, 1, NULL, 0, NULL) < 0)
+  {
+    throw (std::runtime_error("Event attachNewEvent failed\n"));
+  }
 }

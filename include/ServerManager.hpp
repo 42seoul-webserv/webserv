@@ -14,7 +14,7 @@ struct Context
     struct sockaddr_in addr;
     void (*handler)(struct Context *obj);
     ServerManager* manager;
-
+    HTTPRequest* req;
     Context(int _fd,
             struct sockaddr_in _addr,
             void (*_handler)(struct Context *obj),
@@ -22,7 +22,8 @@ struct Context
             fd(_fd),
             addr(_addr),
             handler(_handler),
-            manager(_manager)
+            manager(_manager),
+            req(NULL)
     {
     }
 };
@@ -39,10 +40,12 @@ public:
     ~ServerManager();
     void run();
     void initServers();
-    void attatchServerEvent(Server& server);
+    void attachServerEvent(Server& server);
+    void attachNewEvent(struct Context* context, const struct kevent& event);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();
+    Server& getMatchedServer(const HTTPRequest& req);
 };
 
 

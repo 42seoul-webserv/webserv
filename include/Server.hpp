@@ -3,6 +3,8 @@
 
 #include "WebservDefines.hpp"
 #include "HttpResponse.hpp"
+#include "HTTPRequest.hpp"
+#include "Location.hpp"
 #include <map>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,11 +16,9 @@
 #include <vector>
 #include <string>
 
-class HTTPRequest;
-
 class Server
 {
-// attributes
+// attributes (getter 사용 불필요하다고 생각해서 public처리)
 public:
     FileDescriptor _serverFD;
     struct sockaddr_in _socketAddr;
@@ -29,17 +29,21 @@ public:
     std::vector<Location> _locations;
     std::string _serverName;
     int _serverPort;
-    HttpResponse& processGETRequest(const HTTPRequest& req);
-    HttpResponse& processPOSTRequest(const HTTPRequest& req);
-    HttpResponse& processPUTRequest(const HTTPRequest& req);
-    HttpResponse& processDELETERequest(const HTTPRequest& req);
-    HttpResponse& processPATCHRequest(const HTTPRequest& req);
-    HttpResponse& processHEADRequest(const HTTPRequest& req);
+    int _clientMaxBodySize;
+    void processRequest(const struct Context* context);
+    Location* getMatchedLocation(const HTTPRequest& req);
+    void openServer();
 public:
     Server();
     ~Server();
-    void openServer();
-    HttpResponse& processRequest(const HTTPRequest& req);
+private:
+    HttpResponse& processGETRequest(const struct Context* context);
+    HttpResponse& processPOSTRequest(const struct Context* context);
+    HttpResponse& processPUTRequest(const struct Context* context);
+    HttpResponse& processDELETERequest(const struct Context* context);
+    HttpResponse& processPATCHRequest(const struct Context* context);
+    HttpResponse& processHEADRequest(const struct Context* context);
+    FileDescriptor getRequestFile(const HTTPRequest& req); // 단순히 해당 url을 체크해서 파일이 존재하는지 확인...?
 };
 
 #endif

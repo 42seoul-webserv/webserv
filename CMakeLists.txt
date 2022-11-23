@@ -15,6 +15,7 @@ set(SOURCE_FILES
         src/Parser.cpp
         src/HttpResponse.cpp
         src/RequestProcessor.cpp
+        src/Location.cpp
         )
 
 add_executable(webserv
