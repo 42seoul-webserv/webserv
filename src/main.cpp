@@ -3,7 +3,7 @@
 #include "RequestParser.hpp"
 #include <iostream>
 #include <cstring>
-/*
+
 int main(int argc, char *argv[], char *envp[])
 {
   if (argc == 2)
@@ -33,32 +33,4 @@ int main(int argc, char *argv[], char *envp[])
 //    }
 //  }
   return (0);
-}*/
-
-int main(int ac, char **av)
-{
-  int fd;
-  RequestParser parser;
-  std::string temp;
-  HTTPRequest* request = new HTTPRequest();
-
-  fd = open(av[1], O_WRONLY);
-  temp += "GET https://www.google.com/search HTTP/1.1\r\n";
-  temp += "Content-Type: text/html;charset=UTF-8\r\n";
-  temp += "Content-Length:3423\r\n";
-  temp += "Content-Encoding: gzip\r\n";
-  temp += "Transfer-Encoding:chunked\r\n\r\n";
-  temp += "5\r\n";
-  temp += "hello\r\n";
-  temp += "5\r\n";
-  temp += "world\r\n";
-  temp += "0\r\n";
-  temp += "\r\n";
-  write(fd, temp.c_str(), temp.size());
-  std::cout << temp.size();
-  close(fd);
-  fd = open(av[1], O_RDONLY);
-  std::cout << fd << std::endl;
-  parser.RequestParsing(fd, request);
-  parser.displayall(request);
 }
