@@ -39,6 +39,7 @@ typedef enum
     ST_OK = 200,
     ST_CREATED = 201,
     ST_ACCEPTED = 202,
+    ST_NO_CONTENT = 204,
     ST_MULTIPLE_CHOICES = 300,
     ST_MOVED_PERMANENTLY = 301,
     ST_FOUND = 302,

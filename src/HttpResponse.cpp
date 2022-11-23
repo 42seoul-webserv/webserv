@@ -151,22 +151,16 @@ HeaderType::t_pair HeaderType::SET_COOKIE(const std::string &entity)
 HTTPResponseHeader::HTTPResponseHeader()
     : _version("HTTP/1.1"), _status_code(-1), _status_messege("null")
 {
+  this->addHeader(HTTPResponseHeader::SERVER("null"));
   setDefaultHeaderDescription();
 }
 
-HTTPResponseHeader::HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege)
-    : _version("HTTP/1.1"),
-      _status_code(-1),
-      _status_messege("null")
+HTTPResponseHeader::HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege, const std::string &server_name)
+    : _version(version),
+      _status_code(status_code),
+      _status_messege(status_messege)
 {
-  setDefaultHeaderDescription();
-}
-
-HTTPResponseHeader::HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege)
-    : _version("HTTP/1.1"),
-      _status_code(-1),
-      _status_messege("null")
-{
+  this->addHeader(HTTPResponseHeader::SERVER(server_name));
   setDefaultHeaderDescription();
 }
 
@@ -275,7 +269,6 @@ bool HTTPResponseHeader::isTransferChunked() const
 
 void HTTPResponseHeader::setDefaultHeaderDescription()
 {
-  this->addHeader(HTTPResponseHeader::SERVER("null"));
   this->addHeader(HTTPResponseHeader::DATE());
   this->addHeader(HTTPResponseHeader::CONNECTION("keep-alive"));
   this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(-1));
@@ -285,8 +278,8 @@ void HTTPResponseHeader::setDefaultHeaderDescription()
  * * HttpResponse       |
  *----------------------*/
 
-HTTPResponse::HTTPResponse()
-    : HTTPResponseHeader()
+HTTPResponse::HTTPResponse(const int& status_code, const std::string& status_messege, const std::string& server_name)
+    : HTTPResponseHeader("HTTP/1.1", status_code, status_messege, server_name)
 {
 }
 
@@ -309,7 +302,7 @@ FileDescriptor HTTPResponse::getFd() const
   return _fd;
 }
 
-void HTTPResponse::sendToClient(const HTTPResponse &res, int socket_fd, struct sockaddr_in addr, ServerManager *manager)
+void HTTPResponse::sendToClient(int socket_fd, struct sockaddr_in addr, ServerManager *manager)
 {
   /** ------------------
    * * (1) Send Header |
@@ -322,8 +315,8 @@ void HTTPResponse::sendToClient(const HTTPResponse &res, int socket_fd, struct s
   // *! ---------------------------------------------------------------------------------------
 
   struct ResponseContext *newContext = new struct ResponseContext(socket_fd,
-                                                                  res.getFd(),
-                                                                  res.getHeader().toString(), // 헤더 내용을 버퍼로 전달.
+                                                                  this->getFd(),
+                                                                  this->getHeader().toString(), // 헤더 내용을 버퍼로 전달.
                                                                   addr,
                                                                   socketSendHandler,
                                                                   manager,
@@ -349,20 +342,20 @@ void HTTPResponse::sendToClient(const HTTPResponse &res, int socket_fd, struct s
 
   // if body exists, read body and store them to buffer.
   // 만약 body가 있다면, (정상코드이고  Content Length가 있다면) 읽는다.
-  if (res.getFd() >= 0 && res.getContentLength() > 0 && res.getStatusCode() != 204)
+  if (this->getFd() >= 0 && this->getContentLength() > 0 && this->getStatusCode() != ST_NO_CONTENT)
   {
     // (2-1) kevent에 read할 fd를 등록 (이제 read_fd가 read 가능해지면 bodyFdReadHandler가 호출된다.
     // std::string buffer;
 
     // ResponseContext 생성.
     struct ResponseContext *newContext = new struct ResponseContext(socket_fd,
-                                                                    res.getFd(),
+                                                                    this->getFd(),
                                                                     std::string(""), // hand-over empty buffer
                                                                     addr,
                                                                     bodyFdReadHandler,
                                                                     manager,
                                                                     0,                       // total_rd_size를 0으로 초기화
-                                                                    res.getContentLength()); // content_length 설정.
+                                                                    this->getContentLength()); // content_length 설정.
 
     // event 세팅
     struct kevent event;

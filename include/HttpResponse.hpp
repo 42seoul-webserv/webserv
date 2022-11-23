@@ -105,7 +105,7 @@ protected:
 public: // * constructor & destuctor & copy operator
   typedef std::map<std::string, std::string>::const_iterator t_iterator;
   HTTPResponseHeader();
-  HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege);
+  HTTPResponseHeader(const std::string &version, const int &status_code, const std::string &status_messege, const std::string &server_name);
   HTTPResponseHeader(const HTTPResponseHeader &header);
   HTTPResponseHeader &operator=(const HTTPResponseHeader &header);
 
@@ -171,7 +171,8 @@ private:
   FileDescriptor _fd;
 
 public: // * constructor & destuctor
-  HTTPResponse();
+  // set status_code, status_messege, and server_name.
+  HTTPResponse(const int& status_code, const std::string& status_messege, const std::string& server_name);
   ~HTTPResponse();
 
 public: // * setter functions
@@ -182,7 +183,7 @@ public: // * getter functions
   FileDescriptor getFd() const;
 
 public: // * interface functions
-  void sendToClient(const HTTPResponse &res, int socket_fd, struct sockaddr_in addr, ServerManager *manager);
+  void sendToClient(int socket_fd, struct sockaddr_in addr, ServerManager *manager);
   
 private: // * helper functions
   static void socketSendHandler(struct ResponseContext *context);
