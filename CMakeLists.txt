@@ -9,9 +9,9 @@ add_link_options(-g3 -fsanitize=address)
 
 set(SOURCE_FILES
         src/Server.cpp
+        src/ServerUtil.cpp
         src/main.cpp
         src/ServerManager.cpp
-        src/ServerUtil.cpp
         src/Parser.cpp
         src/RequestParser.cpp
         src/HTTPResponse.cpp

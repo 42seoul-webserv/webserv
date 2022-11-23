@@ -86,7 +86,7 @@ void RequestProcessor::processRequest(struct Context* context)
   HTTPRequest& req = *context->req;
   if (req.status == ERROR)
   {
-    HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context);
+    HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
 
     // call response processor
     context->req = NULL;
@@ -99,7 +99,7 @@ void RequestProcessor::processRequest(struct Context* context)
 
     if (status != ST_OK)
     {
-      HTTPResponse* response = new HTTPResponse(status, "", context);
+      HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
 
       // call response processor
       context->req = NULL;

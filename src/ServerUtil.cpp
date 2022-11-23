@@ -45,7 +45,7 @@ static std::string getResponse(FileDescriptor indexFile)
   return (result);
 }
 
-std::string getClientIP(const struct sockaddr_in* addr)
+std::string getClientIP(struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
   const struct sockaddr_in* pV4Addr = addr;

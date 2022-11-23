@@ -152,6 +152,7 @@ HTTPResponseHeader& HTTPResponseHeader::operator=(const HTTPResponseHeader& head
   _status_code = header._status_code;
   _statusMessage = header._statusMessage;
   _description = header._description;
+  return (*this);
 }
 
 void HTTPResponseHeader::addHeader(const std::pair<std::string, std::string>& descriptionPair)
@@ -277,7 +278,7 @@ HTTPResponse::~HTTPResponse()
 {
 }
 
-FileDescriptor HTTPResponse::setFd(const FileDescriptor& fd)
+void HTTPResponse::setFd(const FileDescriptor& fd)
 {
   _fd = fd;
 }
