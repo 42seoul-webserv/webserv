@@ -228,7 +228,7 @@ int HTTPResponseHeader::getContentLength() const
 std::string HTTPResponseHeader::toString() const
 {
   // (1) if _status_code is out of range, throw error
-  if (_status_code < 10 || _status_code > 599)
+  if (_status_code < 100 || _status_code > 599)
   {
     throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
   }
