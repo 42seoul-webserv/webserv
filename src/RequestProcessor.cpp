@@ -68,7 +68,7 @@ void RequestProcessor::processRequest(struct Context *context)
   HTTPRequest& req = *context->req;
   if (req._status == ERROR)
   {
-    HttpResponse* response = new HttpResponse(ST_BAD_REQUEST, "bad request", context);
+    HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context);
 
     // call response processor
     context->req = NULL;
@@ -81,7 +81,7 @@ void RequestProcessor::processRequest(struct Context *context)
 
     if (status != ST_OK)
     {
-      HttpResponse* response = new HttpResponse(status, "", context);
+      HTTPResponse* response = new HTTPResponse(status, "", context);
 
       // call response processor
       context->req = NULL;

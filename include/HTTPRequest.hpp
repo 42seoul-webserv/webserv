@@ -8,7 +8,7 @@
 typedef enum
 {
     END,
-    HEADER,
+    HEADEROK,
     READING,
     ERROR
 } RequestStatus;
@@ -17,7 +17,8 @@ typedef enum
 {
     CRLF,
     STARTLINE,
-    HEADER
+    HEADER,
+    BODY
 } CheckLevel;
 
 typedef struct HTTPRequest
@@ -25,6 +26,7 @@ typedef struct HTTPRequest
     std::string _message;
     std::string _body;
     MethodType _method;
+    std::string _qury;
     std::string _url;
     std::string _version;
     std::map<std::string, std::string> _headers;

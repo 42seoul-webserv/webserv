@@ -1,6 +1,8 @@
 
 #include "ServerManager.hpp"
+#include "RequestParser.hpp"
 #include <iostream>
+#include <cstring>
 
 int main(int argc, char *argv[], char *envp[])
 {

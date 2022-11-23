@@ -26,6 +26,7 @@ struct Context
             req(NULL)
     {
     }
+    HTTPRequest* _request;
 };
 
 class ServerManager
