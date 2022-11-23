@@ -23,22 +23,23 @@ typedef enum
 
 typedef struct HTTPRequest
 {
-    std::string _message;
-    std::string _body;
-    MethodType _method;
-    std::string _qury;
-    std::string _url;
-    std::string _version;
-    std::map<std::string, std::string> _headers;
-    bool _chunckedFlag;
-    RequestStatus _status;
-    CheckLevel _checkLevel;
+    std::string message; // request Message ( all )
+    std::string body;
+    MethodType method;
+    std::string query; // url?query
+    std::string url; // pure url
+    std::string version;
+    std::map<std::string, std::string> headers;
+    bool chunkedFlag;
+    RequestStatus status;
+    CheckLevel checkLevel;
+
     HTTPRequest()
     {
-      _chunckedFlag = false;
-      _method = UNDEFINED;
-      _status = READING;
-      _checkLevel = CRLF;
+      chunkedFlag = false;
+      method = UNDEFINED;
+      status = READING;
+      checkLevel = CRLF;
     }
 } HTTPRequest;
 

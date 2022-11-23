@@ -4,7 +4,7 @@
 #include <iostream>
 #include <cstring>
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char* argv[], char* envp[])
 {
   if (argc == 2)
   {

@@ -5,7 +5,7 @@
 #include <sstream>
 
 //CommonParser
-bool CommonParser::IsNodeElemEmpty(ParserNode node)
+bool CommonParser::isNodeElementEmpty(ParserNode node)
 {
   if (node.elem.empty())
   {
@@ -14,15 +14,15 @@ bool CommonParser::IsNodeElemEmpty(ParserNode node)
   return (false);
 }
 
-ParserNode *CommonParser::GetNextNode(ParserNode node)
+ParserNode* CommonParser::getNextNode(ParserNode node)
 {
   return (node.next);
 }
 
-ParserNode *ConfigParser::getNode(size_t server_index,
-                                  const std::string &category)
+ParserNode* ConfigParser::getNode(size_t server_index,
+                                  const std::string& category)
 {
-  ParserNode *temp = NULL;
+  ParserNode* temp = NULL;
 
   temp = _nodeVector[server_index].next;
   while (temp && temp->category != category)
@@ -32,15 +32,15 @@ ParserNode *ConfigParser::getNode(size_t server_index,
   return (temp);
 }
 
-std::vector<std::string> ConfigParser::GetNodeElem(size_t server_index,
-                                                   const std::string &category,
-                                                   const std::string &key)
+std::vector<std::string> ConfigParser::GetNodeElem(size_t serverIndex,
+                                                   const std::string& category,
+                                                   const std::string& key)
 {
-  ParserNode *temp = NULL;
+  ParserNode* temp = NULL;
   std::vector<std::string> empty;
   std::map<std::string, std::vector<std::string> >::iterator it;
 
-  temp = _nodeVector[server_index].next;
+  temp = _nodeVector[serverIndex].next;
   while (temp && temp->category != category)
   {
     temp = temp->next;
@@ -59,18 +59,24 @@ std::vector<std::string> ConfigParser::GetNodeElem(size_t server_index,
 
 void CommonParser::displayAll()
 {
-  for (unsigned int i = 0; i < _nodeVector.size(); ++i)
+  for (
+          unsigned int i = 0; i < _nodeVector.size(); ++i
+          )
   {
-    ParserNode *temp = &_nodeVector[i];
+    ParserNode* temp = &_nodeVector[i];
     while (temp)
     {
       std::cout << temp->category << std::endl;
-      for (std::map<std::string, std::vector<std::string> >::iterator it = temp->elem.begin(); \
-                it != temp->elem.end(); ++it)
+      for (
+              std::map<std::string, std::vector<std::string> >::iterator it = temp->elem.begin(); \
+                it != temp->elem.end(); ++it
+              )
       {
         std::cout << "  " << it->first << " : ";
-        for (unsigned long secondIdx = 0;
-             secondIdx < it->second.size(); ++secondIdx)
+        for (
+                unsigned long secondIdx = 0;
+                secondIdx < it->second.size(); ++secondIdx
+                )
         {
           std::cout << it->second[secondIdx] << " ";
         }
@@ -82,13 +88,13 @@ void CommonParser::displayAll()
 }
 
 //ConfigParser
-bool ConfigParser::vaildCheck(const std::string &FileRoot)
+bool ConfigParser::isValidFile(const std::string& configFilePath)
 {
   std::stack<char> checkStack;
   std::filebuf fb;
   char getChar;
 
-  if (fb.open(FileRoot, std::ios::in) == NULL)
+  if (fb.open(configFilePath, std::ios::in) == NULL)
   {
     return (false);
   }
@@ -121,13 +127,15 @@ bool ConfigParser::vaildCheck(const std::string &FileRoot)
 }
 
 // private
-void ConfigParser::getElem(ParserNode *temp, const std::string &line)
+void ConfigParser::getElem(ParserNode* temp, const std::string& line)
 {
   std::string key;
   std::string buffer;
   std::vector<std::string> value;
 
-  for (std::string::const_iterator it = line.begin(); it != line.end(); ++it)
+  for (
+          std::string::const_iterator it = line.begin(); it != line.end(); ++it
+          )
   {
     if (isblank(*it) || *it == ';')
     {
@@ -151,7 +159,7 @@ void ConfigParser::getElem(ParserNode *temp, const std::string &line)
   temp->elem[key] = value;
 }
 
-ParserNode *ConfigParser::EnterNode(ParserNode *temp, const std::string &line)
+ParserNode* ConfigParser::enterNode(ParserNode* temp, const std::string& line)
 {
   while (temp->next)
   {
@@ -161,7 +169,9 @@ ParserNode *ConfigParser::EnterNode(ParserNode *temp, const std::string &line)
   temp->next->prev = temp;
   temp->next->next = NULL;
   temp = temp->next;
-  for (std::string::const_iterator it = line.begin(); it != line.end(); ++it)
+  for (
+          std::string::const_iterator it = line.begin(); it != line.end(); ++it
+          )
   {
     if ((isblank(*it) && *(it + 1) != '/') || *it == '{')
     {
@@ -174,10 +184,12 @@ ParserNode *ConfigParser::EnterNode(ParserNode *temp, const std::string &line)
 
 CommonParser::~CommonParser()
 {
-  ParserNode *origin;
-  ParserNode *temp;
+  ParserNode* origin;
+  ParserNode* temp;
 
-  for (unsigned int i = 0; i < _nodeVector.size(); ++i)
+  for (
+          unsigned int i = 0; i < _nodeVector.size(); ++i
+          )
   {
     origin = _nodeVector[i].next;
     while (origin)
@@ -189,11 +201,11 @@ CommonParser::~CommonParser()
   }
 }
 
-void ConfigParser::parsingOneNode(std::istream &is)
+void ConfigParser::parseOneNode(std::istream& is)
 {
   std::string buffer;
   ParserNode rootNode;
-  ParserNode *temp = &rootNode;
+  ParserNode* temp = &rootNode;
 
   rootNode.next = NULL;
   rootNode.prev = NULL;
@@ -209,7 +221,7 @@ void ConfigParser::parsingOneNode(std::istream &is)
     }
     else if (*buffer.rbegin() == '{')
     {
-      temp = EnterNode(temp, buffer);
+      temp = enterNode(temp, buffer);
     }
     else if (*buffer.rbegin() == '}')
     {
@@ -227,23 +239,27 @@ void ConfigParser::parsingOneNode(std::istream &is)
   }
 }
 
-void ConfigParser::getAllowMethods(std::vector<MethodType> &_allowMethods,
-                                   const std::string &category,
-                                   unsigned int server_index)
+void ConfigParser::getAllowMethods(std::vector<MethodType>& allowMethods,
+                                   const std::string& category,
+                                   unsigned int serverIndex)
 {
   std::vector<std::string> methods;
 
-  methods = GetNodeElem(server_index, category, "allow_methods");
-  for (unsigned int i = 0; i < methods.size(); ++i)
+  methods = GetNodeElem(serverIndex, category, "allow_methods");
+  for (
+          unsigned int i = 0; i < methods.size(); ++i
+          )
   {
     MethodType method = getMethodType(methods[i]);
-    _allowMethods.push_back(method);
+    allowMethods.push_back(method);
   }
-  if (_allowMethods.empty())
-    _allowMethods.push_back(DEFAULT_ALLOW_METHODS);
+  if (allowMethods.empty())
+  {
+    allowMethods.push_back(DEFAULT_ALLOW_METHODS);
+  }
 }
 
-static void setLocationDefault(Server &server, Location &location)
+static void setLocationDefault(Server& server, Location& location)
 {
   if (location._root.empty())
   {
@@ -255,15 +271,17 @@ static void setLocationDefault(Server &server, Location &location)
   }
 }
 
-void ConfigParser::getLocationAttr(Server &server, unsigned int server_index)
+void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex)
 {
   size_t found;
   std::string temp_cate;
   std::vector<std::string> temp2;
   Location location;
 
-  for (ParserNode *temp = _nodeVector[server_index].next;
-       temp != NULL; temp = temp->next)
+  for (
+          ParserNode* temp = _nodeVector[serverIndex].next;
+          temp != NULL; temp = temp->next
+          )
   {
     found = temp->category.find("_location ");
     if (found != std::string::npos)
@@ -275,29 +293,35 @@ void ConfigParser::getLocationAttr(Server &server, unsigned int server_index)
       {
         throw (std::runtime_error("invalid config file\n"));
       }
-      std::string indexString = *(GetNodeElem(server_index,
+      std::string indexString = *(GetNodeElem(serverIndex,
                                               temp->category,
                                               "_index").begin());
       if (indexString.empty())
+      {
         location._index = DEFAULT_INDEX;
+      }
 
-      std::string rootString = *(GetNodeElem(server_index,
-                                    temp->category,
-                                    "_root").begin());
+      std::string rootString = *(GetNodeElem(serverIndex,
+                                             temp->category,
+                                             "_root").begin());
       if (rootString.empty())
+      {
         location._root = DEFAULT_ROOT;
-      getAllowMethods(location.allowMethods, temp->category, server_index);
-      if (!GetNodeElem(server_index,
+      }
+      getAllowMethods(location.allowMethods, temp->category, serverIndex);
+      if (!GetNodeElem(serverIndex,
                        temp->category,
                        "client_max_body_size").begin()->empty())
       {
-        location.clientMaxBodySize = ft_stoi(*(GetNodeElem(server_index,
+        location.clientMaxBodySize = ft_stoi(*(GetNodeElem(serverIndex,
                                                            temp->category,
                                                            "client_max_body_size").begin()));
       } // FIXME crash 가능성
       else
+      {
         location.clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
-      location.cgiInfo = GetNodeElem(server_index, temp->category, "cgi_info");
+      }
+      location.cgiInfo = GetNodeElem(serverIndex, temp->category, "cgi_info");
       setLocationDefault(server, location);
       server._locations.push_back(location);
       location.allowMethods.clear();
@@ -306,23 +330,29 @@ void ConfigParser::getLocationAttr(Server &server, unsigned int server_index)
   }
 }
 
-void ConfigParser::displayServer(Server &server)
+void ConfigParser::displayServer(Server& server)
 {
   std::cout << "server allowMethods : ";
-  for (unsigned int i = 0; i < server._allowMethods.size(); ++i)
+  for (
+          unsigned int i = 0; i < server._allowMethods.size(); ++i
+          )
   {
     std::cout << server._allowMethods[i] << " ";
   }
   std::cout << std::endl;
   std::cout << "error_page : " << std::endl;
-  for (std::map<StatusCode, std::string>::iterator it = server._errorPage.begin();
-       it != server._errorPage.end(); ++it)
+  for (
+          std::map<StatusCode, std::string>::iterator it = server._errorPage.begin();
+          it != server._errorPage.end(); ++it
+          )
   {
     std::cout << it->first << " : ";
     std::cout << it->second << std::endl;
   }
   std::cout << std::endl;
-  for (unsigned int i = 0; i < server._locations.size(); ++i)
+  for (
+          unsigned int i = 0; i < server._locations.size(); ++i
+          )
   {
     std::cout << "_location : " << server._locations[i]._location << std::endl;
     std::cout << "_index : " << server._locations[i]._index << std::endl;
@@ -330,13 +360,17 @@ void ConfigParser::displayServer(Server &server)
     std::cout << "maxsize : " << server._locations[i].clientMaxBodySize
               << std::endl;
     std::cout << "_location allow methods: ";
-    for (unsigned int k = 0; k < server._locations[i].allowMethods.size(); ++k)
+    for (
+            unsigned int k = 0; k < server._locations[i].allowMethods.size(); ++k
+            )
     {
       std::cout << server._locations[i].allowMethods[k] << " ";
     }
     std::cout << std::endl;
     std::cout << "cgiInfo : ";
-    for (unsigned int k = 0; k < server._locations[i].cgiInfo.size(); ++k)
+    for (
+            unsigned int k = 0; k < server._locations[i].cgiInfo.size(); ++k
+            )
     {
       std::cout << server._locations[i].cgiInfo[k] << " ";
     }
@@ -344,16 +378,18 @@ void ConfigParser::displayServer(Server &server)
   }
 }
 
-void ConfigParser::getErrorPage(std::map<StatusCode, std::string> &_errorPage,
-                                unsigned int server_index)
+void ConfigParser::getErrorPage(std::map<StatusCode, std::string>& _errorPage,
+                                unsigned int serverIndex)
 {
-  ParserNode *errorPageNode = getNode(server_index, "error_page");
+  ParserNode* errorPageNode = getNode(serverIndex, "error_page");
   std::map<std::string, std::vector<std::string> >::iterator it;
 
   if (errorPageNode)
   {
-    for (it = errorPageNode->elem.begin();
-         it != errorPageNode->elem.end(); ++it)
+    for (
+            it = errorPageNode->elem.begin();
+            it != errorPageNode->elem.end(); ++it
+            )
     {
       _errorPage[static_cast<StatusCode>(std::stod(it->first))] = *(it->second.begin());
     }
@@ -361,47 +397,53 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string> &_errorPage,
 }
 
 //begin empty일때
-void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
+void ConfigParser::getServerAttr(Server& server, unsigned int serverIndex)
 {
   std::string listenAddress;
   std::string serverListenIP;
   int serverListenPort;
 
   // set server ip
-  listenAddress = *(GetNodeElem(server_index, "server", "listen").begin());
+  listenAddress = *(GetNodeElem(serverIndex, "server", "listen").begin());
   if (listenAddress.empty())
+  {
     listenAddress = DEFAULT_SOCKET_LISTEN_ADDR;
+  }
   serverListenIP = listenAddress.substr(0, listenAddress.find(':'));
   inet_pton(AF_INET, serverListenIP.c_str(), &server._socketAddr.sin_addr);
   // ser server port
   std::string portString = listenAddress.substr(listenAddress.find(':') + 1);
   if (!portString.empty())
+  {
     serverListenPort = ft_stoi(portString);
+  }
   else
+  {
     serverListenPort = DEFAULT_SERVER_PORT;
+  }
   server._socketAddr.sin_port = ntohs(serverListenPort);
   server._serverPort = ntohs(serverListenPort);
   server._socketAddr.sin_family = AF_INET;
-  
+
   // set server config
-  server._index = *(GetNodeElem(server_index, "server", "_index").begin());
+  server._index = *(GetNodeElem(serverIndex, "server", "_index").begin());
   if (server._index.empty())
   {
     server._index = DEFAULT_INDEX;
   }
-  server._root = *(GetNodeElem(server_index, "server", "_root").begin());
+  server._root = *(GetNodeElem(serverIndex, "server", "_root").begin());
   if (server._root.empty())
   {
     server._serverName = DEFAULT_ROOT;
   }
-  server._serverName = *(GetNodeElem(server_index,
+  server._serverName = *(GetNodeElem(serverIndex,
                                      "server",
                                      "server_name").begin());
   if (server._serverName.empty())
   {
     server._serverName = DEFAULT_SERVER_NAME;
   }
-  std::string clientMaxBodySize = *(GetNodeElem(server_index,
+  std::string clientMaxBodySize = *(GetNodeElem(serverIndex,
                                                 "server",
                                                 "client_max_body_size").begin());
   if (clientMaxBodySize.empty())
@@ -409,35 +451,37 @@ void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
     server._clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
   }
   server._clientMaxBodySize = ft_stoi(clientMaxBodySize);
-  getAllowMethods(server._allowMethods, "server", server_index);
+  getAllowMethods(server._allowMethods, "server", serverIndex);
   if (server._allowMethods.empty())
   {
     server._allowMethods.push_back(DEFAULT_ALLOW_METHODS);
   }
-  getLocationAttr(server, server_index);
-  getErrorPage(server._errorPage, server_index);
+  getLocationAttr(server, serverIndex);
+  getErrorPage(server._errorPage, serverIndex);
   displayServer(server);
 }
 
-std::vector<Server> ConfigParser::parsing(const std::string &FileRoot)
+std::vector<Server> ConfigParser::parseConfigFile(const std::string& configFilePath)
 {
   std::filebuf fb;
   std::vector<Server> _serverList;
 
-  if (fb.open(FileRoot, std::ios::in) == NULL)
+  if (fb.open(configFilePath, std::ios::in) == NULL)
   {
     throw (std::runtime_error("open fail\n"));
   }
   std::istream is(&fb);
   while (is)
   {
-    parsingOneNode(is);
+    parseOneNode(is);
   }
   fb.close();
   _serverList.resize(_nodeVector.size());
 
   const unsigned int SIZE = _nodeVector.size();
-  for (unsigned int i = 0; i < SIZE; ++i)
+  for (
+          unsigned int i = 0; i < SIZE; ++i
+          )
   {
     getServerAttr(_serverList[i], i);
   }

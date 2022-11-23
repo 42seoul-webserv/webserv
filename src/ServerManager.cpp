@@ -1,20 +1,20 @@
 #include "ServerManager.hpp"
 
-ServerManager::ServerManager(const std::string &configFilePath):
-  _processor(*this)
+ServerManager::ServerManager(const std::string& configFilePath) :
+        _processor(*this)
 {
   ConfigParser parser;
-  _serverList = parser.parsing(configFilePath);
+  _serverList = parser.parseConfigFile(configFilePath);
   //parser.displayAll();
 }
 
 ServerManager::~ServerManager()
 {
   for (
-        std::vector<struct Context*>::iterator it = _contexts.begin();
-        it != _contexts.begin();
-        ++it
-    )
+          std::vector<struct Context*>::iterator it = _contexts.begin();
+          it != _contexts.begin();
+          ++it
+          )
   {
     delete (*it);
   }
@@ -35,14 +35,22 @@ void ServerManager::run()
     // 서버 시작. 새 이벤트(Req)가 발생할 때 까지 무한루프. (감지하는 kevent)
     int newEventCount = kevent(_kqueue, NULL, 0, &event, 1, NULL);
 
-    if (newEventCount == -1) // nothing happen
-      continue ;
-    else if (newEventCount == 0) // time limit expired -> never happen
+    if (newEventCount == -1)
+    { // nothing happen
+      continue;
+    }
+    else if (newEventCount == 0)
+    { // time limit expired -> never happen
       printLog("time limit expired\n", PRINT_BLUE);
+    }
     else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
+    {
       handleEvent(&event);
-    else if (event.filter == EV_ERROR) // request 도중에 error 가 난 상황이라면?
+    }
+    else if (event.filter == EV_ERROR)
+    { // request 도중에 error 가 난 상황이라면?
       printLog("Error: EV_ERROR\n", PRINT_RED);
+    }
   }
 }
 
@@ -56,7 +64,8 @@ void ServerManager::initServers()
   for (
           std::vector<Server>::iterator server = _serverList.begin();
           server != _serverList.end();
-          ++server)
+          ++server
+          )
   {
     server->openServer();
     attachServerEvent(*server);
@@ -77,11 +86,11 @@ std::string ServerManager::getServerName(in_port_t port_num) const
   return ("webserv");
 }
 
-void ServerManager::attachServerEvent(Server &server)
+void ServerManager::attachServerEvent(Server& server)
 {
   // TODO: have to control leak?
   struct kevent events[1];
-  struct Context *context = new struct Context(server._serverFD, server._socketAddr, acceptHandler, this);
+  struct Context* context = new struct Context(server._serverFD, server._socketAddr, acceptHandler, this);
   // Context { fd | socket_addr | handler | manager_ptr }
 
   EV_SET(&events[0], server._serverFD, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, context);
@@ -94,7 +103,7 @@ void ServerManager::attachServerEvent(Server &server)
   _contexts.push_back(context);
 }
 
-std::vector<Server> &ServerManager::getServerList()
+std::vector<Server>& ServerManager::getServerList()
 {
   return (_serverList);
 }
@@ -109,7 +118,7 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
   {
     Server& server = *it;
     std::string serverName = server._serverName + ':' + ft_itos(server._serverPort);
-    std::string hostName = req._headers.at("host");
+    std::string hostName = req.headers.at("host");
     if (hostName.find(':') == std::string::npos)
     {
       hostName += ":80";
@@ -127,7 +136,7 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
           )
   {
     Server& server = *it;
-    std::string host = req._headers.at("host");
+    std::string host = req.headers.at("host");
     std::string hostPort = host.substr(host.find(':') + 1);
     if (server._serverPort == ft_stoi(hostPort))
     {
@@ -137,7 +146,7 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
   return (_serverList[0]);
 }
 
-void ServerManager::attachNewEvent(struct Context *context, const struct kevent &event)
+void ServerManager::attachNewEvent(struct Context* context, const struct kevent& event)
 {
   // 등록하는 kevent
   if (kevent(_kqueue, &event, 1, NULL, 0, NULL) < 0)

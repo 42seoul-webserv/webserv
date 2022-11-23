@@ -1,5 +1,5 @@
 #ifndef WEBSERV_DEFINES_HPP
- #define WEBSERV_DEFINES_HPP
+#define WEBSERV_DEFINES_HPP
 
 #include <string>
 #include <vector>
@@ -66,6 +66,5 @@ std::string getClientIP(struct sockaddr_in* addr);
 std::string ft_itos(int i);
 int ft_stoi(const std::string& str);
 std::string getStatusCodeMessage(StatusCode code);
-
 
 #endif
