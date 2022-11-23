@@ -1,4 +1,6 @@
 #include "ServerManager.hpp"
+#include "RequestProcessor.hpp"
+#include <sstream>
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -38,9 +40,7 @@ static std::string getResponse(FileDescriptor indexFile)
   return (result);
 }
 
-// client IP is defined when accept successed...
-// TODO : separate to another file
-static std::string getClientIP(struct sockaddr_in* addr)
+std::string getClientIP(struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
   struct sockaddr_in* pV4Addr = addr;
@@ -55,7 +55,7 @@ void responseHandler(struct Context *context)
 {
   FileDescriptor indexFile ;
 
-  if ((indexFile = open("../index.html", O_RDONLY)) < 0)
+  if ((indexFile = open("../_index.html", O_RDONLY)) < 0)
   {
     printLog("error: client: " + getClientIP(&context->addr) +  " : open failed\n", PRINT_RED);
     throw (std::runtime_error("Open Failed\n"));
@@ -69,6 +69,7 @@ void responseHandler(struct Context *context)
   printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
   close(context->fd);
   close(indexFile);
+
   delete (context);
 }
 
@@ -93,8 +94,8 @@ void readHandler(struct Context *context)
     EV_SET(&event, newContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
     if (kevent(context->manager->getKqueue(), &event, 1, NULL, 0, NULL) < 0)
     {
-      printLog("error: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attach failed (response)\n"));
+      printLog("error: " + getClientIP(&context->addr) +  " : event attachServerEvent failed\n", PRINT_RED);
+      throw (std::runtime_error("Event attachServerEvent failed (response)\n"));
     }
     delete (context);
   }
@@ -119,8 +120,8 @@ void acceptHandler(struct Context *context)
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);
     if (kevent(context->manager->getKqueue(), &event, 1, NULL, 0, NULL) < 0)
     {
-      printLog("error: client: " + getClientIP(&context->addr) +  " : event attach failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attach failed (read)\n"));
+      printLog("error: client: " + getClientIP(&context->addr) +  " : event attachServerEvent failed\n", PRINT_RED);
+      throw (std::runtime_error("Event attachServerEvent failed (read)\n"));
     }
   }
 }
@@ -186,4 +187,21 @@ std::string decodePercentEncoding(const std::string& str)
     }
   }
   return (result);
+}
+
+std::string ft_itos(int i)
+{
+  std::stringstream ss;
+  ss << i;
+  return (ss.str());
+}
+
+int ft_stoi(const std::string& str)
+{
+  int res;
+  std::stringstream ss;
+
+  ss << str;
+  ss >> res;
+  return (res);
 }

@@ -1,7 +1,7 @@
 #include "RequestParser.hpp"
 #include <cstdlib>
 /*
-void RequestParser::bodyLengthCheck(HTTPrequest* request)
+void RequestParser::bodyLengthCheck(HTTPRequest* request)
 {
     std::map<std::string, std::string>::iterator it;
 
@@ -23,7 +23,7 @@ std::string::iterator RequestParser::getOneLine(\
     return it;
 }
 
-void RequestParser::chunkedParsing(HTTPrequest* request)
+void RequestParser::chunkedParsing(HTTPRequest* request)
 {
     std::string endcheck;
     std::string chunckedbody;
@@ -60,7 +60,7 @@ void RequestParser::chunkedParsing(HTTPrequest* request)
     request->_body.assign(chunckedbody.begin(), chunckedbody.end());
 }
 
-void RequestParser::bodyParsing(HTTPrequest* request)
+void RequestParser::bodyParsing(HTTPRequest* request)
 {
     size_t delim;
 
@@ -75,7 +75,7 @@ void RequestParser::bodyParsing(HTTPrequest* request)
         bodyLengthCheck(request);*/
 }
 
-void RequestParser::hearderVaildCheck(HTTPrequest* request)
+void RequestParser::hearderVaildCheck(HTTPRequest* request)
 {
     std::map<std::string, std::string>::iterator length;
     std::map<std::string, std::string>::iterator chunked;
@@ -97,7 +97,7 @@ void RequestParser::hearderVaildCheck(HTTPrequest* request)
     request->_status = HEADEROK;
 }
 
-void RequestParser::startLineVaildCheck(HTTPrequest* request)
+void RequestParser::startLineVaildCheck(HTTPRequest* request)
 {
     if (request->_checkLevel != STARTLINE)
         return;
@@ -109,7 +109,7 @@ void RequestParser::startLineVaildCheck(HTTPrequest* request)
     request->_checkLevel = HEADER;
 }
 
-void RequestParser::getStartLine(HTTPrequest* request, size_t& end)
+void RequestParser::getStartLine(HTTPRequest* request, size_t& end)
 {
     std::string::iterator it;
     std::string buffer;
@@ -146,7 +146,7 @@ void RequestParser::getStartLine(HTTPrequest* request, size_t& end)
     }
 }
 
-void RequestParser::getHeader(HTTPrequest* request, size_t begin ,size_t endPOS)
+void RequestParser::getHeader(HTTPRequest* request, size_t begin ,size_t endPOS)
 {
   std::string key;
   std::string buffer;
@@ -183,7 +183,7 @@ void RequestParser::getHeader(HTTPrequest* request, size_t begin ,size_t endPOS)
   }
 }
 
-void RequestParser::CRLFCheck(HTTPrequest* request)
+void RequestParser::CRLFCheck(HTTPRequest* request)
 {
     size_t endPOS = request->_message.find("\r\n\r\n");
     size_t nowPOS;
@@ -197,7 +197,7 @@ void RequestParser::CRLFCheck(HTTPrequest* request)
     }
 }
 
-void RequestParser::RequestParsing(FileDescriptor socektFD, HTTPrequest* request)//bool?
+void RequestParser::RequestParsing(FileDescriptor socektFD, HTTPRequest* request)//bool?
 {
     char buffer[BUFFER_SIZE] = {0};
 
@@ -233,7 +233,7 @@ void RequestParser::RequestParsing(FileDescriptor socektFD, HTTPrequest* request
     }
 }
 
-void RequestParser::displayall(HTTPrequest* request)
+void RequestParser::displayall(HTTPRequest* request)
 {
     std::cout << "method : "<< request->_method << std::endl;
     std::cout << "url : "<< request->_url << std::endl;

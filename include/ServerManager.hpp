@@ -4,25 +4,9 @@
 #include <vector>
 #include <Server.hpp>
 #include <Parser.hpp>
-#include <stdexcept>
-struct Context;
-struct HTTPrequest;
+#include <RequestProcessor.hpp>
 
-class ServerManager
-{
-private:
-    std::vector<Server> _serverList;
-    std::vector<struct Context *> _contexts;
-    FileDescriptor _kqueue;
-public:
-    ServerManager(const std::string& configFilePath);
-    ~ServerManager();
-    void run();
-    void initServers();
-    void attatchServerEvent(Server& server);
-    FileDescriptor getKqueue() const;
-
-};
+class ServerManager;
 
 struct Context
 {
@@ -30,19 +14,41 @@ struct Context
     struct sockaddr_in addr;
     void (*handler)(struct Context *obj);
     ServerManager* manager;
+    HTTPRequest* req;
     Context(int _fd,
             struct sockaddr_in _addr,
             void (*_handler)(struct Context *obj),
             ServerManager* _manager):
-      fd(_fd),
-      addr(_addr),
-      handler(_handler),
-      manager(_manager),
-      _request(NULL)
+            fd(_fd),
+            addr(_addr),
+            handler(_handler),
+            manager(_manager),
+            req(NULL)
     {
     }
-    HTTPrequest* _request;
+    HTTPRequest* _request;
 };
+
+class ServerManager
+{
+private:
+    std::vector<Server> _serverList;
+    std::vector<struct Context *> _contexts;
+    FileDescriptor _kqueue;
+    RequestProcessor _processor;
+public:
+    explicit ServerManager(const std::string& configFilePath);
+    ~ServerManager();
+    void run();
+    void initServers();
+    void attachServerEvent(Server& server);
+    void attachNewEvent(struct Context* context, const struct kevent& event);
+    FileDescriptor getKqueue() const;
+    std::string getServerName(in_port_t port_num) const;
+    std::vector<Server>& getServerList();
+    Server& getMatchedServer(const HTTPRequest& req);
+};
+
 
 void readHandler(struct Context *context);
 void acceptHandler(struct Context *context);

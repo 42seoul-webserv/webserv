@@ -21,7 +21,7 @@ typedef enum
     BODY
 } CheckLevel;
 
-typedef struct HTTPrequest
+typedef struct HTTPRequest
 {
     std::string _message;
     std::string _body;
@@ -32,13 +32,13 @@ typedef struct HTTPrequest
     bool _chunckedFlag;
     RequestStatus _status;
     CheckLevel _checkLevel;
-    HTTPrequest()
+    HTTPRequest()
     {
-        _chunckedFlag = false;
-        _method = UNDEFINED;
-        _status = READING;
-        _checkLevel = CRLF;
+      _chunckedFlag = false;
+      _method = UNDEFINED;
+      _status = READING;
+      _checkLevel = CRLF;
     }
-} HTTPrequest;
+} HTTPRequest;
 
 #endif 

@@ -1,6 +1,8 @@
 #include "Parser.hpp"
 #include "Server.hpp"
+#include "WebservDefines.hpp"
 #include <cctype>
+#include <sstream>
 
 //CommonParser
 bool CommonParser::IsNodeElemEmpty(ParserNode node)
@@ -17,7 +19,8 @@ ParserNode *CommonParser::GetNextNode(ParserNode node)
   return (node.next);
 }
 
-ParserNode *ConfigParser::getNode(size_t server_index, const std::string& category)
+ParserNode *ConfigParser::getNode(size_t server_index,
+                                  const std::string &category)
 {
   ParserNode *temp = NULL;
 
@@ -30,8 +33,8 @@ ParserNode *ConfigParser::getNode(size_t server_index, const std::string& catego
 }
 
 std::vector<std::string> ConfigParser::GetNodeElem(size_t server_index,
-                                                   const std::string& category,
-                                                   const std::string& key)
+                                                   const std::string &category,
+                                                   const std::string &key)
 {
   ParserNode *temp = NULL;
   std::vector<std::string> empty;
@@ -43,7 +46,9 @@ std::vector<std::string> ConfigParser::GetNodeElem(size_t server_index,
     temp = temp->next;
   }
   if (temp)
+  {
     it = temp->elem.find(key);
+  }
   if (temp == NULL || it == temp->elem.end())
   {
     empty.resize(1);
@@ -64,7 +69,8 @@ void CommonParser::displayAll()
                 it != temp->elem.end(); ++it)
       {
         std::cout << "  " << it->first << " : ";
-        for (unsigned long secondIdx = 0; secondIdx < it->second.size(); ++secondIdx)
+        for (unsigned long secondIdx = 0;
+             secondIdx < it->second.size(); ++secondIdx)
         {
           std::cout << it->second[secondIdx] << " ";
         }
@@ -76,7 +82,7 @@ void CommonParser::displayAll()
 }
 
 //ConfigParser
-bool ConfigParser::vaildCheck(const std::string& FileRoot)
+bool ConfigParser::vaildCheck(const std::string &FileRoot)
 {
   std::stack<char> checkStack;
   std::filebuf fb;
@@ -115,7 +121,7 @@ bool ConfigParser::vaildCheck(const std::string& FileRoot)
 }
 
 // private
-void ConfigParser::getElem(ParserNode *temp, const std::string& line)
+void ConfigParser::getElem(ParserNode *temp, const std::string &line)
 {
   std::string key;
   std::string buffer;
@@ -145,7 +151,7 @@ void ConfigParser::getElem(ParserNode *temp, const std::string& line)
   temp->elem[key] = value;
 }
 
-ParserNode *ConfigParser::EnterNode(ParserNode *temp, const std::string& line)
+ParserNode *ConfigParser::EnterNode(ParserNode *temp, const std::string &line)
 {
   while (temp->next)
   {
@@ -222,7 +228,7 @@ void ConfigParser::parsingOneNode(std::istream &is)
 }
 
 void ConfigParser::getAllowMethods(std::vector<MethodType> &_allowMethods,
-                                   const std::string& category,
+                                   const std::string &category,
                                    unsigned int server_index)
 {
   std::vector<std::string> methods;
@@ -232,6 +238,20 @@ void ConfigParser::getAllowMethods(std::vector<MethodType> &_allowMethods,
   {
     MethodType method = getMethodType(methods[i]);
     _allowMethods.push_back(method);
+  }
+  if (_allowMethods.empty())
+    _allowMethods.push_back(DEFAULT_ALLOW_METHODS);
+}
+
+static void setLocationDefault(Server &server, Location &location)
+{
+  if (location._root.empty())
+  {
+    location._root = server._root;
+  }
+  if (location._index.empty())
+  {
+    location._index = server._index;
   }
 }
 
@@ -245,21 +265,40 @@ void ConfigParser::getLocationAttr(Server &server, unsigned int server_index)
   for (ParserNode *temp = _nodeVector[server_index].next;
        temp != NULL; temp = temp->next)
   {
-    found = temp->category.find("location ");
+    found = temp->category.find("_location ");
     if (found != std::string::npos)
     {
       temp_cate = temp->category;
       temp_cate.erase(temp_cate.begin(), temp_cate.begin() + 9);
-      location.location = temp_cate;
-      location.index = *(GetNodeElem(server_index,
-                                     temp->category,
-                                     "index").begin());
-      location.root = *(GetNodeElem(server_index,
+      location._location = temp_cate;
+      if (location._location.empty())
+      {
+        throw (std::runtime_error("invalid config file\n"));
+      }
+      std::string indexString = *(GetNodeElem(server_index,
+                                              temp->category,
+                                              "_index").begin());
+      if (indexString.empty())
+        location._index = DEFAULT_INDEX;
+
+      std::string rootString = *(GetNodeElem(server_index,
                                     temp->category,
-                                    "root").begin());
+                                    "_root").begin());
+      if (rootString.empty())
+        location._root = DEFAULT_ROOT;
       getAllowMethods(location.allowMethods, temp->category, server_index);
-      location.ClientMaxBodySize = 10000; // FIXME
+      if (!GetNodeElem(server_index,
+                       temp->category,
+                       "client_max_body_size").begin()->empty())
+      {
+        location.clientMaxBodySize = ft_stoi(*(GetNodeElem(server_index,
+                                                           temp->category,
+                                                           "client_max_body_size").begin()));
+      } // FIXME crash 가능성
+      else
+        location.clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
       location.cgiInfo = GetNodeElem(server_index, temp->category, "cgi_info");
+      setLocationDefault(server, location);
       server._locations.push_back(location);
       location.allowMethods.clear();
       location.cgiInfo.clear();
@@ -285,12 +324,12 @@ void ConfigParser::displayServer(Server &server)
   std::cout << std::endl;
   for (unsigned int i = 0; i < server._locations.size(); ++i)
   {
-    std::cout << "location : " << server._locations[i].location << std::endl;
-    std::cout << "index : " << server._locations[i].index << std::endl;
-    std::cout << "root : " << server._locations[i].root << std::endl;
-    std::cout << "maxsize : " << server._locations[i].ClientMaxBodySize
+    std::cout << "_location : " << server._locations[i]._location << std::endl;
+    std::cout << "_index : " << server._locations[i]._index << std::endl;
+    std::cout << "_root : " << server._locations[i]._root << std::endl;
+    std::cout << "maxsize : " << server._locations[i].clientMaxBodySize
               << std::endl;
-    std::cout << "location allow methods: ";
+    std::cout << "_location allow methods: ";
     for (unsigned int k = 0; k < server._locations[i].allowMethods.size(); ++k)
     {
       std::cout << server._locations[i].allowMethods[k] << " ";
@@ -316,7 +355,7 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string> &_errorPage,
     for (it = errorPageNode->elem.begin();
          it != errorPageNode->elem.end(); ++it)
     {
-      _errorPage[std::strtod(it->first.c_str(), NULL)] = *(it->second.begin());
+      _errorPage[static_cast<StatusCode>(std::stod(it->first))] = *(it->second.begin());
     }
   }
 }
@@ -324,24 +363,63 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string> &_errorPage,
 //begin empty일때
 void ConfigParser::getServerAttr(Server &server, unsigned int server_index)
 {
-  std::string hostLine;
+  std::string listenAddress;
+  std::string serverListenIP;
+  int serverListenPort;
 
-  hostLine = *(GetNodeElem(server_index, "server", "listen").begin());
-  hostLine.erase(hostLine.begin(),
-                 hostLine.begin() + hostLine.find(':') + 1);//find exception
-  // FIXME : hot address, port 반영해야함
-  inet_pton(AF_INET, "0.0.0.0", &server._socketAddr.sin_addr);
-  server._socketAddr.sin_port = ntohs(static_cast<uint16_t>(std::stod(hostLine)));
+  // set server ip
+  listenAddress = *(GetNodeElem(server_index, "server", "listen").begin());
+  if (listenAddress.empty())
+    listenAddress = DEFAULT_SOCKET_LISTEN_ADDR;
+  serverListenIP = listenAddress.substr(0, listenAddress.find(':'));
+  inet_pton(AF_INET, serverListenIP.c_str(), &server._socketAddr.sin_addr);
+  // ser server port
+  std::string portString = listenAddress.substr(listenAddress.find(':') + 1);
+  if (!portString.empty())
+    serverListenPort = ft_stoi(portString);
+  else
+    serverListenPort = DEFAULT_SERVER_PORT;
+  server._socketAddr.sin_port = ntohs(serverListenPort);
+  server._serverPort = ntohs(serverListenPort);
   server._socketAddr.sin_family = AF_INET;
-  server._index = *(GetNodeElem(server_index, "server", "index").begin());
-  server._root = *(GetNodeElem(server_index, "server", "root").begin());
+  
+  // set server config
+  server._index = *(GetNodeElem(server_index, "server", "_index").begin());
+  if (server._index.empty())
+  {
+    server._index = DEFAULT_INDEX;
+  }
+  server._root = *(GetNodeElem(server_index, "server", "_root").begin());
+  if (server._root.empty())
+  {
+    server._serverName = DEFAULT_ROOT;
+  }
+  server._serverName = *(GetNodeElem(server_index,
+                                     "server",
+                                     "server_name").begin());
+  if (server._serverName.empty())
+  {
+    server._serverName = DEFAULT_SERVER_NAME;
+  }
+  std::string clientMaxBodySize = *(GetNodeElem(server_index,
+                                                "server",
+                                                "client_max_body_size").begin());
+  if (clientMaxBodySize.empty())
+  {
+    server._clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
+  }
+  server._clientMaxBodySize = ft_stoi(clientMaxBodySize);
   getAllowMethods(server._allowMethods, "server", server_index);
+  if (server._allowMethods.empty())
+  {
+    server._allowMethods.push_back(DEFAULT_ALLOW_METHODS);
+  }
   getLocationAttr(server, server_index);
   getErrorPage(server._errorPage, server_index);
   displayServer(server);
 }
 
-std::vector<Server> ConfigParser::parsing(const std::string& FileRoot)
+std::vector<Server> ConfigParser::parsing(const std::string &FileRoot)
 {
   std::filebuf fb;
   std::vector<Server> _serverList;
@@ -357,6 +435,7 @@ std::vector<Server> ConfigParser::parsing(const std::string& FileRoot)
   }
   fb.close();
   _serverList.resize(_nodeVector.size());
+
   const unsigned int SIZE = _nodeVector.size();
   for (unsigned int i = 0; i < SIZE; ++i)
   {

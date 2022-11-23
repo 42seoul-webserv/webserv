@@ -7,20 +7,20 @@
 class RequestParser
 {
 private:
-    void CRLFCheck(HTTPrequest* request);
-    void getStartLine(HTTPrequest* request, size_t& end);
-    void getHeader(HTTPrequest* request, size_t begin ,size_t endPOS);
-    void bodyLengthCheck(HTTPrequest* request);
-    void chunkedParsing(HTTPrequest* request);
-    void bodyParsing(HTTPrequest* request);
-    void startLineVaildCheck(HTTPrequest* request);
-    void hearderVaildCheck(HTTPrequest* request);
+    void CRLFCheck(HTTPRequest* request);
+    void getStartLine(HTTPRequest* request, size_t& end);
+    void getHeader(HTTPRequest* request, size_t begin ,size_t endPOS);
+    void bodyLengthCheck(HTTPRequest* request);
+    void chunkedParsing(HTTPRequest* request);
+    void bodyParsing(HTTPRequest* request);
+    void startLineVaildCheck(HTTPRequest* request);
+    void hearderVaildCheck(HTTPRequest* request);
     std::string::iterator getOneLine(std::string& str, \
                         std::string::iterator it, std::string::iterator end);
 public:
   //  RequestParser();
    // ~RequestParser();
-    void RequestParsing(FileDescriptor socektFD, HTTPrequest* request);
-    void displayall(HTTPrequest* request);
+    void RequestParsing(FileDescriptor socektFD, HTTPRequest* request);
+    void displayall(HTTPRequest* request);
 };
 
