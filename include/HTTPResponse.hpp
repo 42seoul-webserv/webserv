@@ -185,7 +185,7 @@ public: // * constructor & destuctor
     ~HTTPResponse();
 
 public: // * setter functions
-    FileDescriptor setFd(const FileDescriptor& fd);
+    void setFd(const FileDescriptor& fd);
 
 public: // * getter functions
     HTTPResponseHeader getHeader() const;

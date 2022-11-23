@@ -75,7 +75,7 @@ HTTPResponse& Server::processGETRequest(const struct Context* context)
     }
     else // there are no matched location
     {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
       return (*response);
     }
   }
@@ -88,13 +88,13 @@ HTTPResponse& Server::processGETRequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     return (*response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context);
-    response->setBody(filePath); // FIXME: fd로 변경 될 것임.
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    // response->setBody(filePath); // FIXME: fd로 변경 될 것임.
     return (*response);
   }
 }
@@ -119,7 +119,7 @@ HTTPResponse& Server::processPOSTRequest(const struct Context* context)
     }
     else // there are no matched location
     {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
       return (*response);
     }
   }
@@ -132,13 +132,13 @@ HTTPResponse& Server::processPOSTRequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     return (*response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context);
-    response->setBody(filePath); // FIXME : POST에 맞는 결과가 나올 것.
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    // response->setBody(filePath); // FIXME : POST에 맞는 결과가 나올 것.
     return (*response);
   }
 }
@@ -163,7 +163,7 @@ HTTPResponse& Server::processPUTRequest(const struct Context* context)
     }
     else // there are no matched location
     {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
       return (*response);
     }
   }
@@ -176,13 +176,13 @@ HTTPResponse& Server::processPUTRequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     return (*response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context);
-    response->setBody(filePath); // FIXME:  결과 없음 (-1)
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    // response->setBody(filePath); // FIXME:  결과 없음 (-1)
     return (*response);
   }
 }
@@ -207,7 +207,7 @@ HTTPResponse& Server::processHEADRequest(const struct Context* context)
     }
     else // there are no matched location
     {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
       return (*response);
     }
   }
@@ -220,13 +220,13 @@ HTTPResponse& Server::processHEADRequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     return (*response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context);
-    response->setBody(filePath); // FIXME: HEADER만 필요해서 안쓸거임 (-1)
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    // response->setBody(filePath); // FIXME: HEADER만 필요해서 안쓸거임 (-1)
     return (*response);
   }
 }
@@ -251,7 +251,7 @@ HTTPResponse& Server::processDELETERequest(const struct Context* context)
     }
     else // there are no matched location
     {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
       return (*response);
     }
   }
@@ -264,13 +264,13 @@ HTTPResponse& Server::processDELETERequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     return (*response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context);
-    response->setBody(filePath); // FIXME:  결과 없음 (-1)
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    // response->setBody(filePath); // FIXME:  결과 없음 (-1)
     return (*response);
   }
 }
@@ -295,7 +295,7 @@ HTTPResponse& Server::processPATCHRequest(const struct Context* context)
     }
     else // there are no matched location
     {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
       return (*response);
     }
   }
@@ -308,13 +308,13 @@ HTTPResponse& Server::processPATCHRequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     return (*response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context);
-    response->setBody(filePath); // FIXME:  결과 없음 (-1)
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    // response->setBody(filePath); // FIXME:  결과 없음 (-1)
     return (*response);
   }
 }
