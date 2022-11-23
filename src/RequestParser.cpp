@@ -1,14 +1,5 @@
 #include "RequestParser.hpp"
 #include <cstdlib>
-/*
-void RequestParser::bodyLengthCheck(HTTPRequest* request)
-{
-    std::map<std::string, std::string>::iterator it;
-
-    it = request->_headers.find("Content-Length");
-    if (request->_body.size() > static_cast<size_t>(strtol(it->second.c_str(), NULL, 10)))
-        throw std::logic_error("content-length overflow error");
-}*/
 
 std::string::iterator RequestParser::getOneLine(\
     std::string& str, std::string::iterator it, std::string::iterator end)
@@ -183,6 +174,12 @@ void RequestParser::getHeader(HTTPRequest* request, size_t begin ,size_t endPOS)
   }
 }
 
+//두개 추가 구현 해야함
+void RequestParser::eraseFragment(HTTPRequest* request)
+{}
+void RequestParser::seperateQury(HTTPRequest* request)
+{}
+
 void RequestParser::CRLFCheck(HTTPRequest* request)
 {
     size_t endPOS = request->_message.find("\r\n\r\n");
@@ -193,11 +190,13 @@ void RequestParser::CRLFCheck(HTTPRequest* request)
     {
         request->_checkLevel = STARTLINE;
         getStartLine(request, nowPOS);
+        eraseFragment(request);
+        seperateQury(request);
         getHeader(request, nowPOS + 2, endPOS + 2);
     }
 }
 
-void RequestParser::RequestParsing(FileDescriptor socektFD, HTTPRequest* request)//bool?
+void RequestParser::RequestParsing(FileDescriptor socektFD, HTTPRequest* request)
 {
     char buffer[BUFFER_SIZE] = {0};
 

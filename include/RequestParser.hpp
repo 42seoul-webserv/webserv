@@ -9,6 +9,8 @@ class RequestParser
 private:
     void CRLFCheck(HTTPRequest* request);
     void getStartLine(HTTPRequest* request, size_t& end);
+    void eraseFragment(HTTPRequest* request);
+    void seperateQury(HTTPRequest* request);
     void getHeader(HTTPRequest* request, size_t begin ,size_t endPOS);
     void bodyLengthCheck(HTTPRequest* request);
     void chunkedParsing(HTTPRequest* request);

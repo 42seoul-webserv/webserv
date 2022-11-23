@@ -40,7 +40,7 @@ int main(int ac, char **av)
   int fd;
   RequestParser parser;
   std::string temp;
-  HTTPrequest* request = new HTTPrequest();
+  HTTPRequest* request = new HTTPRequest();
 
   fd = open(av[1], O_WRONLY);
   temp += "GET https://www.google.com/search HTTP/1.1\r\n";
