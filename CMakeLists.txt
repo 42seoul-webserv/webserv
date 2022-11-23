@@ -13,7 +13,7 @@ set(SOURCE_FILES
         src/ServerManager.cpp
         src/ServerUtil.cpp
         src/Parser.cpp
-        src/HttpResponse.cpp
+        src/HTTPResponse.cpp
         src/RequestProcessor.cpp
         src/Location.cpp
         )
