@@ -1,35 +1,17 @@
 #include "RequestParser.hpp"
 #include <cstdlib>
 /*
-typedef struct HTTPrequest
-{
-    std::string _message;
-    std::string _body;
-    MethodType _method;
-    std::string _url;
-    std::string _version;
-    std::map<std::string, std::string> _headers;
-    bool _chunckedFlag;
-    RequestStatus _status;
-    HTTPrequest()
-    {
-        _chunckedFlag = false;
-        _method = UNDEFINED;
-        _status = READING;
-    }
-} HTTPrequest;
-*/
-void RequestParser::getNomalBody(HTTPrequest* request)
+void RequestParser::bodyLengthCheck(HTTPrequest* request)
 {
     std::map<std::string, std::string>::iterator it;
 
     it = request->_headers.find("Content-Length");
-    if (request->_body.size() > strtol(it->second.c_str(), NULL, 10))
+    if (request->_body.size() > static_cast<size_t>(strtol(it->second.c_str(), NULL, 10)))
         throw std::logic_error("content-length overflow error");
-}
+}*/
 
-std::string::iterator RequestParser::getOneLine(std::string& str, \
-                                                std::string::iterator it, std::string::iterator end)
+std::string::iterator RequestParser::getOneLine(\
+    std::string& str, std::string::iterator it, std::string::iterator end)
 {
     while (it != end && it + 1 != end)
     {
@@ -41,9 +23,10 @@ std::string::iterator RequestParser::getOneLine(std::string& str, \
     return it;
 }
 
-void RequestParser::getChunkedBody(HTTPrequest* request)
+void RequestParser::chunkedParsing(HTTPrequest* request)
 {
     std::string endcheck;
+    std::string chunckedbody;
     std::string::reverse_iterator rit;
     std::string::iterator it;
     std::string::iterator end;
@@ -60,7 +43,6 @@ void RequestParser::getChunkedBody(HTTPrequest* request)
     }
     if (endcheck != "0\r\n\r\n")
         return;
-    std::cout << "error check" << std::endl;
     end = request->_body.end();
     for (it = request->_body.begin(); it != end - 5;)
     {
@@ -71,10 +53,11 @@ void RequestParser::getChunkedBody(HTTPrequest* request)
             throw std::logic_error("chunked length value error");
         if (val.size() != static_cast<size_t>(length_int))
             throw std::logic_error("chunked length value error");
-        request->_chunckedBody += val;
+        chunckedbody += val;
         val.clear();
         length_str.clear();
     }
+    request->_body.assign(chunckedbody.begin(), chunckedbody.end());
 }
 
 void RequestParser::bodyParsing(HTTPrequest* request)
@@ -87,9 +70,9 @@ void RequestParser::bodyParsing(HTTPrequest* request)
         request->_body.assign(request->_message.begin() + delim + 4, request->_message.end());
     }
     if (request->_chunckedFlag)
-        getChunkedBody(request);
-    else
-        getNomalBody(request);
+        chunkedParsing(request);
+/*    else
+        bodyLengthCheck(request);*/
 }
 
 void RequestParser::hearderVaildCheck(HTTPrequest* request)
@@ -111,10 +94,8 @@ void RequestParser::hearderVaildCheck(HTTPrequest* request)
     if ((!request->_chunckedFlag && *endptr != '\0') || length_val < 0)
         throw std::logic_error("content-length value error");
     request->_checkLevel = BODY;
+    request->_status = HEADEROK;
 }
-
-void RequestParser::versionVaildCheck(HTTPrequest* request)
-{}
 
 void RequestParser::startLineVaildCheck(HTTPrequest* request)
 {
@@ -262,5 +243,5 @@ void RequestParser::displayall(HTTPrequest* request)
     {
         std::cout << it->first << " : " << it->second << std::endl;
     }
-    std::cout << "body : "<< request->_chunckedBody << std::endl;
+    std::cout << "body : "<< request->_body << std::endl;
 }
