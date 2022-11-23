@@ -1,17 +1,12 @@
 #include "RequestProcessor.hpp"
 #include "HttpResponse.hpp"
+#include "HTTPRequest.hpp"
 #include "ServerManager.hpp"
 #include <unistd.h>
 
-RequestProcessor::RequestProcessor()
-{}
-
-RequestProcessor::~RequestProcessor()
-{}
-
-void RequestProcessor::processGETMethod(const HttpRequest &req,
-                                                struct Context *context)
+static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
 {
+<<<<<<< HEAD
   /* 
   * ! TODO: 
   *   (1). location path searching alogirithm.
@@ -63,55 +58,127 @@ void RequestProcessor::processHEADMethod(const HttpRequest &req,
                                                  struct Context *context)
 {
 
-}
-
-void RequestProcessor::processPATCHMethod(const HttpRequest &req,
-                                                  struct Context *context)
-{
-
-}
-
-void RequestProcessor::processCGI(const HttpRequest &req,
-                                          struct Context *context)
-{
-  // check request cgi is valid
-  // if invalid -> response 404(?)
-
-  pid_t pid;
-  int pipe_stdin[2];
-  int pipe_stdout[2];
-
-  if (pipe(pipe_stdin) < 0)
-    throw (std::runtime_error("Error : pipe failed\n"));
-  if (pipe(pipe_stdout) < 0)
-    throw (std::runtime_error("Error : pipe failed\n"));
-  if ((pid = fork()) < 0)
-    throw (std::runtime_error("Error : fork failed\n"));
-  if (pid == 0)
+=======
+  for (
+          std::vector<MethodType>::iterator it = allowMethods.begin();
+          it != allowMethods.end();
+          ++it
+  )
   {
-    // stdin -> pipe
-    dup2(pipe_stdin[0], 0);
-    close(pipe_stdin[1]);
-    close(pipe_stdin[0]);
-    // stdout -> pipe
-    dup2(pipe_stdout[1], 1);
-    close(pipe_stdout[1]);
-    close(pipe_stdout[0]);
-    // make argv
-    // make envp
-    // execve(cgiPath, argv, envp); -> envp has content-length
+    if (*it == method)
+      return (true);
+  }
+  return (false);
+>>>>>>> upstream/develop
+}
+
+// ASSUMPTION : request contain complete header...
+StatusCode RequestProcessor::checkValidHeader(const HTTPRequest &req)
+{
+  Server& matchedServer = _serverManager.getMatchedServer(req);
+
+  // find _location
+  Location* loc = matchedServer.getMatchedLocation(req);
+  // check _location
+  if (loc == NULL) // _root case
+  {
+    if (req._url != "/")
+      return (ST_NOT_FOUND);
+    if (!isAllowedMethod(matchedServer._allowMethods, req._method))
+      return (ST_METHOD_NOT_ALLOWED);
+
+    std::string contentLengthString = req._headers.at("Content-Length");
+    if (contentLengthString.empty())
+      return (ST_LENGTH_REQUIRED);
+    int contentLength = ft_stoi(contentLengthString);
+    if (matchedServer._clientMaxBodySize < contentLength)
+      return (ST_PAYLOAD_TOO_LARGE);
   }
   else
   {
-    close(pipe_stdin[0]);
-    close(pipe_stdout[1]);
-    // event attach -> write body content to pipe -> partial write 에 대한 고려
-    // event attach -> read cgi result from pipe -> partial read에 대한 고려와 result를 모두 얻었을 때 response 처리
+    if (!isAllowedMethod(loc->allowMethods, req._method))
+      return (ST_METHOD_NOT_ALLOWED);
+
+    std::string contentLengthString = req._headers.at("Content-Length");
+    if (contentLengthString.empty())
+      return (ST_LENGTH_REQUIRED);
+    int contentLength = ft_stoi(contentLengthString);
+    if (loc->clientMaxBodySize < contentLength)
+      return (ST_PAYLOAD_TOO_LARGE);
+  }
+  return (ST_OK);
+}
+
+void RequestProcessor::processRequest(struct Context *context)
+{
+  // check context http request
+  if (context == NULL || context->req == NULL)
+    throw (std::runtime_error("NULL context"));
+  // delete current event;
+  struct kevent currentEvent;
+  EV_SET(&currentEvent, context->fd, EVFILT_READ, EV_DELETE | EV_CLEAR, 0, 0, NULL);
+  context->manager->attachNewEvent(context, currentEvent);
+  // check request status
+  HTTPRequest& req = *context->req;
+  if (req._status == ERROR)
+  {
+    HttpResponse* response = new HttpResponse(ST_BAD_REQUEST, "bad request", context);
+
+    // call response processor
+    context->req = NULL;
+    delete (&req);
+    return ;
+  }
+  else if (req._status == HEADEROK)
+  {
+    StatusCode status = checkValidHeader(req);
+
+    if (status != ST_OK)
+    {
+      HttpResponse* response = new HttpResponse(status, "", context);
+
+      // call response processor
+      context->req = NULL;
+      delete (&req);
+      return ;
+    }
+    if (req._method == GET || req._method == HEAD) // not consider body
+    {
+      Server& server = _serverManager.getMatchedServer(req);
+
+      server.processRequest(context);
+      context->req = NULL;
+      delete (&req);
+      return ;
+    }
+    else
+    {
+      // attach new event to read remain data
+      struct kevent newEvent;
+
+      EV_SET(&newEvent, context->fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, context);
+      _serverManager.attachNewEvent(context, newEvent); // callback Request Parser
+      return ;
+    }
+  }
+  else if (req._status == READING)
+  {
+    delete (&req);
+    throw (std::runtime_error("READING Status is invalid in processing\n"));
+  }
+  else // status == END
+  {
+    ServerManager& svm = *context->manager;
+    Server& server = svm.getMatchedServer(req);
+
+    server.processRequest(context);
+    delete (&req);
+    return ;
   }
 }
 
-void RequestProcessor::processRequest(const HttpRequest &req,
-                                      struct Context *context)
+RequestProcessor::RequestProcessor(ServerManager &svm):
+  _serverManager(svm)
 {
 
 }
