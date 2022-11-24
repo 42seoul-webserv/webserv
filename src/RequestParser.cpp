@@ -16,6 +16,28 @@ std::string::iterator RequestParser::getOneLine(\
   return it;
 }
 
+void checkBodyLength(HTTPRequest* request)
+{
+  size_t length;
+
+  if (request->method == GET || request->method == HEAD)
+  {
+    request->body.clear();
+    request->status = END;
+    return;
+  }
+  length = static_cast<size_t>\
+            (strtol(request->headers.find("Content-Length")->second.c_str(), NULL, 10));
+  if (request->body.size() > length)
+  {
+    throw (std::logic_error("body length more long"));
+  }
+  else if (request->body.size() == length)
+  {
+    request->status = END;
+  }
+}
+
 void RequestParser::parseChunked(HTTPRequest* request)
 {
   std::string endcheck;
@@ -63,6 +85,7 @@ void RequestParser::parseChunked(HTTPRequest* request)
     length_str.clear();
   }
   request->body.assign(chunckedbody.begin(), chunckedbody.end());
+  request->status = END;
 }
 
 void RequestParser::parseBody(HTTPRequest* request)
@@ -78,8 +101,8 @@ void RequestParser::parseBody(HTTPRequest* request)
   {
     parseChunked(request);
   }
-/*    else
-        checkBodyLength(request);*/
+  else
+    checkBodyLength(request);
 }
 
 void RequestParser::checkHeaderValid(HTTPRequest* request)
@@ -254,46 +277,53 @@ void RequestParser::checkCRLF(HTTPRequest* request)
   }
 }
 
-void RequestParser::parseRequest(FileDescriptor socketFD, HTTPRequest* request)
+void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
 {
   char buffer[BUFFER_SIZE] = {0};
 
-  if (request && request->status != END && request->status != ERROR)
+  if (read(fd, buffer, sizeof(buffer)) < 0)
   {
-    if (read(socketFD, buffer, sizeof(buffer)) < 0)
-    {
-      //if (recv(socketFD, buffer, sizeof(buffer), MSG_DONTWAIT) < 0)???????왜터짐
-      throw (std::runtime_error("receive failed\n"));
-    }
+    throw (std::runtime_error("receive failed\n"));
+  }
+  if (!request->body.size())
+  {
+    request->message += buffer;
+  }
+  else
+  {
+    request->body += buffer;
+  }
+  switch (request->checkLevel)
+  {
+    case CRLF:
+      checkCRLF(request);
+    case STARTLINE:
+      checkStartLineValid(request);
+    case HEADER:
+      checkHeaderValid(request);
+    case BODY:
+      parseBody(request);
+  }
+}
+
+void RequestParser::parseRequest(struct Context* context)
+{
+  if (!context->req)
+  {
+    context->req = new HTTPRequest;
+  }
+  if (context->req->status != END && context->req->status != ERROR)
+  {
     try
     {
-      if (!request->body.size())
-      {
-        request->message += buffer;
-      }
-      else
-      {
-        request->body += buffer;
-      }
-      switch (request->checkLevel)
-      {
-        case CRLF:
-          checkCRLF(request);
-        case STARTLINE:
-          checkStartLineValid(request);
-        case HEADER:
-          checkHeaderValid(request);
-        case BODY:
-          parseBody(request);
-      }
+      readRequest(context->fd, context->req);
     }
     catch (const std::exception& Error)
     {
-      request->status = ERROR;
-      std::cout << Error.what() << std::endl;
-      return;
+      context->req->status = ERROR;
     }
   }
+  context->manager->getRequestProcessor().processRequest(context);
 }
 
 void RequestParser::displayAll(HTTPRequest* request)
