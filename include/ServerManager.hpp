@@ -32,6 +32,8 @@ struct Context
     }
 };
 
+class RequestParser;
+
 class ServerManager
 {
 private:
@@ -39,7 +41,7 @@ private:
     std::vector<struct Context*> _contexts;
     FileDescriptor _kqueue;
     RequestProcessor _processor;
-    RequestParser requestparser;
+    RequestParser _requestParser;
 public:
     explicit ServerManager(const std::string& configFilePath);
     ~ServerManager();
@@ -50,8 +52,8 @@ public:
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();
-    RequestProcessor getRequestProcessor();
-    RequestParser getRequestParser();
+    RequestProcessor& getRequestProcessor();
+    RequestParser& getRequestParser();
     Server& getMatchedServer(const HTTPRequest& req);
 };
 void socketReceiveHandler(struct Context* context);

@@ -1,4 +1,5 @@
 #include "RequestParser.hpp"
+#include "ServerManager.hpp"
 #include <cstdlib>
 
 std::string::iterator RequestParser::getOneLine(\
