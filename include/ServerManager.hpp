@@ -2,9 +2,10 @@
 #define SERVERMANAGER_HPP
 
 #include <vector>
-#include <Server.hpp>
-#include <Parser.hpp>
-#include <RequestProcessor.hpp>
+#include "Server.hpp"
+#include "Parser.hpp"
+#include "RequestProcessor.hpp"
+#include "RequestParser.hpp"
 
 class ServerManager;
 
@@ -15,7 +16,6 @@ struct Context
     void (* handler)(struct Context* obj);
     ServerManager* manager;
     HTTPRequest* req;
-
     Context(int _fd,
             struct sockaddr_in _addr,
             void (* _handler)(struct Context* obj),
@@ -36,6 +36,7 @@ private:
     std::vector<struct Context*> _contexts;
     FileDescriptor _kqueue;
     RequestProcessor _processor;
+    RequestParser requestparser;
 public:
     explicit ServerManager(const std::string& configFilePath);
     ~ServerManager();
@@ -46,9 +47,11 @@ public:
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();
+    RequestProcessor getRequestProcessor();
+    RequestParser getRequestParser();
     Server& getMatchedServer(const HTTPRequest& req);
 };
-
+void socketReceiveHandler(struct Context* context);
 void readHandler(struct Context* context);
 void acceptHandler(struct Context* context);
 void responseHandler(struct Context* context);

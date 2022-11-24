@@ -108,6 +108,15 @@ std::vector<Server>& ServerManager::getServerList()
   return (_serverList);
 }
 
+RequestProcessor ServerManager::getRequestProcessor()
+{
+  return (_processor);
+}
+RequestParser ServerManager::getRequestParser()
+{
+  return (requestparser);
+}
+
 Server& ServerManager::getMatchedServer(const HTTPRequest& req)
 {
   for (
