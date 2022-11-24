@@ -26,7 +26,7 @@ typedef struct HTTPRequest
     std::string message; // request Message ( all )
     std::string body;
     MethodType method;
-    std::string query; // url?query
+    std::map<std::string, std::string> query; // url?query
     std::string url; // pure url
     std::string version;
     std::map<std::string, std::string> headers;

@@ -107,6 +107,13 @@ void readHandler(struct Context* context)
   }
 }
 
+void socketReceiveHandler(struct Context* context)
+{
+  if (!context)
+    throw (std::runtime_error("NULL context"));
+  context->manager->getRequestParser().parseRequest(context);
+}
+
 // TODO : client session time?
 void acceptHandler(struct Context* context)
 {
