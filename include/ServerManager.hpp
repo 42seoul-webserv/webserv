@@ -16,6 +16,8 @@ struct Context
     void (* handler)(struct Context* obj);
     ServerManager* manager;
     HTTPRequest* req;
+    HTTPResponse* res;
+
     Context(int _fd,
             struct sockaddr_in _addr,
             void (* _handler)(struct Context* obj),
@@ -24,7 +26,8 @@ struct Context
             addr(_addr),
             handler(_handler),
             manager(_manager),
-            req(NULL)
+            req(NULL),
+            res(NULL)
     {
     }
 };
@@ -56,5 +59,6 @@ void readHandler(struct Context* context);
 void acceptHandler(struct Context* context);
 void responseHandler(struct Context* context);
 void handleEvent(struct kevent* event);
+void writeFileHandle(struct Context* context);
 
 #endif //SERVERMANAGER_HPP

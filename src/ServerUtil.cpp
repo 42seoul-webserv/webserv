@@ -1,5 +1,6 @@
 #include "ServerManager.hpp"
 #include "RequestProcessor.hpp"
+#include "HTTPResponse.hpp"
 #include <sstream>
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
@@ -45,7 +46,7 @@ static std::string getResponse(FileDescriptor indexFile)
   return (result);
 }
 
-std::string getClientIP(const struct sockaddr_in* addr)
+std::string getClientIP(struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
   const struct sockaddr_in* pV4Addr = addr;
@@ -149,6 +150,17 @@ void handleEvent(struct kevent* event)
   {
     printLog(e.what(), PRINT_RED);
   }
+}
+
+void writeFileHandle(struct Context* context)
+{
+  // FIXME
+  // write body to file. it must be non-blocked
+  HTTPResponse& res = *context->res;
+  HTTPRequest& req = *context->req;
+
+  write(res.getFd(), req.body.c_str(), res.getContentLength()); // FIXME : if partial write...
+  delete (context);
 }
 
 //https://stackoverflow.com/questions/154536/encode-decode-urls-in-c
