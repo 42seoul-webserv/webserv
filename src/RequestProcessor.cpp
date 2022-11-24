@@ -78,19 +78,16 @@ void RequestProcessor::processRequest(struct Context* context)
   {
     throw (std::runtime_error("NULL context"));
   }
-  // delete current event;
-  struct kevent currentEvent;
-  EV_SET(&currentEvent, context->fd, EVFILT_READ, EV_DELETE | EV_CLEAR, 0, 0, NULL);
-  context->manager->attachNewEvent(context, currentEvent);
   // check request status
   HTTPRequest& req = *context->req;
   if (req.status == ERROR)
   {
-    HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
-
-    // call response processor
     context->req = NULL;
     delete (&req);
+    // response err
+    HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
+    response->sendToClient(context->fd, context->addr, &_serverManager);
+    delete (context);
     return;
   }
   else if (req.status == HEADEROK)
@@ -99,44 +96,39 @@ void RequestProcessor::processRequest(struct Context* context)
 
     if (status != ST_OK)
     {
-      HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
-
-      // call response processor
       context->req = NULL;
       delete (&req);
+      // response err
+      HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
+      response->sendToClient(context->fd, context->addr, &_serverManager);
+      delete (context);
       return;
     }
     if (req.method == GET || req.method == HEAD) // not consider body
     {
-      Server& server = _serverManager.getMatchedServer(req);
-
-      server.processRequest(context);
       context->req = NULL;
       delete (&req);
+      // call response processor
+      Server& server = _serverManager.getMatchedServer(req);
+      server.processRequest(context);
       return;
     }
-    else
+    else // need to read body
     {
-      // attach new event to read remain data
-      struct kevent newEvent;
-
-      EV_SET(&newEvent, context->fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, context);
-      _serverManager.attachNewEvent(context, newEvent); // callback Request Parser
       return;
     }
   }
-  else if (req.status == READING)
+  else if (req.status == READING) // ignore request
   {
-    delete (&req);
-    throw (std::runtime_error("READING Status is invalid in processing\n"));
+    return ;
   }
   else // status == END
   {
-    ServerManager& svm = *context->manager;
-    Server& server = svm.getMatchedServer(req);
-
-    server.processRequest(context);
+    context->req = NULL;
     delete (&req);
+    // call response processor
+    Server& server = _serverManager.getMatchedServer(req);
+    server.processRequest(context);
     return;
   }
 }

@@ -4,6 +4,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+// TODO : autoindex
+
 std::string Server::getRealFilePath(const HTTPRequest& req)
 {
   Location* loc = getMatchedLocation(req);
@@ -168,7 +170,7 @@ HTTPResponse* Server::processPUTRequest(const struct Context* context)
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Upload file requested"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     // add file to server...
     return (response);
@@ -227,7 +229,7 @@ HTTPResponse* Server::processDELETERequest(const struct Context* context)
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Delete file requested"), context->manager->getServerName(context->addr.sin_port));
     if (unlink(filePath.c_str()) == FAILED)
       response->setStatus(ST_INTERNAL_SERVER_ERROR, "Server Error");
     response->setFd(-1);
@@ -259,7 +261,7 @@ HTTPResponse* Server::processPATCHRequest(const struct Context* context)
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Modify file requested"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     return (response);
   }
@@ -305,7 +307,10 @@ void Server::processRequest(const struct Context* context)
       break ;
     }
     case UNDEFINED:
+    {
+      delete (context);
       throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
+    }
   }
   response->sendToClient(context->fd, context->addr, context->manager);
   delete (context);
