@@ -31,19 +31,20 @@ public:
     std::string _serverName;
     int _serverPort;
     int _clientMaxBodySize;
-    void processRequest(const struct Context* context);
     Location* getMatchedLocation(const HTTPRequest& req);
+    void processRequest(const struct Context* context);
     void openServer();
 public:
     Server();
     ~Server();
 private:
-    HTTPResponse& processGETRequest(const struct Context* context);
-    HTTPResponse& processPOSTRequest(const struct Context* context);
-    HTTPResponse& processPUTRequest(const struct Context* context);
-    HTTPResponse& processDELETERequest(const struct Context* context);
-    HTTPResponse& processPATCHRequest(const struct Context* context);
-    HTTPResponse& processHEADRequest(const struct Context* context);
+    HTTPResponse* processGETRequest(const struct Context* context);
+    HTTPResponse* processPOSTRequest(const struct Context* context);
+    HTTPResponse* processPUTRequest(const struct Context* context);
+    HTTPResponse* processDELETERequest(const struct Context* context);
+    HTTPResponse* processPATCHRequest(const struct Context* context);
+    HTTPResponse* processHEADRequest(const struct Context* context);
+    std::string getRealFilePath(const HTTPRequest& req);
 };
 
 #endif

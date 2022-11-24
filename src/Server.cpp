@@ -4,6 +4,34 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+std::string Server::getRealFilePath(const HTTPRequest& req)
+{
+  Location* loc = getMatchedLocation(req);
+  std::string filePath;
+
+  if (loc == NULL)
+  {
+    // check request file exists on root
+    if (req.url.rfind('/') == 0) // root case
+    {
+      filePath = req.url;
+      if (filePath.length() == 1)
+      {
+        filePath += _index;
+      }
+    }
+    else // there are no matched location
+    {
+      return ("FAILED");
+    }
+  }
+  else
+  {
+    filePath = (loc->convertURLToLocationPath(req.url));
+  }
+  return (filePath);
+}
+
 static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
 {
   for (
@@ -55,33 +83,18 @@ void Server::openServer()
   }
 }
 
-HTTPResponse& Server::processGETRequest(const struct Context* context)
+HTTPResponse* Server::processGETRequest(const struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
-  Location* matchedLocation = getMatchedLocation(req);
-  std::string filePath;
-  if (matchedLocation == NULL)
+  std::string filePath = getRealFilePath(req);
+
+  if (filePath == "FAILED")
   {
-    // check request file exists on root
-    if (req.url.rfind('/') == 0) // root case
-    {
-      filePath = req.url;
-      if (filePath.length() == 1)
-      {
-        filePath += _index;
-      }
-    }
-    else // there are no matched location
-    {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-      return (*response);
-    }
-  }
-  else
-  {
-    filePath = matchedLocation->convertURLToLocationPath(req.url);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
   // check this file is CGI path
 
@@ -89,43 +102,29 @@ HTTPResponse& Server::processGETRequest(const struct Context* context)
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
     HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    return (*response);
+    response->setFd(-1);
+    return (response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    // response->setBody(filePath); // FIXME: fd로 변경 될 것임.
-    return (*response);
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(open(filePath.c_str(), O_RDONLY));
+    return (response);
   }
 }
 
-HTTPResponse& Server::processPOSTRequest(const struct Context* context)
+HTTPResponse* Server::processPOSTRequest(const struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
-  Location* matchedLocation = getMatchedLocation(req);
-  std::string filePath;
-  if (matchedLocation == NULL)
+  std::string filePath = getRealFilePath(req);
+
+  if (filePath == "FAILED")
   {
-    // check request file exists on root
-    if (req.url.rfind('/') == 0) // root case
-    {
-      filePath = req.url;
-      if (filePath.length() == 1)
-      {
-        filePath += _index;
-      }
-    }
-    else // there are no matched location
-    {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-      return (*response);
-    }
-  }
-  else
-  {
-    filePath = matchedLocation->convertURLToLocationPath(req.url);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
   // check this file is CGI path
 
@@ -133,43 +132,30 @@ HTTPResponse& Server::processPOSTRequest(const struct Context* context)
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
     HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    return (*response);
+    response->setFd(-1);
+    return (response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    // response->setBody(filePath); // FIXME : POST에 맞는 결과가 나올 것.
-    return (*response);
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    // FIXME: post file to server... -> add write event
+    return (response);
   }
 }
 
-HTTPResponse& Server::processPUTRequest(const struct Context* context)
+HTTPResponse* Server::processPUTRequest(const struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
-  Location* matchedLocation = getMatchedLocation(req);
-  std::string filePath;
-  if (matchedLocation == NULL)
+  std::string filePath = getRealFilePath(req);
+
+  if (filePath == "FAILED")
   {
-    // check request file exists on root
-    if (req.url.rfind('/') == 0) // root case
-    {
-      filePath = req.url;
-      if (filePath.length() == 1)
-      {
-        filePath += _index;
-      }
-    }
-    else // there are no matched location
-    {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-      return (*response);
-    }
-  }
-  else
-  {
-    filePath = matchedLocation->convertURLToLocationPath(req.url);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
   // check this file is CGI path
 
@@ -177,43 +163,30 @@ HTTPResponse& Server::processPUTRequest(const struct Context* context)
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
     HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    return (*response);
+    response->setFd(-1);
+    return (response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    // response->setBody(filePath); // FIXME:  결과 없음 (-1)
-    return (*response);
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    // add file to server...
+    return (response);
   }
 }
 
-HTTPResponse& Server::processHEADRequest(const struct Context* context)
+HTTPResponse* Server::processHEADRequest(const struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
-  Location* matchedLocation = getMatchedLocation(req);
-  std::string filePath;
-  if (matchedLocation == NULL)
+  std::string filePath = getRealFilePath(req);
+
+  if (filePath == "FAILED")
   {
-    // check request file exists on root
-    if (req.url.rfind('/') == 0) // root case
-    {
-      filePath = req.url;
-      if (filePath.length() == 1)
-      {
-        filePath += _index;
-      }
-    }
-    else // there are no matched location
-    {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-      return (*response);
-    }
-  }
-  else
-  {
-    filePath = matchedLocation->convertURLToLocationPath(req.url);
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
   // check this file is CGI path
 
@@ -221,43 +194,59 @@ HTTPResponse& Server::processHEADRequest(const struct Context* context)
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
     HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    return (*response);
+    response->setFd(-1);
+    return (response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    // response->setBody(filePath); // FIXME: HEADER만 필요해서 안쓸거임 (-1)
-    return (*response);
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
 }
 
-HTTPResponse& Server::processDELETERequest(const struct Context* context)
+HTTPResponse* Server::processDELETERequest(const struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
-  Location* matchedLocation = getMatchedLocation(req);
-  std::string filePath;
-  if (matchedLocation == NULL)
+  std::string filePath = getRealFilePath(req);
+
+  if (filePath == "FAILED")
   {
-    // check request file exists on root
-    if (req.url.rfind('/') == 0) // root case
-    {
-      filePath = req.url;
-      if (filePath.length() == 1)
-      {
-        filePath += _index;
-      }
-    }
-    else // there are no matched location
-    {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-      return (*response);
-    }
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
+  }
+  // check is valid file
+  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
+  {
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
   else
   {
-    filePath = matchedLocation->convertURLToLocationPath(req.url);
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    if (unlink(filePath.c_str()) == FAILED)
+      response->setStatus(ST_INTERNAL_SERVER_ERROR, "Server Error");
+    response->setFd(-1);
+    return (response);
+  }
+}
+
+HTTPResponse* Server::processPATCHRequest(const struct Context* context)
+{
+  HTTPRequest& req = *context->req;
+
+  // check matched location
+  std::string filePath = getRealFilePath(req);
+
+  if (filePath == "FAILED")
+  {
+    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
   // check this file is CGI path
 
@@ -265,57 +254,14 @@ HTTPResponse& Server::processDELETERequest(const struct Context* context)
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
     HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    return (*response);
+    response->setFd(-1);
+    return (response);
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    // response->setBody(filePath); // FIXME:  결과 없음 (-1)
-    return (*response);
-  }
-}
-
-HTTPResponse& Server::processPATCHRequest(const struct Context* context)
-{
-  HTTPRequest& req = *context->req;
-
-  // check matched location
-  Location* matchedLocation = getMatchedLocation(req);
-  std::string filePath;
-  if (matchedLocation == NULL)
-  {
-    // check request file exists on root
-    if (req.url.rfind('/') == 0) // root case
-    {
-      filePath = req.url;
-      if (filePath.length() == 1)
-      {
-        filePath += _index;
-      }
-    }
-    else // there are no matched location
-    {
-      HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-      return (*response);
-    }
-  }
-  else
-  {
-    filePath = matchedLocation->convertURLToLocationPath(req.url);
-  }
-  // check this file is CGI path
-
-  // check is valid file
-  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-  {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    return (*response);
-  }
-  else
-  {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    // response->setBody(filePath); // FIXME:  결과 없음 (-1)
-    return (*response);
+    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    return (response);
   }
 }
 
@@ -323,45 +269,46 @@ void Server::processRequest(const struct Context* context)
 {
   const HTTPRequest& req = *context->req;
   const MethodType requestMethod = req.method;
+  HTTPResponse* response;
 
   // undefined method 는 앞서서 처리함.
   switch (requestMethod)
   {
     case GET:
     {
-      // call response processor
-      HTTPResponse& res = (processGETRequest(context));
-
-      return;
+      response = (processGETRequest(context));
+      break ;
     }
     case POST:
     {
-      HTTPResponse& res = (processPOSTRequest(context));
-      return;
+      response = (processPOSTRequest(context));
+      break ;
     }
     case PUT:
     {
-      HTTPResponse& res = (processPUTRequest(context));
-      return;
+      response = (processPUTRequest(context));
+      break ;
     }
     case HEAD:
     {
-      HTTPResponse& res = (processHEADRequest(context));
-      return;
+      response = (processHEADRequest(context));
+      break ;
     }
     case PATCH:
     {
-      HTTPResponse& res = (processPATCHRequest(context));
-      return;
+      response = (processPATCHRequest(context));
+      break ;
     }
     case DELETE:
     {
-      HTTPResponse& res = (processDELETERequest(context));
-      return;
+      response = (processDELETERequest(context));
+      break ;
     }
     case UNDEFINED:
       throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
   }
+  response->sendToClient(context->fd, context->addr, context->manager);
+  delete (context);
 }
 
 Location* Server::getMatchedLocation(const HTTPRequest& req)
