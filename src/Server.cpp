@@ -99,7 +99,11 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
     return (response);
   }
   // check this file is CGI path
-
+  //if (CGI)
+  //{
+  //  cgiRequest(req, filePath);
+  //  return ;
+  //}
   // check is valid file
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
@@ -115,7 +119,7 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   }
 }
 
-HTTPResponse* Server::processPOSTRequest(const struct Context* context)
+HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
@@ -141,12 +145,20 @@ HTTPResponse* Server::processPOSTRequest(const struct Context* context)
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
-    // FIXME: post file to server... -> add write event
+    response->addHeader(HTTPResponse::CONTENT_LENGTH(req.body.length()));
+
+    // attach write event
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_NONBLOCK);
+    struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
+    newContext->res = response;
+    struct kevent event;
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    context->manager->attachNewEvent(newContext, event);
     return (response);
   }
 }
 
-HTTPResponse* Server::processPUTRequest(const struct Context* context)
+HTTPResponse* Server::processPUTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
@@ -237,37 +249,7 @@ HTTPResponse* Server::processDELETERequest(const struct Context* context)
   }
 }
 
-HTTPResponse* Server::processPATCHRequest(const struct Context* context)
-{
-  HTTPRequest& req = *context->req;
-
-  // check matched location
-  std::string filePath = getRealFilePath(req);
-
-  if (filePath == "FAILED")
-  {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
-  }
-  // check this file is CGI path
-
-  // check is valid file
-  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-  {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
-  }
-  else
-  {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Modify file requested"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
-  }
-}
-
-void Server::processRequest(const struct Context* context)
+void Server::processRequest(struct Context* context)
 {
   const HTTPRequest& req = *context->req;
   const MethodType requestMethod = req.method;
@@ -296,17 +278,12 @@ void Server::processRequest(const struct Context* context)
       response = (processHEADRequest(context));
       break ;
     }
-    case PATCH:
-    {
-      response = (processPATCHRequest(context));
-      break ;
-    }
     case DELETE:
     {
       response = (processDELETERequest(context));
       break ;
     }
-    case UNDEFINED:
+    default:
     {
       delete (context);
       throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
