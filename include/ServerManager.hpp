@@ -16,7 +16,10 @@ struct Context
     void (* handler)(struct Context* obj);
     ServerManager* manager;
     HTTPRequest* req;
-    HTTPResponse* res;
+    HTTPResponse* res; // -> for file FD, ContentLength... etc
+    std::string read_buffer; // -> for read_buffer
+    size_t  total_read_size; // 보낼 때 마다 합산.
+
 
     Context(int _fd,
             struct sockaddr_in _addr,
@@ -27,7 +30,9 @@ struct Context
             handler(_handler),
             manager(_manager),
             req(NULL),
-            res(NULL)
+            res(NULL),
+            total_read_size(0),
+            read_buffer("")
     {
     }
 };
