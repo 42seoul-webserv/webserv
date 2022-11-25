@@ -2,6 +2,7 @@
 #include "RequestProcessor.hpp"
 #include "HTTPResponse.hpp"
 #include <sstream>
+#include <sys/stat.h>
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -232,4 +233,11 @@ int ft_stoi(const std::string& str)
   ss << str;
   ss >> res;
   return (res);
+}
+
+long FdGetFileSize(int fd)
+{
+  struct stat stat_buf;
+  int rc = fstat(fd, &stat_buf);
+  return rc == 0 ? stat_buf.st_size : -1;
 }
