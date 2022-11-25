@@ -113,6 +113,11 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
   char* endptr;
   long int length_val;
 
+  if (request->method == GET || request->method == HEAD)
+  {
+    request->status = END;
+    return;
+  }
   length = request->headers.find("Content-Length");
   chunked = request->headers.find("Transfer-Encoding");
   if (chunked != request->headers.end() && chunked->second == "chunked")
