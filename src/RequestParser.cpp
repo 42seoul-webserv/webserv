@@ -17,7 +17,7 @@ std::string::iterator RequestParser::getOneLine(\
   return it;
 }
 
-void checkBodyLength(HTTPRequest* request)
+void RequestParser::checkBodyLength(HTTPRequest* request)
 {
   size_t length;
 

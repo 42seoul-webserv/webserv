@@ -283,7 +283,7 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex)
           temp != NULL; temp = temp->next
           )
   {
-    found = temp->category.find("_location ");
+    found = temp->category.find("location ");
     if (found != std::string::npos)
     {
       temp_cate = temp->category;
@@ -296,6 +296,7 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex)
       std::string indexString = *(GetNodeElem(serverIndex,
                                               temp->category,
                                               "_index").begin());
+
       if (indexString.empty())
       {
         location._index = DEFAULT_INDEX;
@@ -309,6 +310,16 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex)
         location._root = DEFAULT_ROOT;
       }
       getAllowMethods(location.allowMethods, temp->category, serverIndex);
+
+
+      std::vector<std::string> redirects = GetNodeElem(serverIndex, temp->category, "redirect");
+      if (!redirects.empty() && redirects.size() == 2)
+      {
+        std::vector<std::string>::const_iterator itr = redirects.begin();
+        location._redirect.first = static_cast<StatusCode>(std::stod(*itr)) ;
+        itr++;
+        location._redirect.second = *itr;
+
       if (!GetNodeElem(serverIndex,
                        temp->category,
                        "client_max_body_size").begin()->empty())
@@ -357,6 +368,8 @@ void ConfigParser::displayServer(Server& server)
     std::cout << "_location : " << server._locations[i]._location << std::endl;
     std::cout << "_index : " << server._locations[i]._index << std::endl;
     std::cout << "_root : " << server._locations[i]._root << std::endl;
+    std::cout << "_redirct code: " << server._locations[i]._redirect.first << std::endl;
+    std::cout << "_redirct url: " << server._locations[i]._redirect.second << std::endl;
     std::cout << "maxsize : " << server._locations[i].clientMaxBodySize
               << std::endl;
     std::cout << "_location allow methods: ";
@@ -393,6 +406,20 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string>& _errorPage,
     {
       _errorPage[static_cast<StatusCode>(std::stod(it->first))] = *(it->second.begin());
     }
+  }
+}
+
+void ConfigParser::getRedirect(Server &server, unsigned int serverIndex)
+{
+  std::vector<std::string> redirects = GetNodeElem(serverIndex, "server", "redirect");
+  if (!redirects.empty() && redirects.size() == 2)
+  {
+    std::vector<std::string>::const_iterator itr = redirects.begin();
+    server._redirect.first = static_cast<StatusCode>(std::stod(*itr)) ;
+    itr++;
+    server._redirect.second = *itr;
+//    std::cout << server._redirect.first << "\n";
+//    std::cout << server._redirect.second << "\n";
   }
 }
 
@@ -456,6 +483,7 @@ void ConfigParser::getServerAttr(Server& server, unsigned int serverIndex)
   {
     server._allowMethods.push_back(DEFAULT_ALLOW_METHODS);
   }
+  getRedirect(server, serverIndex);
   getLocationAttr(server, serverIndex);
   getErrorPage(server._errorPage, serverIndex);
   displayServer(server);

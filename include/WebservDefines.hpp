@@ -32,6 +32,7 @@ MethodType getMethodType(const std::string& method);
 typedef unsigned int Port;
 typedef int FileDescriptor;
 
+
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 typedef enum
 {

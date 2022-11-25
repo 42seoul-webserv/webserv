@@ -31,9 +31,13 @@ public:
     std::string _serverName;
     int _serverPort;
     int _clientMaxBodySize;
+    std::pair<StatusCode, std::string> _redirect;
     Location* getMatchedLocation(const HTTPRequest& req);
     void processRequest(struct Context* context);
     void openServer();
+
+    // check if server has valid redirection setting.
+    bool isRedirect() const;
 public:
     Server();
     ~Server();

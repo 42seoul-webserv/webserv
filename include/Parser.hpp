@@ -44,6 +44,7 @@ private:
                          const std::string& category,
                          unsigned int serverIndex);
     void getServerAttr(Server& server, unsigned int serverIndex);
+    void getRedirect(Server& server, unsigned int serverIndex);
     void getLocationAttr(Server& server, unsigned int serverIndex);
     void displayServer(Server& server);
     void getErrorPage(std::map<StatusCode, std::string>& _errorPage,

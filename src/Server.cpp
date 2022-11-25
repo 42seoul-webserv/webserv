@@ -310,3 +310,13 @@ Location* Server::getMatchedLocation(const HTTPRequest& req)
   }
   return (NULL); // _root case?
 }
+
+bool Server::isRedirect() const
+{
+  if (this->_redirect.first < 300 || this->_redirect.first > 399)
+    return (false);
+  else if (this->_redirect.second.empty())
+    return (false);
+  else // if valid redirect status_code
+    return (true);
+}
