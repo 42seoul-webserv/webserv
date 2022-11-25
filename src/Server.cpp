@@ -311,12 +311,29 @@ Location* Server::getMatchedLocation(const HTTPRequest& req)
   return (NULL); // _root case?
 }
 
-bool Server::isRedirect() const
+// 만약 redirection이 맞다면, 두번째 인자*buf에 데이터를 넣어줌 + true 반환.
+bool Server::isRedirect(const std::string& url, std::pair<StatusCode, std::string>* redir_buf) const
 {
-  if (this->_redirect.first < 300 || this->_redirect.first > 399)
-    return (false);
-  else if (this->_redirect.second.empty())
-    return (false);
-  else // if valid redirect status_code
+  if (this->_redirect.first >= 300 && this->_redirect.first <= 399 && !(_redirect.second.empty()))
+  {
+    redir_buf->first = this->_redirect.first;
+    redir_buf->second = this->_redirect.second;
     return (true);
+  }
+  else
+  {
+    // if given argument matches Location + location has redirect.
+    std::vector<Location>::const_iterator itr;
+    while (itr != this->_locations.end())
+    {
+      if (itr->isMatchedLocation(url) && itr->isRedirect())
+      {
+        redir_buf->first = itr->_redirect.first;
+        redir_buf->second = itr->_redirect.second;
+        return (true);
+      }
+      itr++;
+    }
+  }
+  return (false);
 }
