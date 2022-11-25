@@ -444,7 +444,7 @@ void ConfigParser::getServerAttr(Server& server, unsigned int serverIndex)
     serverListenPort = DEFAULT_SERVER_PORT;
   }
   server._socketAddr.sin_port = ntohs(serverListenPort);
-  server._serverPort = ntohs(serverListenPort);
+  server._serverPort = (serverListenPort);
   server._socketAddr.sin_family = AF_INET;
 
   // set server config

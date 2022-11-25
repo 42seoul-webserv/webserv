@@ -127,7 +127,7 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
   {
     Server& server = *it;
     std::string serverName = server._serverName + ':' + ft_itos(server._serverPort);
-    std::string hostName = req.headers.at("host");
+    std::string hostName = req.headers.at("Host");
     if (hostName.find(':') == std::string::npos)
     {
       hostName += ":80";
