@@ -84,12 +84,10 @@ void RequestProcessor::processRequest(struct Context* context)
 
   if (req.status == ERROR)
   {
-    context->req = NULL;
-    delete (&req);
-    // response err
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
+    context->res = response;
+
     response->sendToClient(context->fd, context->addr, &_serverManager);
-    delete (context);
     return;
   }
   else if (req.status == HEADEROK)
@@ -98,21 +96,18 @@ void RequestProcessor::processRequest(struct Context* context)
 
     if (status != ST_OK)
     {
-      context->req = NULL;
-      delete (&req);
-      // response err
       HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
+      context->res = response;
+
       response->sendToClient(context->fd, context->addr, &_serverManager);
-      delete (context);
       return;
     }
     // * if redirection.
     std::pair<StatusCode, std::string> redirect_data;
     if (server.isRedirect(req.url, &redirect_data))
     {
-      context->req = NULL;
-      delete (&req);
       HTTPResponse* response = new HTTPResponse(redirect_data.first, "redirect", context->manager->getServerName(context->addr.sin_port));
+      context->res = response;
       // set location header.
       response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
       response->sendToClient(context->fd, context->addr, &_serverManager);
@@ -121,10 +116,6 @@ void RequestProcessor::processRequest(struct Context* context)
     }
     if (req.method == GET || req.method == HEAD) // not consider body
     {
-      context->req = NULL;
-      delete (&req);
-      // call response processor
-//      Server& server = _serverManager.getMatchedServer(req);
       server.processRequest(context);
       return;
     }
@@ -139,10 +130,6 @@ void RequestProcessor::processRequest(struct Context* context)
   }
   else // status == END
   {
-    context->req = NULL;
-    delete (&req);
-    // call response processor
-//    Server& server = _serverManager.getMatchedServer(req);
     server.processRequest(context);
     return;
   }

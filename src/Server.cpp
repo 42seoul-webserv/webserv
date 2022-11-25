@@ -289,7 +289,8 @@ void Server::processRequest(struct Context* context)
       throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
     }
   }
-  response->sendToClient(context->fd, context->addr, context->manager);
+  context->res = response;
+  response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
   delete (context);
 }
 
