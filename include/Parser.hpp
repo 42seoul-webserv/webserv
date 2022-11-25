@@ -1,3 +1,6 @@
+#ifndef PARSER_HPP
+#define PARSER_HPP
+
 #include <map>
 #include <iostream>
 #include <fstream>
@@ -58,3 +61,5 @@ public:
     static bool isValidFile(const std::string& configFilePath);
     std::vector<Server> parseConfigFile(const std::string& configFilePath);
 };
+
+#endif

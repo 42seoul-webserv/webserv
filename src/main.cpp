@@ -40,6 +40,7 @@ int main(int ac, char **av)
 
   ConfigParser parser;
   parser.parseConfigFile(av[1]);
+//  std::cout << "\n";
 //  parser.displayAll();
 
   return (0);
