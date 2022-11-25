@@ -19,7 +19,7 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
       filePath = req.url;
       if (filePath.length() == 1)
       {
-        filePath += _index;
+        filePath = _root + _index;
       }
     }
     else // there are no matched location
@@ -115,6 +115,8 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(open(filePath.c_str(), O_RDONLY));
+    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
+
     return (response);
   }
 }
@@ -145,7 +147,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
-    response->addHeader(HTTPResponse::CONTENT_LENGTH(req.body.length()));
 
     // attach write event
     FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_NONBLOCK);
@@ -285,13 +286,11 @@ void Server::processRequest(struct Context* context)
     }
     default:
     {
-      delete (context);
       throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
     }
   }
   context->res = response;
   response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
-  delete (context);
 }
 
 Location* Server::getMatchedLocation(const HTTPRequest& req)
