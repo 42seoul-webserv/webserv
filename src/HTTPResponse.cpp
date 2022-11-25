@@ -296,7 +296,7 @@ FileDescriptor HTTPResponse::getFd() const
 void HTTPResponse::sendToClient(struct Context* context)
 {
   // (1) Send Header
-  struct Context *newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
+  struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->res = this;
   newSendContext->read_buffer = this->getHeader().toString() + "\n";
   struct kevent event;
@@ -327,8 +327,8 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     close(context->fd); // close socket
     delete (context->req);
     delete (context->res);
-    delete (context);
   }
+  delete (context);
 }
 
 void HTTPResponse::bodyFdReadHandler(struct Context* context)
@@ -355,7 +355,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     }
     // ResponseContext를 만들어서 넘긴다.
     struct kevent event;
-    struct Context *newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
+    struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
     newSendContext->res = context->res;
     newSendContext->read_buffer = buffer;
     EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
