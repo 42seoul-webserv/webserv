@@ -325,8 +325,10 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   else if (context->res->_fileFd < 0) // no body.
   {
     close(context->fd); // close socket
+    delete (context->req);
+    delete (context->res);
+    delete (context);
   }
-  delete (context);
 }
 
 void HTTPResponse::bodyFdReadHandler(struct Context* context)

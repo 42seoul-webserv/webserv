@@ -87,7 +87,7 @@ void RequestProcessor::processRequest(struct Context* context)
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
     context->res = response;
 
-    response->sendToClient(context->fd, context->addr, &_serverManager);
+    response->sendToClient(context);
     return;
   }
   else if (req.status == HEADEROK)
@@ -99,7 +99,7 @@ void RequestProcessor::processRequest(struct Context* context)
       HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
       context->res = response;
 
-      response->sendToClient(context->fd, context->addr, &_serverManager);
+      response->sendToClient(context);
       return;
     }
     // * if redirection.
@@ -110,8 +110,7 @@ void RequestProcessor::processRequest(struct Context* context)
       context->res = response;
       // set location header.
       response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
-      response->sendToClient(context->fd, context->addr, &_serverManager);
-      delete (context);
+      response->sendToClient(context);
       return ;
     }
     if (req.method == GET || req.method == HEAD) // not consider body
