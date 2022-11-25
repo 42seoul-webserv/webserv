@@ -298,6 +298,7 @@ void HTTPResponse::sendToClient(struct Context* context)
   // (1) Send Header
   struct Context *newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->res = this;
+  newSendContext->read_buffer = this->getHeader().toString() + "\n";
   struct kevent event;
   EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
   newSendContext->manager->attachNewEvent(newSendContext, event);
@@ -354,6 +355,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     struct kevent event;
     struct Context *newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
     newSendContext->res = context->res;
+    newSendContext->read_buffer = buffer;
     EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
     newSendContext->manager->attachNewEvent(newSendContext, event);
     // 만약 다 읽어서 flag가 true가 되면 삭제.
