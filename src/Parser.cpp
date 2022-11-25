@@ -271,64 +271,69 @@ static void setLocationDefault(Server& server, Location& location)
   }
 }
 
-void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex)
-{
+void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex) {
   size_t found;
   std::string temp_cate;
   std::vector<std::string> temp2;
   Location location;
 
   for (
-          ParserNode* temp = _nodeVector[serverIndex].next;
+          ParserNode *temp = _nodeVector[serverIndex].next;
           temp != NULL; temp = temp->next
-          )
-  {
-    found = temp->category.find("_location ");
-    if (found != std::string::npos)
-    {
+          ) {
+    found = temp->category.find("location ");
+    if (found != std::string::npos) {
       temp_cate = temp->category;
       temp_cate.erase(temp_cate.begin(), temp_cate.begin() + 9);
       location._location = temp_cate;
-      if (location._location.empty())
-      {
+      if (location._location.empty()) {
         throw (std::runtime_error("invalid config file\n"));
       }
       std::string indexString = *(GetNodeElem(serverIndex,
                                               temp->category,
-                                              "_index").begin());
-      if (indexString.empty())
-      {
+                                              "index").begin());
+      location._index = indexString;
+      if (indexString.empty()) {
         location._index = DEFAULT_INDEX;
       }
 
       std::string rootString = *(GetNodeElem(serverIndex,
                                              temp->category,
-                                             "_root").begin());
-      if (rootString.empty())
-      {
+                                             "root").begin());
+      location._root = rootString;
+      if (rootString.empty()) {
         location._root = DEFAULT_ROOT;
       }
       getAllowMethods(location.allowMethods, temp->category, serverIndex);
-      if (!GetNodeElem(serverIndex,
-                       temp->category,
-                       "client_max_body_size").begin()->empty())
-      {
-        location.clientMaxBodySize = ft_stoi(*(GetNodeElem(serverIndex,
-                                                           temp->category,
-                                                           "client_max_body_size").begin()));
-      } // FIXME crash 가능성
-      else
-      {
-        location.clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
+
+
+      std::vector<std::string> redirects = GetNodeElem(serverIndex, temp->category, "redirect");
+      // if has redirection
+      if (!redirects.empty() && redirects.size() == 2) {
+        std::vector<std::string>::const_iterator itr = redirects.begin();
+        location._redirect.first = static_cast<StatusCode>(std::stod(*itr));
+        itr++;
+        location._redirect.second = *itr;
       }
-      location.cgiInfo = GetNodeElem(serverIndex, temp->category, "cgi_info");
-      setLocationDefault(server, location);
-      server._locations.push_back(location);
-      location.allowMethods.clear();
-      location.cgiInfo.clear();
+
+        if (!GetNodeElem(serverIndex,
+                         temp->category,
+                         "client_max_body_size").begin()->empty()) {
+          location.clientMaxBodySize = ft_stoi(*(GetNodeElem(serverIndex,
+                                                             temp->category,
+                                                             "client_max_body_size").begin()));
+        } // FIXME crash 가능성
+        else {
+          location.clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
+        }
+        location.cgiInfo = GetNodeElem(serverIndex, temp->category, "cgi_info");
+        setLocationDefault(server, location);
+        server._locations.push_back(location);
+        location.allowMethods.clear();
+        location.cgiInfo.clear();
+      }
     }
   }
-}
 
 void ConfigParser::displayServer(Server& server)
 {
@@ -340,6 +345,8 @@ void ConfigParser::displayServer(Server& server)
     std::cout << server._allowMethods[i] << " ";
   }
   std::cout << std::endl;
+  std::cout << "redirct code: " << server._redirect.first << std::endl;
+  std::cout << "redirct url: " << server._redirect.second << std::endl;
   std::cout << "error_page : " << std::endl;
   for (
           std::map<StatusCode, std::string>::iterator it = server._errorPage.begin();
@@ -350,6 +357,7 @@ void ConfigParser::displayServer(Server& server)
     std::cout << it->second << std::endl;
   }
   std::cout << std::endl;
+//  std::cout << server._locations.size() << std::endl;
   for (
           unsigned int i = 0; i < server._locations.size(); ++i
           )
@@ -357,7 +365,9 @@ void ConfigParser::displayServer(Server& server)
     std::cout << "_location : " << server._locations[i]._location << std::endl;
     std::cout << "_index : " << server._locations[i]._index << std::endl;
     std::cout << "_root : " << server._locations[i]._root << std::endl;
-    std::cout << "maxsize : " << server._locations[i].clientMaxBodySize
+    std::cout << "_redirct code: " << server._locations[i]._redirect.first << std::endl;
+    std::cout << "_redirct url: " << server._locations[i]._redirect.second << std::endl;
+    std::cout << "_maxsize : " << server._locations[i].clientMaxBodySize
               << std::endl;
     std::cout << "_location allow methods: ";
     for (
@@ -367,14 +377,14 @@ void ConfigParser::displayServer(Server& server)
       std::cout << server._locations[i].allowMethods[k] << " ";
     }
     std::cout << std::endl;
-    std::cout << "cgiInfo : ";
+    std::cout << "_cgiInfo : ";
     for (
             unsigned int k = 0; k < server._locations[i].cgiInfo.size(); ++k
             )
     {
       std::cout << server._locations[i].cgiInfo[k] << " ";
     }
-    std::cout << std::endl;
+    std::cout << "\n" << std::endl;
   }
 }
 
@@ -393,6 +403,18 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string>& _errorPage,
     {
       _errorPage[static_cast<StatusCode>(std::stod(it->first))] = *(it->second.begin());
     }
+  }
+}
+
+void ConfigParser::getRedirect(Server &server, unsigned int serverIndex)
+{
+  std::vector<std::string> redirects = GetNodeElem(serverIndex, "server", "redirect");
+  if (!redirects.empty() && redirects.size() == 2)
+  {
+    std::vector<std::string>::const_iterator itr = redirects.begin();
+    server._redirect.first = static_cast<StatusCode>(std::stod(*itr)) ;
+    itr++;
+    server._redirect.second = *itr;
   }
 }
 
@@ -426,12 +448,12 @@ void ConfigParser::getServerAttr(Server& server, unsigned int serverIndex)
   server._socketAddr.sin_family = AF_INET;
 
   // set server config
-  server._index = *(GetNodeElem(serverIndex, "server", "_index").begin());
+  server._index = *(GetNodeElem(serverIndex, "server", "index").begin());
   if (server._index.empty())
   {
     server._index = DEFAULT_INDEX;
   }
-  server._root = *(GetNodeElem(serverIndex, "server", "_root").begin());
+  server._root = *(GetNodeElem(serverIndex, "server", "root").begin());
   if (server._root.empty())
   {
     server._serverName = DEFAULT_ROOT;
@@ -456,8 +478,10 @@ void ConfigParser::getServerAttr(Server& server, unsigned int serverIndex)
   {
     server._allowMethods.push_back(DEFAULT_ALLOW_METHODS);
   }
+  getRedirect(server, serverIndex);
   getLocationAttr(server, serverIndex);
   getErrorPage(server._errorPage, serverIndex);
+
   displayServer(server);
 }
 

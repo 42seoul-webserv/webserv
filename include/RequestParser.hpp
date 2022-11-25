@@ -1,3 +1,6 @@
+#ifndef REQUEST_PARSER_HPP
+# define REQUEST_PARSER_HPP
+
 #include "WebservDefines.hpp"
 #include "HTTPRequest.hpp"
 #include <map>
@@ -25,3 +28,4 @@ public:
     void displayAll(HTTPRequest* request);
 };
 
+#endif

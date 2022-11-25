@@ -1,3 +1,6 @@
+#ifndef PARSER_HPP
+#define PARSER_HPP
+
 #include <map>
 #include <iostream>
 #include <fstream>
@@ -44,6 +47,7 @@ private:
                          const std::string& category,
                          unsigned int serverIndex);
     void getServerAttr(Server& server, unsigned int serverIndex);
+    void getRedirect(Server& server, unsigned int serverIndex);
     void getLocationAttr(Server& server, unsigned int serverIndex);
     void displayServer(Server& server);
     void getErrorPage(std::map<StatusCode, std::string>& _errorPage,
@@ -57,3 +61,5 @@ public:
     static bool isValidFile(const std::string& configFilePath);
     std::vector<Server> parseConfigFile(const std::string& configFilePath);
 };
+
+#endif

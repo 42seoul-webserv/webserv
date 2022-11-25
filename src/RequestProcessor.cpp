@@ -80,6 +80,8 @@ void RequestProcessor::processRequest(struct Context* context)
   }
   // check request status
   HTTPRequest& req = *context->req;
+  Server& server = _serverManager.getMatchedServer(req);
+
   if (req.status == ERROR)
   {
     context->req = NULL;
@@ -104,12 +106,25 @@ void RequestProcessor::processRequest(struct Context* context)
       delete (context);
       return;
     }
+    // * if redirection.
+    std::pair<StatusCode, std::string> redirect_data;
+    if (server.isRedirect(req.url, &redirect_data))
+    {
+      context->req = NULL;
+      delete (&req);
+      HTTPResponse* response = new HTTPResponse(redirect_data.first, "redirect", context->manager->getServerName(context->addr.sin_port));
+      // set location header.
+      response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
+      response->sendToClient(context->fd, context->addr, &_serverManager);
+      delete (context);
+      return ;
+    }
     if (req.method == GET || req.method == HEAD) // not consider body
     {
       context->req = NULL;
       delete (&req);
       // call response processor
-      Server& server = _serverManager.getMatchedServer(req);
+//      Server& server = _serverManager.getMatchedServer(req);
       server.processRequest(context);
       return;
     }
@@ -127,7 +142,7 @@ void RequestProcessor::processRequest(struct Context* context)
     context->req = NULL;
     delete (&req);
     // call response processor
-    Server& server = _serverManager.getMatchedServer(req);
+//    Server& server = _serverManager.getMatchedServer(req);
     server.processRequest(context);
     return;
   }
