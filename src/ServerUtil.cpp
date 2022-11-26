@@ -26,27 +26,6 @@ MethodType getMethodType(const std::string& method)
   return (UNDEFINED);
 }
 
-// TODO: THIS FUNCTION IS TEMPORARY
-#include <sstream>
-
-static std::string getResponse(FileDescriptor indexFile)
-{
-  char buffer[1024] = {0};
-  int readSize = read(indexFile, buffer, sizeof(buffer)); // blocked
-  std::ostringstream ss;
-  std::string result;
-  ss << readSize;
-
-  result += "HTTP/1.1 200 OK\r\n";
-  result += "Server: webserv\r\n";
-  result += "Content-length: " + ss.str() + "\r\n";
-  result += "Content-Type: text/html\r\n";
-  result += "\r\n";
-  result += buffer;
-
-  return (result);
-}
-
 std::string getClientIP(struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
@@ -55,57 +34,6 @@ std::string getClientIP(struct sockaddr_in* addr)
   inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
 
   return (str);
-}
-
-// TODO: Handlers -> ServerManager Methods or something else...
-void responseHandler(struct Context* context)
-{
-  FileDescriptor indexFile;
-
-  if ((indexFile = open("../_index.html", O_RDONLY)) < 0)
-  {
-    printLog("error: client: " + getClientIP(&context->addr) + " : open failed\n", PRINT_RED);
-    throw (std::runtime_error("Open Failed\n"));
-  }
-  std::string res = getResponse(indexFile);
-  if (send(context->fd, res.data(), res.size(), 0) < 0)
-  {
-    printLog("error: client: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
-    throw (std::runtime_error("Send Failed\n"));
-  }
-  printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
-  close(context->fd);
-  close(indexFile);
-
-  delete (context);
-}
-
-void readHandler(struct Context* context)
-{
-  // read socket TODO: if chunked..?
-  char buffer[BUFFER_SIZE] = {0};
-  struct kevent event;
-
-  // TODO: get HTTPRequest Object from HTTPRequestParser
-  // 해당 부분이 non-blocked 형식으로 하는데, 따로 kevent로 돌려야하나? - request handling 어떻게함?
-  // 큰 파일이 들어오는 경우 header만 먼저 읽어들이고 이후의 데이터를 판단해야할 것.
-  if (recv(context->fd, buffer, sizeof(buffer), MSG_DONTWAIT) < 0)
-  {
-    printLog("error: " + getClientIP(&context->addr) + " : receive failed\n", PRINT_RED);
-    throw (std::runtime_error("receive failed\n"));
-  }
-  else
-  {
-    // FIXME: below codes only can do GET METHOD
-    struct Context* newContext = new struct Context(context->fd, context->addr, responseHandler, context->manager);
-    EV_SET(&event, newContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
-    if (kevent(context->manager->getKqueue(), &event, 1, NULL, 0, NULL) < 0)
-    {
-      printLog("error: " + getClientIP(&context->addr) + " : event attachServerEvent failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attachServerEvent failed (response)\n"));
-    }
-    delete (context);
-  }
 }
 
 void socketReceiveHandler(struct Context* context)
@@ -118,17 +46,32 @@ void socketReceiveHandler(struct Context* context)
 // TODO : client session time?
 void acceptHandler(struct Context* context)
 {
+  static uint32_t connections;
+
+  printLog("accept handler called\n", PRINT_CYAN);
   socklen_t len = sizeof(context->addr);
   FileDescriptor newSocket;
 
   if ((newSocket = accept(context->fd, reinterpret_cast<sockaddr*>(&context->addr), &len)) < 0)
   {
     printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
-    throw (std::runtime_error("Accept failed\n"));
+    return ;
   }
   else
   {
-    printLog(getClientIP(&context->addr) + " : connect\n", PRINT_GREEN);
+    std::cout << "CONNECTION : " << connections++ << "  fd : " << newSocket << "\n";
+    // set socket option
+    if (fcntl(newSocket, F_SETFL, O_NONBLOCK) < 0)
+    {
+      throw (std::runtime_error("fcntl non block failed\n"));
+    }
+    struct linger _linger = {1, 0};
+    if (setsockopt(newSocket, SOL_SOCKET, SO_LINGER, &_linger, sizeof(_linger)) < 0 )
+    {
+      throw (std::runtime_error("Socket opt failed\n"));
+    }
+
+    printLog("connect : " + getClientIP(&context->addr) + "\n" , PRINT_GREEN);
     struct Context* newContext = new struct Context(newSocket, context->addr, socketReceiveHandler, context->manager);
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);
@@ -145,7 +88,30 @@ void handleEvent(struct kevent* event)
   struct Context* eventData = static_cast<struct Context*>(event->udata);
   try
   {
-    eventData->handler(eventData);
+    if (event->flags & EV_EOF || event->fflags & EV_EOF)
+    {
+      printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+      close(eventData->fd);
+      if (eventData->req != NULL)
+        delete (eventData->req);
+      if (eventData->res != NULL)
+        delete (eventData->res);
+      delete (eventData);
+    }
+    else if (event->flags & EV_ERROR)
+    {
+      printLog("EV ERROR case\n", PRINT_YELLOW);
+      close(eventData->fd);
+      if (eventData->req)
+        delete (eventData->req);
+      if (eventData->res)
+        delete (eventData->res);
+      delete (eventData);
+    }
+    else
+    {
+      eventData->handler(eventData);
+    }
   }
   catch (std::exception& e)
   {

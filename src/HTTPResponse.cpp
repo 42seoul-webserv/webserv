@@ -313,7 +313,7 @@ void HTTPResponse::sendToClient(struct Context* context)
   }
   printLog(context->res->getStatusMessage() + " : " + getClientIP(&context->addr) + "\n", PRINT_BLUE);
   delete (context->req);
-  delete (context);
+  context->req = NULL;
 }
 
 void HTTPResponse::socketSendHandler(struct Context* context)
@@ -323,11 +323,16 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   {
     printLog("error: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
   }
-  else if (context->res->_fileFd < 0) // no body.
+  if (context->res->_fileFd < 0) // 더 이상 보낼 내용이 없는 경우
   {
-    close(context->fd); // close socket
-    delete (context->res);
+    // 더 이상 보낼 내용이 없으므로 해당 소켓 감지 그만.
+    struct kevent ev[1];
+    EV_SET(ev, context->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+    context->manager->attachNewEvent(NULL, ev[0]);
   }
+  if (context->req != NULL)
+    delete (context->req);
+  context->req = NULL;
   delete (context);
 }
 

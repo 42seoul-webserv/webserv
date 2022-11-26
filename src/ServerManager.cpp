@@ -37,6 +37,7 @@ void ServerManager::run()
 
     if (newEventCount == -1)
     { // nothing happen
+      printLog("EV ERR (-1)\n", PRINT_RED);
       continue;
     }
     else if (newEventCount == 0)
@@ -46,10 +47,6 @@ void ServerManager::run()
     else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
     {
       handleEvent(&event);
-    }
-    else if (event.filter == EV_ERROR)
-    { // request 도중에 error 가 난 상황이라면?
-      printLog("Error: EV_ERROR\n", PRINT_RED);
     }
   }
 }
@@ -83,7 +80,7 @@ std::string ServerManager::getServerName(in_port_t port_num) const
     }
     itr++;
   }
-  return ("webserv");
+  return (DEFAULT_SERVER_NAME);
 }
 
 void ServerManager::attachServerEvent(Server& server)

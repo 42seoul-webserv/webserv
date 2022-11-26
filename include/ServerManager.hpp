@@ -62,9 +62,7 @@ public:
     Server& getMatchedServer(const HTTPRequest& req);
 };
 void socketReceiveHandler(struct Context* context);
-void readHandler(struct Context* context);
 void acceptHandler(struct Context* context);
-void responseHandler(struct Context* context);
 void handleEvent(struct kevent* event);
 void writeFileHandle(struct Context* context);
 
