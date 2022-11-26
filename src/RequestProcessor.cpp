@@ -2,7 +2,7 @@
 #include "HTTPResponse.hpp"
 #include "HTTPRequest.hpp"
 #include "ServerManager.hpp"
-#include <unistd.h>
+#include "WebservDefines.hpp"
 
 static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
 {
@@ -87,6 +87,7 @@ void RequestProcessor::processRequest(struct Context* context)
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
     context->res = response;
 
+    response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
     response->sendToClient(context);
     return;
   }
@@ -99,6 +100,7 @@ void RequestProcessor::processRequest(struct Context* context)
       HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
       context->res = response;
 
+      response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
       return;
     }
@@ -110,6 +112,7 @@ void RequestProcessor::processRequest(struct Context* context)
       context->res = response;
       // set location header.
       response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
+      response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
       return ;
     }

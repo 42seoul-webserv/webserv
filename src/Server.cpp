@@ -290,6 +290,10 @@ void Server::processRequest(struct Context* context)
     }
   }
   context->res = response;
+  if (response->getFd() > 0)
+    response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
+  else
+    response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
   response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
 }
 

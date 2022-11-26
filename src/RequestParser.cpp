@@ -273,7 +273,6 @@ void RequestParser::checkCRLF(HTTPRequest* request)
   size_t endPOS = request->message.find("\r\n\r\n");
   size_t nowPOS = 0;
 
-  std::cout << "endPOS : " << endPOS << std::endl;
   if (endPOS != std::string::npos)
   {
     request->checkLevel = STARTLINE;

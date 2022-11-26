@@ -311,6 +311,8 @@ void HTTPResponse::sendToClient(struct Context* context)
     EV_SET(&event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newReadContext);
     newReadContext->manager->attachNewEvent(newReadContext, event);
   }
+  printLog(context->res->getStatusMessage() + " : " + getClientIP(&context->addr) + "\n", PRINT_BLUE);
+  delete (context->req);
   delete (context);
 }
 
@@ -320,12 +322,10 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   if (send(context->fd, context->read_buffer.c_str(), context->read_buffer.size(), MSG_DONTWAIT) < 0)
   {
     printLog("error: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
-    throw (std::runtime_error("Send Failed\n"));
   }
   else if (context->res->_fileFd < 0) // no body.
   {
     close(context->fd); // close socket
-    delete (context->req);
     delete (context->res);
   }
   delete (context);
