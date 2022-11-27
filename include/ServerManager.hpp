@@ -18,7 +18,8 @@ struct Context
     ServerManager* manager;
     HTTPRequest* req;
     HTTPResponse* res; // -> for file FD, ContentLength... etc
-    std::string read_buffer; // -> for read_buffer
+    char* read_buffer;
+    size_t  buffer_size;
     size_t  total_read_size; // 보낼 때 마다 합산.
     FileDescriptor threadKQ;
 
@@ -32,7 +33,8 @@ struct Context
             manager(_manager),
             req(NULL),
             res(NULL),
-            read_buffer(""),
+            read_buffer(NULL),
+            buffer_size(0),
             total_read_size(0),
             threadKQ(0)
 
@@ -54,10 +56,10 @@ private:
 public:
     explicit ServerManager(const std::string& configFilePath);
     ~ServerManager();
-    void run();
+    _Noreturn void run();
     void initServers();
     void attachServerEvent(Server& server);
-    void attachNewEvent(struct Context* context, const struct kevent& event);
+    static void attachNewEvent(struct Context* context, const struct kevent& event);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();
