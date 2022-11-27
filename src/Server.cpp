@@ -21,6 +21,10 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
       {
         filePath = _root + _index;
       }
+      else
+      {
+        filePath = _root + filePath;
+      }
     }
     else // there are no matched location
     {
@@ -107,6 +111,7 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
+    printLog(filePath + "NOT FOUND\n", PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     return (response);
