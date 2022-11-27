@@ -9,9 +9,7 @@ static void* jobHandler(void *_threadPool)
   ThreadPool& tp = *reinterpret_cast<ThreadPool*>(_threadPool);
   FileDescriptor kq = kqueue();
   struct kevent event;
-  struct timespec ts = {0, 1000};
-
-  std::cout << "KQ  : " << kq << "\n";
+  struct timespec ts = {0, 5 * 1000 * 1000};
 
   while (true)
   {
@@ -97,11 +95,6 @@ void ThreadPool::attachNewEvent(struct kevent* event)
   pthread_mutex_lock(getMutex());
   _eventQueue.push(event);
   pthread_mutex_unlock(getMutex());
-}
-
-void ThreadPool::distributeEvent(struct kevent* event)
-{
-  attachNewEvent(event);
 }
 
 void ThreadPool::createPool()

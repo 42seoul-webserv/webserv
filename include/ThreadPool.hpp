@@ -21,11 +21,10 @@ public:
     std::vector<pthread_t> _workerThreads;
     std::queue<struct kevent*> _eventQueue;
 
-    ThreadPool(size_t threadNumber);
+    explicit ThreadPool(size_t threadNumber);
     ~ThreadPool();
     pthread_mutex_t* getMutex();
     void attachNewEvent(struct kevent* event);
-    void distributeEvent(struct kevent* event);
     bool isStop() const;
     void createPool();
 };
