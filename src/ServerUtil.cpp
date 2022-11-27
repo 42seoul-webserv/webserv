@@ -11,7 +11,7 @@ void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 
 MethodType getMethodType(const std::string& method)
 {
-  const char* const METHODS[] = {"GET", "POST", "PUT", "PATCH", "DELETE"};
+  const char* const METHODS[] = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"};
   const size_t NUMBER_OF_METHOD = sizeof(METHODS) / sizeof(char*);
 
   for (
@@ -47,10 +47,9 @@ void socketReceiveHandler(struct Context* context)
 // TODO : client session time?
 void acceptHandler(struct Context* context)
 {
-  static uint32_t connections;
+//  static uint32_t connections;
 
 //  printLog("accept handler called\n", PRINT_CYAN);
-//  std::cout << "TKQ : " <<  context->threadKQ << "\n";
   socklen_t len = sizeof(context->addr);
   FileDescriptor newSocket;
 
@@ -61,7 +60,7 @@ void acceptHandler(struct Context* context)
   }
   else
   {
-    std::cout << "CONNECTION : " << connections++ << "  fd : " << context->threadKQ << "\n";
+//    std::cout << "CONNECTION : " << connections++ << "  fd : " << context->threadKQ << "\n";
     // set socket option
     if (fcntl(newSocket, F_SETFL, O_NONBLOCK) < 0)
     {
@@ -91,6 +90,7 @@ void handleEvent(struct kevent* event)
     if (event->flags & EV_EOF || event->fflags & EV_EOF)
     {
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+      shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
       if (eventData->req != NULL)
         delete (eventData->req);
@@ -103,6 +103,7 @@ void handleEvent(struct kevent* event)
     else if (event->flags & EV_ERROR)
     {
       printLog("EV ERROR case\n", PRINT_YELLOW);
+      shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
       if (eventData->req != NULL)
         delete (eventData->req);

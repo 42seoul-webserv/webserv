@@ -3,7 +3,7 @@
 
 ServerManager::ServerManager(const std::string& configFilePath) :
         _processor(*this),
-        _threadPool(16)
+        _threadPool(THREAD_NO)
 {
   ConfigParser parser;
   _serverList = parser.parseConfigFile(configFilePath);
@@ -22,7 +22,7 @@ ServerManager::~ServerManager()
   }
 }
 
-void ServerManager::run()
+_Noreturn void ServerManager::run()
 {
   struct kevent event;
 
@@ -161,8 +161,6 @@ void ServerManager::attachNewEvent(struct Context* context, const struct kevent&
 
   if (kevent(kq, &event, 1, NULL, 0, NULL) < 0)
   {
-    std::cout << strerror(errno) << "\n";
-    std::cout << context->threadKQ << " , " << context->fd << "\n";
     throw (std::runtime_error("Event attachNewEvent failed\n"));
   }
 }
