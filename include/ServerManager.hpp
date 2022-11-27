@@ -6,6 +6,7 @@
 #include "Parser.hpp"
 #include "RequestProcessor.hpp"
 #include "RequestParser.hpp"
+#include "ThreadPool.hpp"
 
 class ServerManager;
 
@@ -19,7 +20,7 @@ struct Context
     HTTPResponse* res; // -> for file FD, ContentLength... etc
     std::string read_buffer; // -> for read_buffer
     size_t  total_read_size; // 보낼 때 마다 합산.
-
+    FileDescriptor threadKQ;
 
     Context(int _fd,
             struct sockaddr_in _addr,
@@ -31,8 +32,10 @@ struct Context
             manager(_manager),
             req(NULL),
             res(NULL),
+            read_buffer(""),
             total_read_size(0),
-            read_buffer("")
+            threadKQ(0)
+
     {
     }
 };
@@ -47,6 +50,7 @@ private:
     FileDescriptor _kqueue;
     RequestProcessor _processor;
     RequestParser _requestParser;
+    ThreadPool _threadPool;
 public:
     explicit ServerManager(const std::string& configFilePath);
     ~ServerManager();

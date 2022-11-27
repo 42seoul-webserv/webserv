@@ -4,8 +4,8 @@ project("webserv")
 
 set(CMAKE_CXX_STANDARD 98)
 
-add_compile_options(-g3 -fsanitize=address)
-add_link_options(-g3 -fsanitize=address)
+#add_compile_options(-g3 -fsanitize=address)
+#add_link_options(-g3 -fsanitize=address)
 
 set(SOURCE_FILES
         src/main.cpp
@@ -17,6 +17,7 @@ set(SOURCE_FILES
         src/HTTPResponse.cpp
         src/RequestProcessor.cpp
         src/Location.cpp
+        src/ThreadPool.cpp
         )
 
 add_executable(webserv

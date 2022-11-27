@@ -1,7 +1,9 @@
 #include "ServerManager.hpp"
+#include "ThreadPool.hpp"
 
 ServerManager::ServerManager(const std::string& configFilePath) :
-        _processor(*this)
+        _processor(*this),
+        _threadPool(16)
 {
   ConfigParser parser;
   _serverList = parser.parseConfigFile(configFilePath);
@@ -30,6 +32,7 @@ void ServerManager::run()
     exit(1);
   }
   initServers(); // 여러 서버 세팅들을 모두 연다. (nginx config 참조)
+  _threadPool.createPool();
   while (1)
   {
     // 서버 시작. 새 이벤트(Req)가 발생할 때 까지 무한루프. (감지하는 kevent)
@@ -46,7 +49,7 @@ void ServerManager::run()
     }
     else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
     {
-      handleEvent(&event);
+      _threadPool.attachNewEvent(&event);
     }
   }
 }
@@ -88,7 +91,7 @@ void ServerManager::attachServerEvent(Server& server)
   // TODO: have to control leak?
   struct kevent events[1];
   struct Context* context = new struct Context(server._serverFD, server._socketAddr, acceptHandler, this);
-  // Context { fd | socket_addr | handler | manager_ptr }
+  context->threadKQ = _kqueue;
 
   EV_SET(&events[0], server._serverFD, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, context);
   // 등록하는 kevent
@@ -154,9 +157,12 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
 
 void ServerManager::attachNewEvent(struct Context* context, const struct kevent& event)
 {
-  // 등록하는 kevent
-  if (kevent(_kqueue, &event, 1, NULL, 0, NULL) < 0)
+  FileDescriptor kq = context->threadKQ;
+
+  if (kevent(kq, &event, 1, NULL, 0, NULL) < 0)
   {
+    std::cout << strerror(errno) << "\n";
+    std::cout << context->threadKQ << " , " << context->fd << "\n";
     throw (std::runtime_error("Event attachNewEvent failed\n"));
   }
 }

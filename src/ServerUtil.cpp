@@ -38,6 +38,7 @@ std::string getClientIP(struct sockaddr_in* addr)
 
 void socketReceiveHandler(struct Context* context)
 {
+//  printLog("sk recv handler called\n", PRINT_CYAN);
   if (!context)
     throw (std::runtime_error("NULL context"));
   context->manager->getRequestParser().parseRequest(context);
@@ -48,7 +49,8 @@ void acceptHandler(struct Context* context)
 {
   static uint32_t connections;
 
-  printLog("accept handler called\n", PRINT_CYAN);
+//  printLog("accept handler called\n", PRINT_CYAN);
+//  std::cout << "TKQ : " <<  context->threadKQ << "\n";
   socklen_t len = sizeof(context->addr);
   FileDescriptor newSocket;
 
@@ -59,7 +61,7 @@ void acceptHandler(struct Context* context)
   }
   else
   {
-    std::cout << "CONNECTION : " << connections++ << "  fd : " << newSocket << "\n";
+    std::cout << "CONNECTION : " << connections++ << "  fd : " << context->threadKQ << "\n";
     // set socket option
     if (fcntl(newSocket, F_SETFL, O_NONBLOCK) < 0)
     {
@@ -70,16 +72,14 @@ void acceptHandler(struct Context* context)
     {
       throw (std::runtime_error("Socket opt failed\n"));
     }
-
     printLog("connect : " + getClientIP(&context->addr) + "\n" , PRINT_GREEN);
+
     struct Context* newContext = new struct Context(newSocket, context->addr, socketReceiveHandler, context->manager);
+    newContext->threadKQ = context->threadKQ;
+
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);
-    if (kevent(context->manager->getKqueue(), &event, 1, NULL, 0, NULL) < 0)
-    {
-      printLog("error: client: " + getClientIP(&context->addr) + " : event attachServerEvent failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attachServerEvent failed (read)\n"));
-    }
+    context->manager->attachNewEvent(context, event);
   }
 }
 
@@ -94,18 +94,22 @@ void handleEvent(struct kevent* event)
       close(eventData->fd);
       if (eventData->req != NULL)
         delete (eventData->req);
+      eventData->req = NULL;
       if (eventData->res != NULL)
         delete (eventData->res);
+      eventData->res = NULL;
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
     {
       printLog("EV ERROR case\n", PRINT_YELLOW);
       close(eventData->fd);
-      if (eventData->req)
+      if (eventData->req != NULL)
         delete (eventData->req);
-      if (eventData->res)
+      eventData->req = NULL;
+      if (eventData->res != NULL)
         delete (eventData->res);
+      eventData->res = NULL;
       delete (eventData);
     }
     else
