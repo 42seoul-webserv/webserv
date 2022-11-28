@@ -6,6 +6,7 @@
 #include "Parser.hpp"
 #include "RequestProcessor.hpp"
 #include "RequestParser.hpp"
+#include "CGI.hpp"
 
 class ServerManager;
 
@@ -17,7 +18,7 @@ struct Context
     ServerManager* manager;
     HTTPRequest* req;
     HTTPResponse* res;
-
+    CGI* cgi;
     Context(int _fd,
             struct sockaddr_in _addr,
             void (* _handler)(struct Context* obj),
@@ -27,7 +28,8 @@ struct Context
             handler(_handler),
             manager(_manager),
             req(NULL),
-            res(NULL)
+            res(NULL),
+            cgi(NULL)
     {
     }
 };
@@ -62,5 +64,6 @@ void acceptHandler(struct Context* context);
 void responseHandler(struct Context* context);
 void handleEvent(struct kevent* event);
 void writeFileHandle(struct Context* context);
+void pipeWriteHandler(struct Context* context);
 
 #endif //SERVERMANAGER_HPP
