@@ -325,6 +325,7 @@ void RequestParser::parseRequest(struct Context* context)
     }
     catch (const std::exception& Error)
     {
+      printLog(std::string(Error.what()) + '\n', PRINT_YELLOW);
       context->req->status = ERROR;
     }
   }

@@ -17,6 +17,7 @@ set(SOURCE_FILES
         src/HTTPResponse.cpp
         src/RequestProcessor.cpp
         src/Location.cpp
+        src/ThreadPool.cpp
         )
 
 add_executable(webserv

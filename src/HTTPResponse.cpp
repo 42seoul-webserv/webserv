@@ -298,18 +298,23 @@ void HTTPResponse::sendToClient(struct Context* context)
   // (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->res = this;
-  newSendContext->read_buffer = this->getHeader().toString() + "\n";
+  std::string header = this->getHeader().toString() + "\n";
+  newSendContext->read_buffer = new char[header.size()];
+  memmove(newSendContext->read_buffer, header.c_str(), header.size());
+  newSendContext->buffer_size = header.size();
+  newSendContext->threadKQ = context->threadKQ;
   struct kevent event;
   EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
-  newSendContext->manager->attachNewEvent(newSendContext, event);
+  ServerManager::attachNewEvent(newSendContext, event);
   // (2) Send Body
   if (this->getFd() >= 0 && this->getContentLength() > 0 && this->getStatusCode() != ST_NO_CONTENT)
   {
     struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
     newReadContext->res = this;
+    newReadContext->threadKQ = context->threadKQ;
     struct kevent _event;
-    EV_SET(&event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newReadContext);
-    newReadContext->manager->attachNewEvent(newReadContext, event);
+    EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
+    ServerManager::attachNewEvent(newReadContext, _event);
   }
   printLog(context->res->getStatusMessage() + " : " + getClientIP(&context->addr) + "\n", PRINT_BLUE);
   delete (context->req);
@@ -318,33 +323,60 @@ void HTTPResponse::sendToClient(struct Context* context)
 
 void HTTPResponse::socketSendHandler(struct Context* context)
 {
+//  printLog("sk send handler called\n", PRINT_CYAN);
+//  std::cout << context->threadKQ << "\n";
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
-  if (send(context->fd, context->read_buffer.c_str(), context->read_buffer.size(), MSG_DONTWAIT) < 0)
+  ssize_t sendSize;
+
+  if ((sendSize = send(context->fd, context->read_buffer, context->buffer_size, MSG_DONTWAIT)) < 0)
   {
     printLog("error: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
   }
-  if (context->res->_fileFd < 0) // 더 이상 보낼 내용이 없는 경우
+  // partial send handle
+  if (sendSize < context->buffer_size)
   {
-    // 더 이상 보낼 내용이 없으므로 해당 소켓 감지 그만.
+    memmove(context->read_buffer, &context->read_buffer[sendSize], context->buffer_size - sendSize);
+    context->buffer_size = context->buffer_size - sendSize;
+  }
+  else
+  {
+    // enable read event
+    if (context->res->_fileFd > 0 && context->res->getContentLength() > context->total_read_size)
+    {
+      struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
+      newReadContext->res = context->res;
+      newReadContext->threadKQ = context->threadKQ;
+      newReadContext->total_read_size = context->total_read_size;
+      struct kevent _event;
+      EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
+      ServerManager::attachNewEvent(newReadContext, _event);
+    }
+    // delete sk event
     struct kevent ev[1];
     EV_SET(ev, context->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
-    context->manager->attachNewEvent(NULL, ev[0]);
+    ServerManager::attachNewEvent(context, ev[0]);
+    if (context->req != NULL)
+    {
+      delete (context->req);
+    }
+    context->req = NULL;
+    delete[] (context->read_buffer);
+    delete (context);
   }
-  if (context->req != NULL)
-    delete (context->req);
-  context->req = NULL;
-  delete (context);
+
 }
 
 void HTTPResponse::bodyFdReadHandler(struct Context* context)
 {
-  const int BUF_SIZE = 1024; // TODO:  버퍼의 크기는 추후에 조정할 것.
-  char buffer[BUF_SIZE] = {0};
+//  printLog("file read handler called\n", PRINT_CYAN);
+//  std::cout << context->threadKQ << "\n";
+  char* buffer = new char[BUFFER_SIZE];
 
-  ssize_t current_rd_size = read(context->res->_fileFd, buffer, sizeof(buffer));
+  ssize_t current_rd_size = read(context->res->_fileFd, buffer, BUFFER_SIZE);
   if (current_rd_size < 0)
   { // if read failed
     printLog("error: client: " + getClientIP(&context->addr) + " : read failed\n", PRINT_RED);
+    delete[] (buffer);
     throw (std::runtime_error("Read Failed\n"));
   }
   else // 데이터가 들어왔다면, 소켓에 버퍼에 있는 데이터를 전송하는 socket send event를 등록.
@@ -363,11 +395,17 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
     newSendContext->res = context->res;
     newSendContext->read_buffer = buffer;
-    EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
-    newSendContext->manager->attachNewEvent(newSendContext, event);
+    newSendContext->threadKQ = context->threadKQ;
+    newSendContext->buffer_size = current_rd_size;
+    newSendContext->total_read_size = context->total_read_size;
+    EV_SET(&event, context->fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, newSendContext);
+    ServerManager::attachNewEvent(newSendContext, event);
     // 만약 다 읽어서 flag가 true가 되면 삭제.
-    if (is_read_finished)
+    if (!is_read_finished)
     {
+      struct kevent ev[1];
+      EV_SET(ev, context->res->_fileFd, EVFILT_READ, EV_DISABLE, 0, 0, context);
+      ServerManager::attachNewEvent(context, ev[0]);
       delete (context);
     }
   }

@@ -21,6 +21,10 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
       {
         filePath = _root + _index;
       }
+      else
+      {
+        filePath = _root + filePath;
+      }
     }
     else // there are no matched location
     {
@@ -107,6 +111,7 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   // check is valid file
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
+    printLog(filePath + "NOT FOUND\n", PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     return (response);
@@ -152,6 +157,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_NONBLOCK);
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = response;
+    newContext->threadKQ = context->threadKQ;
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);

@@ -6,6 +6,7 @@
 #include "Parser.hpp"
 #include "RequestProcessor.hpp"
 #include "RequestParser.hpp"
+#include "ThreadPool.hpp"
 
 class ServerManager;
 
@@ -17,9 +18,10 @@ struct Context
     ServerManager* manager;
     HTTPRequest* req;
     HTTPResponse* res; // -> for file FD, ContentLength... etc
-    std::string read_buffer; // -> for read_buffer
+    char* read_buffer;
+    size_t  buffer_size;
     size_t  total_read_size; // 보낼 때 마다 합산.
-
+    FileDescriptor threadKQ;
 
     Context(int _fd,
             struct sockaddr_in _addr,
@@ -31,8 +33,11 @@ struct Context
             manager(_manager),
             req(NULL),
             res(NULL),
+            read_buffer(NULL),
+            buffer_size(0),
             total_read_size(0),
-            read_buffer("")
+            threadKQ(0)
+
     {
     }
 };
@@ -47,13 +52,14 @@ private:
     FileDescriptor _kqueue;
     RequestProcessor _processor;
     RequestParser _requestParser;
+    ThreadPool _threadPool;
 public:
     explicit ServerManager(const std::string& configFilePath);
     ~ServerManager();
-    void run();
+    _Noreturn void run();
     void initServers();
     void attachServerEvent(Server& server);
-    void attachNewEvent(struct Context* context, const struct kevent& event);
+    static void attachNewEvent(struct Context* context, const struct kevent& event);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();
