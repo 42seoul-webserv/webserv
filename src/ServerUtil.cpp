@@ -25,6 +25,27 @@ MethodType getMethodType(const std::string& method)
   return (UNDEFINED);
 }
 
+std::string getMethodType(MethodType method)
+{
+  switch (method)
+  {
+  case GET:
+    return ("GET");
+  case POST:
+    return ("POST");  
+  case PUT:
+    return ("PUT");
+  case PATCH:
+    return ("PATCH");
+  case DELETE:
+    return ("GET");
+  case HEAD:
+    return ("HEAD");      
+  default:
+    return ("UNDEFINED");
+  }
+}
+
 // TODO: THIS FUNCTION IS TEMPORARY
 #include <sstream>
 
@@ -103,6 +124,42 @@ void readHandler(struct Context* context)
       printLog("error: " + getClientIP(&context->addr) + " : event attachServerEvent failed\n", PRINT_RED);
       throw (std::runtime_error("Event attachServerEvent failed (response)\n"));
     }
+    delete (context);
+  }
+}
+
+void CGIChildHandler(struct Context* context)
+{
+  std::cerr <<"waitpid enter\n";
+  waitpid(context->cgi->pid, NULL, 0);
+  std::cerr <<"waitpid out" << std::endl;
+  if (!context->cgi->exitStatus)
+  {
+    delete (context);
+    throw (std::runtime_error("cgi (child)process fail"));
+  }
+  delete (context);
+}
+
+void pipeWriteHandler(struct Context* context)
+{
+  size_t count;
+  char buffer[BUFFER_SIZE] = {0};
+
+  count = context->req->body.copy(buffer, BUFFER_SIZE);
+  if (count != 0)//re wirte
+  {
+    if (write(context->cgi->writeFD, buffer, count) < 0)
+      throw std::runtime_error("write failed");
+  }
+  else//pid kevent register, cgichildHandler call
+  {
+    struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
+    struct kevent event;
+    EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD | EV_CLEAR, NOTE_EXIT | NOTE_EXITSTATUS , context->cgi->exitStatus, newContext);
+    context->manager->attachNewEvent(newContext, event);
+    close(context->cgi->writeFD);
+    delete (context->req);
     delete (context);
   }
 }
