@@ -38,6 +38,7 @@ public:
 
     // check if server has valid redirection setting. (1. 서버 자체가 리다이렉션인지도 체크)
     bool isRedirect(const std::string& url, std::pair<StatusCode, std::string>* redir_buf) const;
+    std::string getRealFilePath(const HTTPRequest& req);
 public:
     Server();
     ~Server();
@@ -47,7 +48,6 @@ private:
     HTTPResponse* processPUTRequest(struct Context* context);
     HTTPResponse* processDELETERequest(const struct Context* context);
     HTTPResponse* processHEADRequest(const struct Context* context);
-    std::string getRealFilePath(const HTTPRequest& req);
 };
 
 #endif

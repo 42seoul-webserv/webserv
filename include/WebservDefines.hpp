@@ -29,6 +29,7 @@ typedef enum
 } MethodType;
 
 MethodType getMethodType(const std::string& method);
+std::string getMethodType(MethodType method);
 typedef unsigned int Port;
 typedef int FileDescriptor;
 
