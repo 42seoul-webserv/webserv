@@ -124,14 +124,29 @@ void handleEvent(struct kevent* event)
   }
 }
 
+// nonblocking write.
 void writeFileHandle(struct Context* context)
 {
-  // FIXME
-  // write body to file. it must be non-blocked
   HTTPResponse& res = *context->res;
   HTTPRequest& req = *context->req;
 
-  write(res.getFd(), req.body.c_str(), res.getContentLength()); // FIXME : if partial write...
+  ssize_t writeSize = 0;
+  // 덜 써졌을 때 마저 보내기 위함.
+  std::string bodySubstr = req.body.substr(context->buffer_size, std::string::npos);
+  if ((writeSize = write(context->fd,bodySubstr.c_str(), req.body.size() - context->buffer_size)) < 0)
+  {
+    printLog("error: client: " + getClientIP(&context->addr) + " : write failed\n", PRINT_RED);
+  }
+  if (writeSize < req.body.size()) // If partial read.
+  {
+    context->buffer_size += writeSize;
+    return ;
+  }
+  else if (context->buffer_size >= req.body.size()) // If write finished
+  {
+    close(context->fd);
+    context->fd = -1;
+  }
   delete (context);
 }
 

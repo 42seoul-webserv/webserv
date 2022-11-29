@@ -126,12 +126,23 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   }
 }
 
+// Process POST reqeust
+// * (1) POST 는 자원을 무조건 새롭게 생성한다. 만약 자원이 있었다면...
+// * --> 201 Created.
+// * (2) PUT 은 이미 있었다면, 해당 자원에 덮어쓴다. 만약 없었다면, POST처럼 새롭게 만든다.
+// * -->
+// If an existing resource is modified, either the 200 (OK)
+// or 204 (No Content) response codes SHOULD be sent to indicate
+// successful completion of the request.
+// * 1. 먼저 경로를 체크한다. 쓰는 내용은 req의 body에 있다!
+
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
   std::string filePath = getRealFilePath(req);
+  std::cout << "POST filePath : " << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -139,25 +150,29 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(-1);
     return (response);
   }
-  // check this file is CGI path
-
-  // check is valid file
-  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-  {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
-  }
+//  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
+//  {
+//    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+//    response->setFd(-1);
+//    return (response);
+//  }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
-
     // attach write event
-    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_NONBLOCK);
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK);
+    if (writeFileFD <= -1)
+    {
+      throw std::runtime_error("file open error\n");
+    }
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = response;
+    newContext->req = context->req;
+    newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
+    // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
+    newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);
@@ -171,6 +186,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
 
   // check matched location
   std::string filePath = getRealFilePath(req);
+  std::cout << "PUT filePath : " << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -178,20 +194,27 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     response->setFd(-1);
     return (response);
   }
-  // check this file is CGI path
-
-  // check is valid file
-  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-  {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
-  }
+//  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
+//  {
+//    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+//    response->setFd(-1);
+//    return (response);
+//  }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Upload file requested"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
-    // add file to server...
+    // attach write event
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
+    struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
+    newContext->res = response;
+    newContext->fd = writeFileFD;
+    newContext->threadKQ = context->threadKQ;
+    // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
+    newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
+    struct kevent event;
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    context->manager->attachNewEvent(newContext, event);
     return (response);
   }
 }
