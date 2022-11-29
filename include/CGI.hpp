@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include "ServerManager.hpp"
+#include "HTTPResponse.hpp"
 # define ENVCOUNT 40
 //void pipeWriteHandler(); -> serverutil
 //void CGIChildHandler();
@@ -20,6 +21,10 @@ class CGI
 
     std::string getQueryFullPath(HTTPRequest& req);
     std::string getCWD();
+    void parseStartLine(struct Context* context, std::string &message);
+    void parseHeader(HTTPResponse* res, std::string message);
+    void parseBody(HTTPResponse* res, std::string message);
+    void parseCGI(struct Context* context);
     void closeProcess(); //child수거?, response 생성?
     void processInit(CGI* cgi); // fork, pipe init
     void setCGIenv(Server server, HTTPRequest& req, struct Context* context);

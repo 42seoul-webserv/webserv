@@ -24,12 +24,125 @@ CGI::~CGI()
   delete []env;
 }
 
+void CGI::parseBody(HTTPResponse* res, std::string message)
+{
+  res->addHeader("Content-Length", ft_itos(message.size()));
+  //message->pipe fd
+}
+
+void CGI::parseHeader(HTTPResponse* res, std::string message)
+{
+  std::string key;
+  std::string buffer;
+  size_t endPOS;
+  std::string::iterator it = message.begin();
+
+  endPOS = message.find("\r\n\r\n") + 2;
+  if (endPOS == std::string::npos)
+  {
+    throw(std::logic_error("cgi header syntax error"));
+  }
+  for ( size_t i = 0; i != endPOS; ++i )
+  {
+    if (it[i] == '\r' && it[i + 1] == '\n')
+    {
+      if (!key.empty() && !buffer.empty())
+      {
+        res->addHeader(key, buffer);
+        buffer.clear();
+        key.clear();
+        i++;
+        continue;
+      }
+      else
+      {
+        throw (std::logic_error("header key, value error\n"));
+      }
+    }
+    if (it[i] == ':' && key.empty())
+    {
+      key = buffer;
+      buffer.clear();
+      if (it[i + 1] == ' ' || it[i + 1] == '\t')
+      {
+        i++;
+      }
+    }
+    else
+    {
+      buffer += it[i];
+    }
+  }
+  message.erase(0, endPOS + 2);
+}
+
+void CGI::parseStartLine(struct Context* context, std::string &message)
+{
+  std::string::iterator it;
+  std::string statusmessage;
+  size_t statuscode;
+  std::string buffer;
+  size_t end = 0;
+
+  end = message.find("\r\n");
+  if (end == std::string::npos)
+  {
+    throw (std::logic_error("startline ERROR"));
+  }
+  it = message.begin();
+  for (size_t i = 0, k = 0; i <= end; ++i, ++it)
+  {
+    if (*it == ' ' || i == end)
+    {
+      switch (k)
+      {
+        case 0:
+          break;
+        case 1:
+          statuscode = ft_stoi(buffer);
+          break;
+        case 2:
+          statusmessage.assign(buffer);
+          break;
+        default:
+          throw (std::logic_error("startline ERROR"));
+      }
+      k++;
+      buffer.clear();
+    }
+    else
+    {
+      buffer += *it;
+    }
+  }
+  context->res = new HTTPResponse(statuscode, statusmessage, context->manager->getServerName(context->addr.sin_port));
+  message.erase(0, end + 2);
+}
+
+void CGI::parseCGI(struct Context* context)
+{
+  std::string message;
+  char buffer[BUFFER_SIZE] = {0};
+
+  while (read(context->cgi->readFD, buffer, sizeof(buffer)))
+  {
+    message.append(buffer);
+    memset(buffer, 0, sizeof(buffer));
+  }
+  parseStartLine(context, message);
+  parseHeader(context->res, message);
+  parseBody(context->res, message);
+}
+
 void CGI::CGIEvent(struct Context* context)
 {
-  struct Context* newContext = new struct Context(context->cgi->writeFD, context->addr, pipeWriteHandler, context->manager);
+  struct Context* newContext = new struct Context(context->fd, context->addr, pipeWriteHandler, context->manager);
+  newContext->req = context->req;
+  newContext->cgi = context->cgi;
   struct kevent event;
   EV_SET(&event, context->cgi->writeFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
   context->manager->attachNewEvent(newContext, event);
+  delete context;
 }
 
 void CGI::addEnv(std::string key, std::string val)
@@ -137,9 +250,6 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("CONTENT_LENGTH", req.headers.find("Content-Length")->second);
   getPATH(server, req);
 }
-//child수거?, response 생성?
-void CGI::closeProcess()
-{}
 // fork, pipe init
 void CGI::processInit(CGI* cgi)
 {
@@ -178,7 +288,7 @@ void CGI::CGIProcess(struct Context* context)
   context->cgi->setCGIenv(server, req, context);
   context->cgi->processInit(context->cgi);
   context->cgi->CGIEvent(context);
-
+  delete context;
 }
 
 bool isCGIRequest(const std::string& file)
