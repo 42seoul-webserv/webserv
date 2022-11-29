@@ -77,7 +77,7 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
 
     struct kevent event;
-    EV_SET(&event, newSocket, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
   }
 }
