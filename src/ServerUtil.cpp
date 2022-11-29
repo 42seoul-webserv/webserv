@@ -131,15 +131,21 @@ void readHandler(struct Context* context)
 
 void CGIChildHandler(struct Context* context)
 {
-  std::cerr <<"waitpid enter\n";
   waitpid(context->cgi->pid, NULL, 0);
-  std::cerr <<"waitpid out" << std::endl;
   if (!context->cgi->exitStatus)
   {
+    close(context->cgi->readFD);
+    delete (context->cgi);
+    delete (context->req);
+    //close(context->fd)??
     delete (context);
     throw (std::runtime_error("cgi (child)process fail"));
   }
-  delete (context);
+  HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+  response->setFd(context->cgi->readFD);
+  //response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
+  context->res = response;
+  response->sendToClient(context);
 }
 
 void pipeWriteHandler(struct Context* context)
@@ -156,11 +162,12 @@ void pipeWriteHandler(struct Context* context)
   else//pid kevent register, cgichildHandler call
   {
     struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
+    newContext->cgi = context->cgi;
+    newContext->req = context->req;
     struct kevent event;
     EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD | EV_CLEAR, NOTE_EXIT | NOTE_EXITSTATUS , context->cgi->exitStatus, newContext);
     context->manager->attachNewEvent(newContext, event);
     close(context->cgi->writeFD);
-    delete (context->req);
     delete (context);
   }
 }
