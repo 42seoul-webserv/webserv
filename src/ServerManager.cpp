@@ -32,7 +32,8 @@ _Noreturn void ServerManager::run()
     exit(1);
   }
   initServers(); // 여러 서버 세팅들을 모두 연다. (nginx config 참조)
-  _threadPool.createPool();
+  if (THREAD_MODE)
+    _threadPool.createPool();
   while (1)
   {
     // 서버 시작. 새 이벤트(Req)가 발생할 때 까지 무한루프. (감지하는 kevent)
@@ -49,7 +50,10 @@ _Noreturn void ServerManager::run()
     }
     else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
     {
-      _threadPool.attachNewEvent(&event);
+      if (THREAD_MODE)
+        _threadPool.attachNewEvent(&event);
+      else
+        handleEvent(&event);
     }
   }
 }
@@ -157,7 +161,12 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
 
 void ServerManager::attachNewEvent(struct Context* context, const struct kevent& event)
 {
-  FileDescriptor kq = context->threadKQ;
+  FileDescriptor kq;
+
+  if (THREAD_MODE)
+    kq = context->threadKQ;
+  else
+    kq = _kqueue;
 
   if (kevent(kq, &event, 1, NULL, 0, NULL) < 0)
   {

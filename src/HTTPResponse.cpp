@@ -305,7 +305,7 @@ void HTTPResponse::sendToClient(struct Context* context)
   newSendContext->threadKQ = context->threadKQ;
   struct kevent event;
   EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
-  ServerManager::attachNewEvent(newSendContext, event);
+  context->manager->attachNewEvent(newSendContext, event);
   // (2) Send Body
   if (this->getFd() >= 0 && this->getContentLength() > 0 && this->getStatusCode() != ST_NO_CONTENT)
   {
@@ -314,7 +314,7 @@ void HTTPResponse::sendToClient(struct Context* context)
     newReadContext->threadKQ = context->threadKQ;
     struct kevent _event;
     EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
-    ServerManager::attachNewEvent(newReadContext, _event);
+    context->manager->attachNewEvent(newReadContext, _event);
   }
   printLog(context->res->getStatusMessage() + " : " + getClientIP(&context->addr) + "\n", PRINT_BLUE);
   delete (context->req);
@@ -349,12 +349,12 @@ void HTTPResponse::socketSendHandler(struct Context* context)
       newReadContext->total_read_size = context->total_read_size;
       struct kevent _event;
       EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
-      ServerManager::attachNewEvent(newReadContext, _event);
+      context->manager->attachNewEvent(newReadContext, _event);
     }
     // delete sk event
     struct kevent ev[1];
     EV_SET(ev, context->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
-    ServerManager::attachNewEvent(context, ev[0]);
+    context->manager->attachNewEvent(context, ev[0]);
     if (context->req != NULL)
     {
       delete (context->req);
@@ -399,13 +399,13 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     newSendContext->buffer_size = current_rd_size;
     newSendContext->total_read_size = context->total_read_size;
     EV_SET(&event, context->fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, newSendContext);
-    ServerManager::attachNewEvent(newSendContext, event);
+    context->manager->attachNewEvent(newSendContext, event);
     // 만약 다 읽어서 flag가 true가 되면 삭제.
     if (!is_read_finished)
     {
       struct kevent ev[1];
       EV_SET(ev, context->res->_fileFd, EVFILT_READ, EV_DISABLE, 0, 0, context);
-      ServerManager::attachNewEvent(context, ev[0]);
+      context->manager->attachNewEvent(context, ev[0]);
       delete (context);
     }
   }

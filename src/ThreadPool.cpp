@@ -68,7 +68,6 @@ ThreadPool::ThreadPool(size_t threadNumber):
 {
   pthread_mutex_init(&_jobQueueMutex, NULL);
   _workerThreads.reserve(NUM_THREADS);
-
 }
 
 ThreadPool::~ThreadPool()
