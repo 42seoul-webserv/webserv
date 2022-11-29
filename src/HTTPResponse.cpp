@@ -298,7 +298,7 @@ void HTTPResponse::sendToClient(struct Context* context)
   // (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->res = this;
-  std::string header = this->getHeader().toString() + "\n";
+  std::string header = this->getHeader().toString() + "\n"; // << "\r\n"이 맞는거 같음
   newSendContext->read_buffer = new char[header.size()];
   memmove(newSendContext->read_buffer, header.c_str(), header.size());
   newSendContext->buffer_size = header.size();

@@ -22,7 +22,7 @@ ServerManager::~ServerManager()
   }
 }
 
-_Noreturn void ServerManager::run()
+void ServerManager::run()
 {
   struct kevent event;
 
