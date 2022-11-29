@@ -25,6 +25,7 @@ struct Context
     FileDescriptor threadKQ;
     std::vector<struct Context*>* connectContexts;
 
+    Context(){}
     Context(int _fd,
             struct sockaddr_in _addr,
             void (* _handler)(struct Context* obj),

@@ -34,8 +34,8 @@ _Noreturn void ServerManager::run()
   initServers(); // 여러 서버 세팅들을 모두 연다. (nginx config 참조)
   if (THREAD_MODE)
   {
-    _threadPool.createPool();
     _threadPool._serverKQ = _kqueue;
+    _threadPool.createPool();
   }
   while (1)
   {

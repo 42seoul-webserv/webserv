@@ -74,6 +74,7 @@ void acceptHandler(struct Context* context)
     printLog("connect : " + getClientIP(&context->addr) + "\n" , PRINT_GREEN);
 
     struct Context* newContext = new struct Context(newSocket, context->addr, socketReceiveHandler, context->manager);
+    newContext->fd = newSocket;
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = new std::vector<struct Context*>();
     newContext->connectContexts->push_back(newContext);

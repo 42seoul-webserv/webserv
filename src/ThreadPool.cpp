@@ -10,8 +10,9 @@ static void* jobHandler(void *_threadPool)
   FileDescriptor kq = kqueue();
   // observe server kq
   struct kevent event;
-  EV_SET(&event, tp._serverKQ, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, NULL);
-  kevent(kq, &event, 1, NULL, 0, NULL);
+  EV_SET(&event, tp._serverKQ, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
+  if (kevent(kq, &event, 1, NULL, 0, NULL) < 0)
+    std::cout << "ERROR ON " << kq << '\n';
 
   while (true)
   {
@@ -38,7 +39,12 @@ static void* jobHandler(void *_threadPool)
         newEvent = tp._eventQueue.front();
         tp._eventQueue.pop();
         struct Context* context = reinterpret_cast<struct Context*>(newEvent->udata);
-        context->threadKQ = kq;
+        struct Context* newContext = new struct Context();
+        *newContext = *context;
+        newContext->threadKQ = kq;
+        pthread_mutex_unlock(tp.getMutex());
+        acceptHandler(newContext);
+        continue;
       }
       else if (tp._eventQueue.empty() && tp.isStop())
       {
@@ -55,6 +61,10 @@ static void* jobHandler(void *_threadPool)
     else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
     {
       newEvent = &event;
+    }
+    else
+    {
+      continue;
     }
     try
     {
