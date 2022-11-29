@@ -136,39 +136,6 @@ private:                              // helper functions
     void setDefaultHeaderDescription(); // 헤더 초기값 자동 설정
 };
 
-/**-----------------------------
- * * HttpResponse Context      |
- *-----------------------------*/
-struct ResponseContext
-{
-    int fileFD;        // fd for file read
-    int socketFD;      // fd for socket send
-    std::string buffer; // string buffer
-    struct sockaddr_in addr;
-    void (* handler)(struct ResponseContext* obj);
-    ServerManager* manager;
-    size_t totalReadSize;  // Content-Length와 비교
-    size_t contentLength; // response content length.
-
-public: // contructor
-    ResponseContext(int _fileFD, int _socketFD,
-                    std::string _buffer,
-                    struct sockaddr_in _addr,
-                    void (* _handler)(struct ResponseContext* obj),
-                    ServerManager* _manager,
-                    size_t _totalReadSize,
-                    size_t _contentLength)
-            :
-            fileFD(_fileFD), socketFD(_socketFD),
-            buffer(_buffer),
-            addr(_addr),
-            handler(_handler),
-            manager(_manager),
-            totalReadSize(_totalReadSize),
-            contentLength(_contentLength)
-    {
-    }
-};
 
 /**----------------------
  * * HttpResponse       |
@@ -176,7 +143,7 @@ public: // contructor
 class HTTPResponse : public HTTPResponseHeader
 {
 private:
-    FileDescriptor _fd;
+    FileDescriptor _fileFd;
 
 public: // * constructor & destuctor
     // set statusCode, statusMessage, and serverName.
@@ -192,12 +159,11 @@ public: // * getter functions
     FileDescriptor getFd() const;
 
 public: // * interface functions
-    void sendToClient(int socketFD, struct sockaddr_in addr,
-                      ServerManager* manager);
+    void sendToClient(struct Context* context);
 
 private: // * helper functions
-    static void socketSendHandler(struct ResponseContext* context);
-    static void bodyFdReadHandler(struct ResponseContext* context);
+    static void socketSendHandler(struct Context* context);
+    static void bodyFdReadHandler(struct Context* context);
     static std::string getClientIP(const struct sockaddr_in* addr);
 };
 

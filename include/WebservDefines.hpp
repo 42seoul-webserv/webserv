@@ -4,9 +4,10 @@
 #include <string>
 #include <vector>
 
-#define BUFFER_SIZE 8192
+#define BUFFER_SIZE 10240
 #define LISTEN_QUEUE_SIZE 1024
-#define FAILED -1
+#define FAILED (-1)
+#define THREAD_NO 256
 
 // colors
 #define PRINT_RED     "\x1b[31m"
@@ -68,5 +69,7 @@ std::string getClientIP(struct sockaddr_in* addr);
 std::string ft_itos(int i);
 int ft_stoi(const std::string& str);
 std::string getStatusCodeMessage(StatusCode code);
+long FdGetFileSize(int fd);
+
 
 #endif

@@ -21,8 +21,9 @@ typedef enum
     BODY
 } CheckLevel;
 
-typedef struct HTTPRequest
+class HTTPRequest
 {
+public:
     std::string message; // request Message ( all )
     std::string body;
     MethodType method;
@@ -41,6 +42,9 @@ typedef struct HTTPRequest
       status = READING;
       checkLevel = CRLF;
     }
-} HTTPRequest;
+    ~HTTPRequest()
+    {
+    }
+};
 
 #endif 
