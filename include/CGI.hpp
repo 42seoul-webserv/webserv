@@ -3,13 +3,14 @@
 #include <unistd.h>
 #include <cstdlib>
 #include "ServerManager.hpp"
-
+# define ENVCOUNT 40
 //void pipeWriteHandler(); -> serverutil
 //void CGIChildHandler();
 class CGI
 {
   public:
     pid_t pid;
+    size_t envCount;
     FileDescriptor writeFD;
     FileDescriptor readFD;
     int exitStatus;
@@ -26,8 +27,7 @@ class CGI
     void addEnv(std::string key, std::string val);
     void CGIEvent(struct Context* context);
     void CGIProcess(struct Context* context); //processinit, kevent(fd), 
-    CGI() : env(NULL), cmd(NULL), path(NULL)
-    {}
+    CGI();
     ~CGI();
 };
 

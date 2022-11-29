@@ -1,7 +1,28 @@
 #include "CGI.hpp"
 # define P_W	1
 # define P_R	0
-# define ENVCOUNT 19
+
+CGI::CGI()
+{
+  path = new char[PATH_MAX];
+  path[PATH_MAX] = '\0';
+  cmd = new char*[2];
+  cmd[0] = new char[PATH_MAX];
+  cmd[1] = NULL;
+  env = new char*[envCount];
+}
+
+CGI::~CGI()
+{
+  delete []path;
+  delete []cmd[0];
+  delete []cmd;
+  for (size_t i = 0; env[i] != NULL, i < envCount; ++i)
+  {
+    delete []env[i];
+  }
+  delete []env;
+}
 
 void CGI::CGIEvent(struct Context* context)
 {
@@ -13,14 +34,19 @@ void CGI::CGIEvent(struct Context* context)
 
 void CGI::addEnv(std::string key, std::string val)
 {
-  static int count = 0;
   std::string temp;
 
+  if (envCount >= ENVCOUNT)
+  {
+    return;
+  }
   temp.assign(key);
   temp.append("=");
   temp.append(val);
-  this->env[count] = const_cast<char *>(temp.c_str());
-  count++;
+  env[envCount] = new char[temp.size() + 1];
+  this->env[envCount] = const_cast<char *>(temp.c_str());
+  this->env[envCount + 1] = NULL;
+  envCount++;
 }
 
 std::string CGI::getQueryFullPath(HTTPRequest& req)
@@ -80,6 +106,8 @@ void CGI::getPATH(Server server, HTTPRequest& req)
     if (comparepath == requestpath)
     {
       addEnv("PATH_INFO", requestpath);
+      cmd[0] = const_cast<char *>(requestpath.c_str());
+      path = const_cast<char *>(requestpath.c_str());
       temp.assign(getQueryFullPath(req));
       if (temp.size())
       {
@@ -102,14 +130,9 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("SERVER_PORT", ft_itos(server._serverPort));
   addEnv("REQUEST_METHOD", getMethodType(req.method));
   addEnv("PATH_INFO", "webserv/1.1");
-//  addEnv("PATH_TRANSLATED", "webserv/1.1");
   addEnv("SCRIPT_NAME", "webserv/1.1");
   addEnv("QUERY_STRING", getQueryFullPath(req));
-//  addEnv("REMOTE_HOST", "webserv/1.1");
   addEnv("REMOTE_ADDR", getClientIP(&context->addr));
-//  addEnv("AUTH_TYPE", "webserv/1.1");
-//  addEnv("REMOTE_USER", "webserv/1.1");
-//  addEnv("REMOTE_IDENT", "webserv/1.1");
   addEnv("CONTENT_TYPE", req.headers.find("Content-Type")->second);
   addEnv("CONTENT_LENGTH", req.headers.find("Content-Length")->second);
   getPATH(server, req);
@@ -157,8 +180,15 @@ void CGI::CGIProcess(struct Context* context)
   context->cgi->CGIEvent(context);
 
 }
-/////////////////////////////////////
-bool isCGIRequest(std::string url)
-{
 
+bool isCGIRequest(const std::string& file)
+{
+  size_t extensionPOS;
+
+  extensionPOS = file.find(".");
+  if (extensionPOS == std::string::npos || extensionPOS == file.size())
+  {
+    return false;
+  }
+  return true;
 }
