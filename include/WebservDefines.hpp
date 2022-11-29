@@ -7,9 +7,9 @@
 #define BUFFER_SIZE 10240
 #define LISTEN_QUEUE_SIZE 1024
 #define FAILED (-1)
-#define THREAD_NO 256
+#define THREAD_NO 64
 #ifndef THREAD_MODE
- #define THREAD_MODE 0
+ #define THREAD_MODE 1
 #endif
 
 // colors

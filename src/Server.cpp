@@ -159,7 +159,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     newContext->res = response;
     newContext->threadKQ = context->threadKQ;
     struct kevent event;
-    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);
     return (response);
   }

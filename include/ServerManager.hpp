@@ -37,7 +37,6 @@ struct Context
             buffer_size(0),
             total_read_size(0),
             threadKQ(0)
-
     {
     }
 };
