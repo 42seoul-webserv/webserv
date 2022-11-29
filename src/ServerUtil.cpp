@@ -48,19 +48,19 @@ void socketReceiveHandler(struct Context* context)
 void acceptHandler(struct Context* context)
 {
 //  static uint32_t connections;
-
-//  printLog("accept handler called\n", PRINT_CYAN);
+  if (DEBUG_MODE)
+    printLog("accept handler called\n", PRINT_CYAN);
   socklen_t len = sizeof(context->addr);
   FileDescriptor newSocket;
 
   if ((newSocket = accept(context->fd, reinterpret_cast<sockaddr*>(&context->addr), &len)) < 0)
   {
-    printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
+    if (DEBUG_MODE)
+      printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
     return ;
   }
   else
   {
-//    std::cout << "CONNECTION : " << connections++ << "  fd : " << context->threadKQ << "\n";
     // set socket option
     if (fcntl(newSocket, F_SETFL, O_NONBLOCK) < 0)
     {
@@ -75,6 +75,8 @@ void acceptHandler(struct Context* context)
 
     struct Context* newContext = new struct Context(newSocket, context->addr, socketReceiveHandler, context->manager);
     newContext->threadKQ = context->threadKQ;
+    newContext->connectContexts = new std::vector<struct Context*>();
+    newContext->connectContexts->push_back(newContext);
 
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
@@ -92,12 +94,7 @@ void handleEvent(struct kevent* event)
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
-      if (eventData->req != NULL)
-        delete (eventData->req);
-      eventData->req = NULL;
-      if (eventData->res != NULL)
-        delete (eventData->res);
-      eventData->res = NULL;
+      // 아래 두 정보는 모든 context에서 중복되어 따로 삭제해야함.
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
@@ -211,4 +208,34 @@ long FdGetFileSize(int fd)
   struct stat stat_buf;
   int rc = fstat(fd, &stat_buf);
   return rc == 0 ? stat_buf.st_size : -1;
+}
+
+void clearContexts(struct Context* context)
+{
+  // 내부에서 본인 제외 모두 삭제.
+  HTTPResponse* res = NULL;
+
+  for (
+          std::vector<struct Context*>::iterator it = context->connectContexts->begin();
+          it != context->connectContexts->end();
+          ++it
+          )
+  {
+    struct Context* data = *it;
+
+    if (data == context)
+      continue;
+    if (data->req != NULL)
+      delete (data->req);
+    if (data->res)
+      res = data->res;
+    if (data->read_buffer != NULL)
+      delete (data->read_buffer);
+    if (data != context)
+      free (data);
+  }
+  if (res != NULL)
+    delete (res);
+  context->connectContexts->clear();
+  context->connectContexts->push_back(context);
 }
