@@ -19,9 +19,9 @@ struct Context
     ServerManager* manager;
     HTTPRequest* req;
     HTTPResponse* res; // -> for file FD, ContentLength... etc
-    char* read_buffer;
-    size_t  buffer_size;
-    size_t  total_read_size; // 보낼 때 마다 합산.
+    char* ioBuffer;
+    size_t  bufferSize;
+    size_t  totalIOSize; // 보낼 때 마다 합산.
     FileDescriptor threadKQ;
     std::vector<struct Context*>* connectContexts;
 
@@ -36,9 +36,9 @@ struct Context
             manager(_manager),
             req(NULL),
             res(NULL),
-            read_buffer(NULL),
-            buffer_size(0),
-            total_read_size(0),
+            ioBuffer(NULL),
+            bufferSize(0),
+            totalIOSize(0),
             threadKQ(0),
             connectContexts(NULL)
     {
@@ -57,8 +57,8 @@ struct Context
 
           if (context->req != NULL)
             delete (context->req);
-          if (context->read_buffer != NULL)
-            delete (context->read_buffer);
+          if (context->ioBuffer != NULL)
+            delete (context->ioBuffer);
           // 이렇게 안하면 재귀 호출됨...
           if (context != this)
             free (context);
