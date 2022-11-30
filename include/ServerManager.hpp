@@ -40,7 +40,6 @@ struct Context
             buffer_size(0),
             total_read_size(0),
             threadKQ(0)
-
     {
     }
 };
@@ -62,7 +61,7 @@ public:
     void run();
     void initServers();
     void attachServerEvent(Server& server);
-    static void attachNewEvent(struct Context* context, const struct kevent& event);
+    void attachNewEvent(struct Context* context, const struct kevent& event);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();

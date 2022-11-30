@@ -126,12 +126,19 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   }
 }
 
+// Process POST reqeust
+// Test on bash : curl -X POST http://127.0.0.1:4242/repository/test -d "Hello, World"
+// TODO: 현재는 POST 요청시 생성할 파일명까지 명시하지만,
+// TODO: 사실 요청은 경로만 입력되있고 이걸 서버가 알아서 판단, 파일을 생성한뒤 그 파일에 대한 identifier를 response해야 함.
+// TODO: 이 부분은 form-data 처리랑도 연관 있으니 추후 토의후 마저 구현할 것.
+// 참고 내용 : http://blog.storyg.co/rest-api-response-body-best-pratics
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
   std::string filePath = getRealFilePath(req);
+  std::cout << "POST filePath : " << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -139,38 +146,46 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(-1);
     return (response);
   }
-  // check this file is CGI path
-
-  // check is valid file
-  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-  {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
-  }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = NULL;
+    if (access(filePath.c_str(), F_OK) == FAILED) // if file doesn't exist
+    {
+      response = new HTTPResponse(ST_CREATED, std::string("Created"), context->manager->getServerName(context->addr.sin_port));
+    }
+    else // if file exist
+    {
+      response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    }
     response->setFd(-1);
-
     // attach write event
-    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_NONBLOCK);
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK);
+    if (writeFileFD <= -1)
+    {
+      throw std::runtime_error("file open error\n");
+    }
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = response;
+    newContext->req = new HTTPRequest(*context->req);
+    newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
+    // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
+    newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
     struct kevent event;
-    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);
     return (response);
   }
 }
 
+// Test on bash : curl -X PUT http://127.0.0.1:4242/repository/test -d "Hello, World"
 HTTPResponse* Server::processPUTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
   std::string filePath = getRealFilePath(req);
+  std::cout << "PUT filePath : " << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -178,20 +193,35 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     response->setFd(-1);
     return (response);
   }
-  // check this file is CGI path
-
-  // check is valid file
-  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-  {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
-  }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Upload file requested"), context->manager->getServerName(context->addr.sin_port));
+   HTTPResponse* response = NULL;
+    if (access(filePath.c_str(), F_OK) == FAILED) // if file doesn't exist
+    {
+      response = new HTTPResponse(ST_CREATED, std::string("Created"), context->manager->getServerName(context->addr.sin_port));
+    }
+    else // if file exist
+    {
+      response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    }
+    response->addHeader("Content-Location", filePath);
     response->setFd(-1);
-    // add file to server...
+    // attach write event
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
+    if (writeFileFD <= -1)
+    {
+      throw std::runtime_error("file open error\n");
+    }
+    struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
+    newContext->res = response;
+    newContext->req = new HTTPRequest(*context->req);
+    newContext->fd = writeFileFD;
+    newContext->threadKQ = context->threadKQ;
+    // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
+    newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
+    struct kevent event;
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    context->manager->attachNewEvent(newContext, event);
     return (response);
   }
 }

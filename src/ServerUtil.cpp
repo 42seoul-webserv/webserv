@@ -216,7 +216,7 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
 
     struct kevent event;
-    EV_SET(&event, newSocket, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
   }
 }
@@ -263,15 +263,25 @@ void handleEvent(struct kevent* event)
   }
 }
 
+// nonblocking write.
 void writeFileHandle(struct Context* context)
 {
-  // FIXME
-  // write body to file. it must be non-blocked
   HTTPResponse& res = *context->res;
   HTTPRequest& req = *context->req;
 
-  write(res.getFd(), req.body.c_str(), res.getContentLength()); // FIXME : if partial write...
-  delete (context);
+  ssize_t writeSize = 0;
+  std::string bodySubstr = req.body.substr(context->buffer_size, req.body.size());
+  if ((writeSize = write(context->fd,bodySubstr.c_str(), req.body.size() - context->buffer_size)) < 0)
+  {
+    printLog("error: client: " + getClientIP(&context->addr) + " : write failed\n", PRINT_RED);
+  }
+  context->buffer_size += writeSize; // get total write size
+  if (context->buffer_size >= req.body.size()) // If write finished
+  {
+    close(context->fd);
+    delete (context->req);
+    delete (context);
+  }
 }
 
 //https://stackoverflow.com/questions/154536/encode-decode-urls-in-c
