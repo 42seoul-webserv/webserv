@@ -30,6 +30,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   // check _location
   if (loc == NULL) // _root case
   {
+    // if not root
     if (req.url != "/")
     {
       return (ST_NOT_FOUND);
@@ -39,15 +40,25 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
       return (ST_METHOD_NOT_ALLOWED);
     }
 
-    std::string contentLengthString = req.headers.at("Content-Length");
-    if (contentLengthString.empty())
+    try
     {
-      return (ST_LENGTH_REQUIRED);
+      std::string contentLengthString = req.headers.at("Content-Length");
+      if (contentLengthString.empty())
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
+      int contentLength = ft_stoi(contentLengthString);
+      if (matchedServer._clientMaxBodySize < contentLength)
+      {
+        return (ST_PAYLOAD_TOO_LARGE);
+      }
     }
-    int contentLength = ft_stoi(contentLengthString);
-    if (matchedServer._clientMaxBodySize < contentLength)
+    catch (std::exception& e)
     {
-      return (ST_PAYLOAD_TOO_LARGE);
+      if (req.method != GET && req.method != HEAD)
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
     }
   }
   else
@@ -57,15 +68,25 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
       return (ST_METHOD_NOT_ALLOWED);
     }
 
-    std::string contentLengthString = req.headers.at("Content-Length");
-    if (contentLengthString.empty())
+    try
     {
-      return (ST_LENGTH_REQUIRED);
+      std::string contentLengthString = req.headers.at("Content-Length");
+      if (contentLengthString.empty())
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
+      int contentLength = ft_stoi(contentLengthString);
+      if (loc->clientMaxBodySize < contentLength)
+      {
+        return (ST_PAYLOAD_TOO_LARGE);
+      }
     }
-    int contentLength = ft_stoi(contentLengthString);
-    if (loc->clientMaxBodySize < contentLength)
+    catch (std::exception& e)
     {
-      return (ST_PAYLOAD_TOO_LARGE);
+      if (req.method != GET && req.method != HEAD)
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
     }
   }
   return (ST_OK);
@@ -93,7 +114,7 @@ void RequestProcessor::processRequest(struct Context* context)
     response->sendToClient(context);
     return;
   }
-  else if (req.status == HEADEROK)
+  else if (req.status == HEADEROK || req.status == END)
   {
     StatusCode status = checkValidHeader(req);
 
@@ -116,6 +137,7 @@ void RequestProcessor::processRequest(struct Context* context)
       response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
+      std::cout << response->getHeader().toString() << "\n";
       return ;
     }
     if (req.method == GET || req.method == HEAD) // not consider body
@@ -125,17 +147,13 @@ void RequestProcessor::processRequest(struct Context* context)
     }
     else // need to read body
     {
-      return;
+      if (status == HEADEROK)
+        return;
     }
   }
   else if (req.status == READING) // ignore request
   {
     return ;
-  }
-  else // status == END
-  {
-    server.processRequest(context);
-    return;
   }
 }
 

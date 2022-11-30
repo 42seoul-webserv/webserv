@@ -82,6 +82,8 @@ void acceptHandler(struct Context* context)
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
+    if (THREAD_MODE)
+      delete (context);
   }
 }
 

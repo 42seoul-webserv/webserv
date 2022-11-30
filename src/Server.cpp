@@ -170,6 +170,8 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     newContext->req = new HTTPRequest(*context->req);
     newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
     newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
     struct kevent event;
@@ -218,6 +220,8 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     newContext->req = new HTTPRequest(*context->req);
     newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
     newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
     struct kevent event;
