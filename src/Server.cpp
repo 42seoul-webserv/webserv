@@ -128,6 +128,9 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
 
 // Process POST reqeust
 // Test on bash : curl -X POST http://127.0.0.1:4242/repository/test -d "Hello, World"
+// TODO: 현재는 POST 요청시 생성할 파일명까지 명시하지만,
+// TODO: 사실 요청은 경로만 입력되있고 이걸 서버가 알아서 판단, 파일을 생성한뒤 그 파일에 대한 identifier를 response해야 함.
+// TODO: 이 부분은 form-data 처리랑도 연관 있으니 추후 토의후 마저 구현할 것.
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
@@ -151,7 +154,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     }
     else // if file exist
     {
-      response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+      response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     }
     response->setFd(-1);
     // attach write event
@@ -200,6 +203,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     {
       response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     }
+    response->addHeader("Content-Location", filePath);
     response->setFd(-1);
     // attach write event
     FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
