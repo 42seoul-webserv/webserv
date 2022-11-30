@@ -131,6 +131,7 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
 // TODO: 현재는 POST 요청시 생성할 파일명까지 명시하지만,
 // TODO: 사실 요청은 경로만 입력되있고 이걸 서버가 알아서 판단, 파일을 생성한뒤 그 파일에 대한 identifier를 response해야 함.
 // TODO: 이 부분은 form-data 처리랑도 연관 있으니 추후 토의후 마저 구현할 것.
+// 참고 내용 : http://blog.storyg.co/rest-api-response-body-best-pratics
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
