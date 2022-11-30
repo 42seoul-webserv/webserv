@@ -26,8 +26,15 @@ CGI::~CGI()
 
 void CGI::parseBody(HTTPResponse* res, std::string message)
 {
+  int fd[2];
   res->addHeader("Content-Length", ft_itos(message.size()));
-  //message->pipe fd
+  if (pipe(fd) < 0)
+  {
+    throw (std::runtime_error("cgi pipe boom"));
+  }
+  write(fd[P_W], message.c_str(), message.size());
+  close(fd[P_W]);
+  res->setFd(fd[P_R]);
 }
 
 void CGI::parseHeader(HTTPResponse* res, std::string message)
@@ -129,6 +136,7 @@ void CGI::parseCGI(struct Context* context)
     message.append(buffer);
     memset(buffer, 0, sizeof(buffer));
   }
+  close(context->cgi->readFD);
   parseStartLine(context, message);
   parseHeader(context->res, message);
   parseBody(context->res, message);
@@ -140,7 +148,7 @@ void CGI::CGIEvent(struct Context* context)
   newContext->req = context->req;
   newContext->cgi = context->cgi;
   struct kevent event;
-  EV_SET(&event, context->cgi->writeFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+  EV_SET(&event, context->cgi->writeFD, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, newContext);
   context->manager->attachNewEvent(newContext, event);
   delete context;
 }
@@ -278,8 +286,8 @@ void CGI::processInit(CGI* cgi)
   cgi->writeFD = infd[P_W];
   cgi->readFD = outfd[P_R];
 }
-
-void CGI::CGIProcess(struct Context* context)
+//////////////
+void CGIProcess(struct Context* context)
 {
   context->cgi = new CGI();
   HTTPRequest& req = *context->req;
@@ -288,7 +296,6 @@ void CGI::CGIProcess(struct Context* context)
   context->cgi->setCGIenv(server, req, context);
   context->cgi->processInit(context->cgi);
   context->cgi->CGIEvent(context);
-  delete context;
 }
 
 bool isCGIRequest(const std::string& file)

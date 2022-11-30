@@ -135,17 +135,20 @@ void CGIChildHandler(struct Context* context)
   if (!context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
-    delete (context->cgi);
-    delete (context->req);
-    //close(context->fd)??
-    delete (context);
-    throw (std::runtime_error("cgi (child)process fail"));
+    HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway borken", context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+    delete context->cgi;
+    context->cgi = NULL;
+    response->sendToClient(context);
   }
-  HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
-  response->setFd(context->cgi->readFD);
-  //response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
-  context->res = response;
-  response->sendToClient(context);
+  else
+  {
+    CGI::parseCGI(context);
+    delete context->cgi;
+    context->cgi = NULL;
+    context->res->sendToClient(context);
+  }
 }
 
 void pipeWriteHandler(struct Context* context)
