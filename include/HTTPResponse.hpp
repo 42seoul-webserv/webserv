@@ -60,7 +60,7 @@ public:
      *----------------------------------------------*/
 
     /* 바이트 단위를 가지는 개체 본문의 크기 */
-    static t_pair CONTENT_LENGTH(const size_t& len);
+    static t_pair CONTENT_LENGTH(const ssize_t& len);
 
     /* 본문을 이해하는데 가장 적절한 언어 */
     static t_pair CONTENT_LANGUAGE(const std::string& language);
@@ -126,7 +126,7 @@ public: // * getter functions
     int getStatusCode() const;
     std::string getStatusMessage() const;
     const std::map<std::string, std::string>& getDescription() const;
-    int getContentLength() const;
+    ssize_t getContentLength() const;
 
 public:                           // * Interface Functions.
     std::string toString() const;   // join headers to std::string, then return.

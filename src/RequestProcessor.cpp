@@ -101,12 +101,10 @@ void RequestProcessor::processRequest(struct Context* context)
   }
   // check request status
   HTTPRequest& req = *context->req;
-  Server& server = _serverManager.getMatchedServer(req);
-
   if (req.status == ERROR)
   {
     if (DEBUG_MODE)
-      printLog(req.message, PRINT_RED);
+      printLog(*req.message, PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
     context->res = response;
 
@@ -114,7 +112,9 @@ void RequestProcessor::processRequest(struct Context* context)
     response->sendToClient(context);
     return;
   }
-  else if (req.status == HEADEROK || req.status == END)
+
+  Server& server = _serverManager.getMatchedServer(req);
+  if (req.status == HEADEROK || req.status == END)
   {
     StatusCode status = checkValidHeader(req);
 
@@ -125,6 +125,8 @@ void RequestProcessor::processRequest(struct Context* context)
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
+      if (req.status == HEADEROK)
+        delete (req.message);
       return;
     }
     // * if redirection.
@@ -137,7 +139,6 @@ void RequestProcessor::processRequest(struct Context* context)
       response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
-      std::cout << response->getHeader().toString() << "\n";
       return ;
     }
     if (req.method == GET || req.method == HEAD) // not consider body
@@ -145,15 +146,23 @@ void RequestProcessor::processRequest(struct Context* context)
       server.processRequest(context);
       return;
     }
-    else // need to read body
+    else if (req.status == HEADEROK) // need to read body
     {
-      if (status == HEADEROK)
         return;
+     }
+    else
+    {
+      server.processRequest(context);
+      return;
     }
   }
   else if (req.status == READING) // ignore request
   {
     return ;
+  }
+  else
+  {
+
   }
 }
 

@@ -26,6 +26,16 @@ MethodType getMethodType(const std::string& method)
   return (UNDEFINED);
 }
 
+std::string methodToString(const MethodType method)
+{
+  const char* const METHODS[] = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"};
+
+  if (method == UNDEFINED)
+    return ("UNDEFINED");
+  else
+    return (METHODS[(int)method]);
+}
+
 std::string getClientIP(struct sockaddr_in* addr)
 {
   char str[INET_ADDRSTRLEN];
@@ -71,7 +81,7 @@ void acceptHandler(struct Context* context)
     {
       throw (std::runtime_error("Socket opt failed\n"));
     }
-    printLog("connect : " + getClientIP(&context->addr) + "\n" , PRINT_GREEN);
+    printLog("connect\t\t" + getClientIP(&context->addr) + "\n" , PRINT_GREEN);
 
     struct Context* newContext = new struct Context(newSocket, context->addr, socketReceiveHandler, context->manager);
     newContext->fd = newSocket;
@@ -97,7 +107,6 @@ void handleEvent(struct kevent* event)
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
-      // 아래 두 정보는 모든 context에서 중복되어 따로 삭제해야함.
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
@@ -131,16 +140,18 @@ void writeFileHandle(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
-  std::string bodySubstr = req.body.substr(context->buffer_size, req.body.size());
-  if ((writeSize = write(context->fd,bodySubstr.c_str(), req.body.size() - context->buffer_size)) < 0)
+  if ((writeSize = write(context->fd, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
   {
-    printLog("error: client: " + getClientIP(&context->addr) + " : write failed\n", PRINT_RED);
+    printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
-  context->buffer_size += writeSize; // get total write size
-  if (context->buffer_size >= req.body.size()) // If write finished
+  context->totalIOSize += writeSize; // get total write size
+  if (context->totalIOSize >= req.body.size()) // If write finished
   {
     close(context->fd);
-    delete (context->req);
+    if (context->req != NULL)
+    {
+      delete (context->req);
+    }
     delete (context);
   }
 }
@@ -199,7 +210,7 @@ std::string decodePercentEncoding(const std::string& str)
   return (result);
 }
 
-std::string ft_itos(int i)
+std::string ft_itos(ssize_t i)
 {
   std::stringstream ss;
   ss << i;
@@ -242,8 +253,8 @@ void clearContexts(struct Context* context)
       delete (data->req);
     if (data->res)
       res = data->res;
-    if (data->read_buffer != NULL)
-      delete (data->read_buffer);
+    if (data->ioBuffer != NULL)
+      delete (data->ioBuffer);
     if (data != context)
       free (data);
   }
