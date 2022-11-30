@@ -127,15 +127,7 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
 }
 
 // Process POST reqeust
-// * (1) POST 는 자원을 무조건 새롭게 생성한다. 만약 자원이 있었다면...
-// * --> 201 Created.
-// * (2) PUT 은 이미 있었다면, 해당 자원에 덮어쓴다. 만약 없었다면, POST처럼 새롭게 만든다.
-// * -->
-// If an existing resource is modified, either the 200 (OK)
-// or 204 (No Content) response codes SHOULD be sent to indicate
-// successful completion of the request.
-// * 1. 먼저 경로를 체크한다. 쓰는 내용은 req의 body에 있다!
-
+// Test on bash : curl -X POST http://127.0.0.1:4242/repository/test -d "Hello, World"
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
@@ -150,15 +142,17 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(-1);
     return (response);
   }
-//  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-//  {
-//    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-//    response->setFd(-1);
-//    return (response);
-//  }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = NULL;
+    if (access(filePath.c_str(), F_OK) == FAILED) // if file doesn't exist
+    {
+      response = new HTTPResponse(ST_CREATED, std::string("Created"), context->manager->getServerName(context->addr.sin_port));
+    }
+    else // if file exist
+    {
+      response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    }
     response->setFd(-1);
     // attach write event
     FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK);
@@ -168,7 +162,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     }
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = response;
-    newContext->req = context->req;
+    newContext->req = new HTTPRequest(*context->req);
     newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
     // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
@@ -180,6 +174,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   }
 }
 
+// Test on bash : curl -X PUT http://127.0.0.1:4242/repository/test -d "Hello, World"
 HTTPResponse* Server::processPUTRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
@@ -194,20 +189,27 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     response->setFd(-1);
     return (response);
   }
-//  if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
-//  {
-//    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-//    response->setFd(-1);
-//    return (response);
-//  }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+   HTTPResponse* response = NULL;
+    if (access(filePath.c_str(), F_OK) == FAILED) // if file doesn't exist
+    {
+      response = new HTTPResponse(ST_CREATED, std::string("Created"), context->manager->getServerName(context->addr.sin_port));
+    }
+    else // if file exist
+    {
+      response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
+    }
     response->setFd(-1);
     // attach write event
     FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
+    if (writeFileFD <= -1)
+    {
+      throw std::runtime_error("file open error\n");
+    }
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = response;
+    newContext->req = new HTTPRequest(*context->req);
     newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
     // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
