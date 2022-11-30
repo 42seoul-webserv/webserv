@@ -84,7 +84,8 @@ void RequestProcessor::processRequest(struct Context* context)
 
   if (req.status == ERROR)
   {
-    printLog(req.message, PRINT_RED);
+    if (DEBUG_MODE)
+      printLog(req.message, PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
     context->res = response;
 

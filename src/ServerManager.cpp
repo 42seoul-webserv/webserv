@@ -33,7 +33,10 @@ _Noreturn void ServerManager::run()
   }
   initServers(); // 여러 서버 세팅들을 모두 연다. (nginx config 참조)
   if (THREAD_MODE)
+  {
+    _threadPool._serverKQ = _kqueue;
     _threadPool.createPool();
+  }
   while (1)
   {
     // 서버 시작. 새 이벤트(Req)가 발생할 때 까지 무한루프. (감지하는 kevent)
@@ -51,7 +54,9 @@ _Noreturn void ServerManager::run()
     else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
     {
       if (THREAD_MODE)
+      {
         _threadPool.attachNewEvent(&event);
+      }
       else
         handleEvent(&event);
     }
@@ -97,7 +102,7 @@ void ServerManager::attachServerEvent(Server& server)
   struct Context* context = new struct Context(server._serverFD, server._socketAddr, acceptHandler, this);
   context->threadKQ = _kqueue;
 
-  EV_SET(&events[0], server._serverFD, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, context);
+  EV_SET(&events[0], server._serverFD, EVFILT_READ, EV_ADD, 0, 0, context);
   // 등록하는 kevent
   if (kevent(_kqueue, events, 1, NULL, 0, NULL) < 0)
   {
@@ -167,9 +172,11 @@ void ServerManager::attachNewEvent(struct Context* context, const struct kevent&
     kq = context->threadKQ;
   else
     kq = _kqueue;
-
   if (kevent(kq, &event, 1, NULL, 0, NULL) < 0)
   {
-    throw (std::runtime_error("Event attachNewEvent failed\n"));
+    if (DEBUG_MODE)
+    {
+      printLog("event attach failed\n", PRINT_YELLOW);
+    }
   }
 }

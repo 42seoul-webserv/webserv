@@ -4,13 +4,12 @@
 #include <string>
 #include <vector>
 
-#define BUFFER_SIZE 10240
+#define BUFFER_SIZE (16 * 1024)
 #define LISTEN_QUEUE_SIZE 1024
 #define FAILED (-1)
 #define THREAD_NO 64
-#ifndef THREAD_MODE
- #define THREAD_MODE 1
-#endif
+#define THREAD_MODE (0)
+#define DEBUG_MODE (0)
 
 // colors
 #define PRINT_RED     "\x1b[31m"

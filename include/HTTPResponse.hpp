@@ -14,8 +14,8 @@
 #include <map>
 #include <ctime>
 #include "WebservDefines.hpp"
-#include "ServerManager.hpp" // for struct Context define
 
+struct Context;
 /**
  * *--------------------------------------------------------------*
  * * [ HeaderType ]                                               |
