@@ -30,6 +30,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   // check _location
   if (loc == NULL) // _root case
   {
+    // if not root
     if (req.url != "/")
     {
       return (ST_NOT_FOUND);
@@ -39,15 +40,25 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
       return (ST_METHOD_NOT_ALLOWED);
     }
 
-    std::string contentLengthString = req.headers.at("Content-Length");
-    if (contentLengthString.empty())
+    try
     {
-      return (ST_LENGTH_REQUIRED);
+      std::string contentLengthString = req.headers.at("Content-Length");
+      if (contentLengthString.empty())
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
+      int contentLength = ft_stoi(contentLengthString);
+      if (matchedServer._clientMaxBodySize < contentLength)
+      {
+        return (ST_PAYLOAD_TOO_LARGE);
+      }
     }
-    int contentLength = ft_stoi(contentLengthString);
-    if (matchedServer._clientMaxBodySize < contentLength)
+    catch (std::exception& e)
     {
-      return (ST_PAYLOAD_TOO_LARGE);
+      if (req.method != GET && req.method != HEAD)
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
     }
   }
   else
@@ -72,6 +83,10 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     catch (std::exception& e)
     {
+      if (req.method != GET && req.method != HEAD)
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
     }
   }
   return (ST_OK);
