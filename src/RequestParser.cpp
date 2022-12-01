@@ -153,6 +153,8 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
   }
   request->checkLevel = BODY;
   request->status = HEADEROK;
+  if (request->chunkedFlag)
+    request->status = READING;
 }
 
 void RequestParser::checkStartLineValid(HTTPRequest* request)
@@ -161,6 +163,8 @@ void RequestParser::checkStartLineValid(HTTPRequest* request)
   {
     return;
   }
+  std::cerr << "chekc" << std::endl;
+  std::cerr<< *request->message << std::endl;
   if (request->method == UNDEFINED || \
             !request->url.size() || !request->version.size())
   {
@@ -308,8 +312,9 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
   {
     throw (std::runtime_error("receive failed\n"));
   }
-
-std::cerr << buffer << std::endl;
+std::string temp;
+temp.assign(buffer);
+std::cerr << temp << std::endl;
   if (!request->body.size())
   {
     (*request->message) += buffer;

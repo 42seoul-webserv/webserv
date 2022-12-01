@@ -56,7 +56,7 @@ struct Context
           struct Context* context = *it;
 
           if (context->req != NULL)
-            delete (context->req);
+            {}//delete (context->req);
           if (context->ioBuffer != NULL)
             delete (context->ioBuffer);
           // 이렇게 안하면 재귀 호출됨...
@@ -66,7 +66,7 @@ struct Context
         // 중복되는 자료.
         delete (this->connectContexts);
       }
-      delete (this->res);
+      //delete (this->res);
     }
 };
 
@@ -84,7 +84,7 @@ private:
 public:
     explicit ServerManager(const std::string& configFilePath);
     ~ServerManager();
-    _Noreturn void run();
+    void run();
     void initServers();
     void attachServerEvent(Server& server);
     void attachNewEvent(struct Context* context, const struct kevent& event);
