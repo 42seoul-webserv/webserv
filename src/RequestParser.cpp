@@ -93,7 +93,10 @@ void RequestParser::parseChunked(HTTPRequest* request)
 void RequestParser::parseBody(HTTPRequest* request)
 {
   size_t delim;
-
+  if (request->checkLevel != BODY)
+  {
+      return;
+  }
   if (!request->body.size())
   {
     delim = request->message->find("\r\n\r\n");
@@ -114,11 +117,22 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
   char* endptr;
   long int length_val;
 
+  if (request->checkLevel != HEADER)
+  {
+    return;
+  }
   if (request->method == GET || request->method == HEAD)
   {
     request->status = END;
     return;
   }
+/*  std::cerr << "header size check" << std::endl;
+  std::cerr << request->headers.size() << std::endl;
+  for (std::map<std::string, std::string>::iterator it = request->headers.begin();\
+        it != request->headers.end(); ++it)
+    {
+      std::cout << it->first << " : " << it->second<< std::endl;
+    }*/
   length = request->headers.find("Content-Length");
   chunked = request->headers.find("Transfer-Encoding");
   if (chunked != request->headers.end() && chunked->second == "chunked")
@@ -129,10 +143,13 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
   {
     throw (std::logic_error("don't have Content-Length"));
   }
-  length_val = strtol(length->second.c_str(), &endptr, 10);
-  if ((!request->chunkedFlag && *endptr != '\0') || length_val < 0)
+  if (length != request->headers.end())
   {
-    throw std::logic_error("content-length value error");
+    length_val = strtol(length->second.c_str(), &endptr, 10);
+    if ((!request->chunkedFlag && *endptr != '\0') || length_val < 0)
+    {
+     throw std::logic_error("content-length value error");
+    }
   }
   request->checkLevel = BODY;
   request->status = HEADEROK;
@@ -291,6 +308,8 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
   {
     throw (std::runtime_error("receive failed\n"));
   }
+
+std::cerr << buffer << std::endl;
   if (!request->body.size())
   {
     (*request->message) += buffer;
@@ -310,6 +329,10 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
     case BODY:
       parseBody(request);
   }
+ /* std::cout << "requse heder chekc" << std::endl;
+  std::cout << *request->message << std::endl;
+  std::cout << "requse body chekc" << std::endl;
+  std::cout << request->body << std::endl;*/
 }
 
 void RequestParser::parseRequest(struct Context* context)

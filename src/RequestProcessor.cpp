@@ -39,7 +39,10 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-
+    if (req.chunkedFlag == true)
+    {
+      return (ST_OK);
+    }
     try
     {
       std::string contentLengthString = req.headers.at("Content-Length");
@@ -67,7 +70,10 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-
+    if (req.chunkedFlag == true)
+    {
+      return (ST_OK);
+    }
     try
     {
       std::string contentLengthString = req.headers.at("Content-Length");

@@ -128,6 +128,7 @@ RequestParser& ServerManager::getRequestParser()
 
 Server& ServerManager::getMatchedServer(const HTTPRequest& req)
 {
+  std::map<std::string,std::string>::iterator mit;
   for (
           std::vector<Server>::iterator it = _serverList.begin();
           it != _serverList.end();
@@ -136,12 +137,16 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
   {
     Server& server = *it;
     std::string serverName = server._serverName + ':' + ft_itos(server._serverPort);
-    std::string hostName = req.headers.at("Host");
-    if (hostName.find(':') == std::string::npos)
+    mit = req.headers.find("Host");
+    if (mit == req.headers.end())
     {
-      hostName += ":80";
+      continue;
     }
-    if (hostName == serverName)
+    if (mit->second.find(':') == std::string::npos)
+    {
+      mit->second += ":80";
+    }
+    if (mit->second == serverName)
     {
       return (server);
     }
@@ -154,7 +159,7 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
           )
   {
     Server& server = *it;
-    std::string host = req.headers.at("host");
+    std::string host = req.headers.at("Host");
     std::string hostPort = host.substr(host.find(':') + 1);
     if (server._serverPort == ft_stoi(hostPort))
     {
