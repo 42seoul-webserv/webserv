@@ -1,6 +1,7 @@
 #include "ServerManager.hpp"
 #include "RequestProcessor.hpp"
 #include "HTTPResponse.hpp"
+#include "CGI.hpp"
 #include <sstream>
 #include <sys/stat.h>
 
@@ -131,8 +132,8 @@ void readHandler(struct Context* context)
 
 void CGIChildHandler(struct Context* context)
 {
-  waitpid(context->cgi->pid, NULL, 0);
-  if (!context->cgi->exitStatus)
+  waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
+  if (context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
     HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway borken", context->manager->getServerName(context->addr.sin_port));
@@ -147,6 +148,10 @@ void CGIChildHandler(struct Context* context)
     CGI::parseCGI(context);
     delete context->cgi;
     context->cgi = NULL;
+    char buffer[BUFFER_SIZE];
+    buffer[BUFFER_SIZE - 1] = '\0';
+    read(context->res->getFd(), buffer, BUFFER_SIZE);
+    std::cout << "fd body chekc"<< buffer << std::endl;
     context->res->sendToClient(context);
   }
 }
@@ -157,18 +162,21 @@ void pipeWriteHandler(struct Context* context)
   char buffer[BUFFER_SIZE] = {0};
 
   count = context->req->body.copy(buffer, BUFFER_SIZE);
+  context->req->body.erase(0, count);
   if (count != 0)//re wirte
   {
-    if (write(context->cgi->writeFD, buffer, count) < 0)
-      throw std::runtime_error("write failed");
+    std::cout << "write check : "<<write(context->cgi->writeFD, buffer, count) << std::endl;
+      //throw std::runtime_error("write failed");
   }
   else//pid kevent register, cgichildHandler call
-  {
+  {std::cout << "pid: "<< context->cgi->pid;
+    std::cout << "pipeWriteHandler\n";
     struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
     newContext->cgi = context->cgi;
     newContext->req = context->req;
     struct kevent event;
-    EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD | EV_CLEAR, NOTE_EXIT | NOTE_EXITSTATUS , context->cgi->exitStatus, newContext);
+    EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, context->cgi->exitStatus, newContext);
+    std::cout << "fd check2 : " << context->cgi->writeFD << std::endl;
     context->manager->attachNewEvent(newContext, event);
     close(context->cgi->writeFD);
     delete (context);
@@ -226,7 +234,7 @@ void handleEvent(struct kevent* event)
   struct Context* eventData = static_cast<struct Context*>(event->udata);
   try
   {
-    if (event->flags & EV_EOF || event->fflags & EV_EOF)
+    if (event->filter != EVFILT_PROC && (event->flags & EV_EOF || event->fflags & EV_EOF))
     {
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
       shutdown(eventData->fd, SHUT_RDWR);
