@@ -169,14 +169,12 @@ void pipeWriteHandler(struct Context* context)
       //throw std::runtime_error("write failed");
   }
   else//pid kevent register, cgichildHandler call
-  {std::cout << "pid: "<< context->cgi->pid;
-    std::cout << "pipeWriteHandler\n";
+  {
     struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
     newContext->cgi = context->cgi;
     newContext->req = context->req;
     struct kevent event;
     EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, context->cgi->exitStatus, newContext);
-    std::cout << "fd check2 : " << context->cgi->writeFD << std::endl;
     context->manager->attachNewEvent(newContext, event);
     close(context->cgi->writeFD);
     delete (context);
