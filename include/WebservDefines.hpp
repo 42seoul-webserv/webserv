@@ -9,7 +9,7 @@
 #define FAILED (-1)
 #define THREAD_NO 64
 #ifndef THREAD_MODE
- #define THREAD_MODE 1
+ #define THREAD_MODE 0
 #endif
 
 // colors

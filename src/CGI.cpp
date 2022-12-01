@@ -4,20 +4,23 @@
 
 CGI::CGI()
 {
+  envCount = 0;
   path = new char[PATH_MAX];
-  path[PATH_MAX] = '\0';
-  cmd = new char*[2];
+  path[PATH_MAX - 1] = '\0';
+  cmd = new char*[3];
   cmd[0] = new char[PATH_MAX];
-  cmd[1] = NULL;
-  env = new char*[envCount];
+  cmd[1] = new char[PATH_MAX];
+  cmd[2] = NULL;
+  env = new char*[ENVCOUNT];
 }
 
 CGI::~CGI()
 {
   delete []path;
   delete []cmd[0];
+  delete []cmd[1];
   delete []cmd;
-  for (size_t i = 0; env[i] != NULL, i < envCount; ++i)
+  for (size_t i = 0; env[i] != NULL && i < envCount; ++i)
   {
     delete []env[i];
   }
@@ -37,7 +40,7 @@ void CGI::parseBody(HTTPResponse* res, std::string message)
   res->setFd(fd[P_R]);
 }
 
-void CGI::parseHeader(HTTPResponse* res, std::string message)
+void CGI::parseHeader(HTTPResponse* res, std::string &message)
 {
   std::string key;
   std::string buffer;
@@ -148,7 +151,7 @@ void CGI::CGIEvent(struct Context* context)
   newContext->req = context->req;
   newContext->cgi = context->cgi;
   struct kevent event;
-  EV_SET(&event, context->cgi->writeFD, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, newContext);
+  EV_SET(&event, context->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   context->manager->attachNewEvent(newContext, event);
   delete context;
 }
@@ -165,7 +168,8 @@ void CGI::addEnv(std::string key, std::string val)
   temp.append("=");
   temp.append(val);
   env[envCount] = new char[temp.size() + 1];
-  this->env[envCount] = const_cast<char *>(temp.c_str());
+  temp.copy(this->env[envCount], temp.size());
+  this->env[envCount][temp.size()] = '\0';
   this->env[envCount + 1] = NULL;
   envCount++;
 }
@@ -197,66 +201,56 @@ std::string CGI::getCWD()
   return (path);
 }
 //path다르게 들어오면 redirection?아니면 오류 처리?
+
 void CGI::getPATH(Server server, HTTPRequest& req)
 {
   std::string requestpath;
-  std::string temp;
-  std::string comparepath;
-  Location location;
+  std::string requestcmd;
+  Location* location = server.getMatchedLocation(req);
 
-  for (std::vector<Location>::iterator it = server._locations.begin(); \
-        it != server._locations.end(); ++it)
+  requestpath.assign(getCWD());
+  requestpath.append(location->_root);
+  requestpath.append("/");
+  requestpath.append(location->cgiInfo[1]);
+  requestpath.copy(path, requestpath.size() + 1);
+  requestpath.copy(cmd[0], requestpath.size() + 1);
+  path[requestpath.size()] = '\0';
+  cmd[0][requestpath.size()] = '\0';
+  if (location->cgiInfo.size() > 2)
   {
-    if (it->_location == "/cgi-bin")
-    {
-      location = *it;
-      break;
-    }
+    requestcmd.assign(location->cgiInfo[2]);
+    requestcmd.copy(cmd[1], requestcmd.size() + 1);
+    cmd[1][requestcmd.size()] = '\0';
   }
-  if (!location._location.size())//config don't have cgi-bin
+  else
   {
+    cmd[1] = NULL;
   }
-  requestpath = server.getRealFilePath(req);
-  comparepath = getCWD();
-  comparepath.append("/cgi-bin/");
-  temp = comparepath;
-  for (std::vector<std::string>::iterator it = location.cgiInfo.begin(); \
-        it != location.cgiInfo.end(); ++it)
-  {
-    comparepath.append(*it);
-    if (comparepath == requestpath)
-    {
-      addEnv("PATH_INFO", requestpath);
-      cmd[0] = const_cast<char *>(requestpath.c_str());
-      path = const_cast<char *>(requestpath.c_str());
-      temp.assign(getQueryFullPath(req));
-      if (temp.size())
-      {
-        requestpath.append("?");
-        requestpath.append(temp);
-        addEnv("REQUEST_URI", requestpath);
-      }
-      return;
-    }
-    comparepath.assign(temp);
-  }
-  //cgi request error;
+  addEnv("PATH_INFO", requestpath);
+  requestpath.append("?var1=value1&var2=with%20percent%20encoding");
+  addEnv("REQUEST_URI", requestpath);
 }
 
 void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
 {
   addEnv("SERVER_SOFTWARE", "webserv/1.1");
+  addEnv("SERVER_PROTOCOL", "HTTP/1.1");
   addEnv("SERVER_NAME", server._serverName);
   addEnv("GATEWAY_INTERFACE", "CGI/1.1");
   addEnv("SERVER_PORT", ft_itos(server._serverPort));
   addEnv("REQUEST_METHOD", getMethodType(req.method));
-  addEnv("PATH_INFO", "webserv/1.1");
   addEnv("SCRIPT_NAME", "webserv/1.1");
   addEnv("QUERY_STRING", getQueryFullPath(req));
   addEnv("REMOTE_ADDR", getClientIP(&context->addr));
   addEnv("CONTENT_TYPE", req.headers.find("Content-Type")->second);
   addEnv("CONTENT_LENGTH", req.headers.find("Content-Length")->second);
   getPATH(server, req);
+  for (size_t i = 0; i < ENVCOUNT; ++i)
+  {
+    if (env[i] == NULL)
+      return;
+    std::cout << env[i] << std::endl;
+  }
 }
 // fork, pipe init
 void CGI::processInit(CGI* cgi)
@@ -268,6 +262,9 @@ void CGI::processInit(CGI* cgi)
   {
     throw (std::runtime_error("pipe make fail"));
   }
+  printf("path : %s\n", cgi->path);
+  printf("cmd : %s\n", cgi->cmd[0]);
+  printf("null check : %p", cgi->cmd[1]);
   cgi->pid = fork();
   if (cgi->pid < 0)
   {
@@ -279,14 +276,19 @@ void CGI::processInit(CGI* cgi)
     close(outfd[P_R]);
     dup2(outfd[P_W], STDOUT_FILENO);
     dup2(infd[P_R], STDIN_FILENO);
-    execve(cgi->path, cgi->cmd, cgi->env);
+    if (execve(cgi->path, cgi->cmd, cgi->env) < 0)
+    {
+      std::cerr << errno;
+      std::cerr << strerror(errno);
+      exit (1);
+    }
   }
   close(infd[P_R]);
   close(outfd[P_W]);
   cgi->writeFD = infd[P_W];
   cgi->readFD = outfd[P_R];
 }
-//////////////
+
 void CGIProcess(struct Context* context)
 {
   context->cgi = new CGI();
@@ -298,14 +300,22 @@ void CGIProcess(struct Context* context)
   context->cgi->CGIEvent(context);
 }
 
-bool isCGIRequest(const std::string& file)
+bool isCGIRequest(const std::string& file, Location* loc)
 {
-  size_t extensionPOS;
+  size_t findPOS;
 
-  extensionPOS = file.find(".");
-  if (extensionPOS == std::string::npos || extensionPOS == file.size())
+  if (loc->cgiInfo.size() == 0)
   {
     return false;
   }
-  return true;
+  findPOS = file.find(*loc->cgiInfo.begin());
+  if (findPOS == std::string::npos)
+  {
+    return false;
+  }
+  if (!file.compare(findPOS, std::string::npos, *loc->cgiInfo.begin()))
+  {
+    return true;
+  }
+  return false;
 }

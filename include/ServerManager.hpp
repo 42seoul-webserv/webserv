@@ -6,10 +6,11 @@
 #include "Parser.hpp"
 #include "RequestProcessor.hpp"
 #include "RequestParser.hpp"
-#include "CGI.hpp"
 #include "ThreadPool.hpp"
 
 class ServerManager;
+
+class CGI;
 
 struct Context
 {

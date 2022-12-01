@@ -1,6 +1,7 @@
 #include "Server.hpp"
 #include "HTTPResponse.hpp"
 #include "ServerManager.hpp"
+#include "CGI.hpp"
 #include <fcntl.h>
 #include <unistd.h>
 

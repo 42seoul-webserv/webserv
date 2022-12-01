@@ -22,7 +22,7 @@ class CGI
     std::string getQueryFullPath(HTTPRequest& req);
     std::string getCWD();
     static void parseStartLine(struct Context* context, std::string &message);
-    static void parseHeader(HTTPResponse* res, std::string message);
+    static void parseHeader(HTTPResponse* res, std::string &message);
     static void parseBody(HTTPResponse* res, std::string message);
     static void parseCGI(struct Context* context);
     void closeProcess(); //child수거?, response 생성?
@@ -35,5 +35,5 @@ class CGI
     ~CGI();
 };
 void CGIProcess(struct Context* context); //processinit, kevent(fd), 
-bool isCGIRequest();//cgi 확인
+bool isCGIRequest(const std::string& file, Location* loc);//cgi 확인
 #endif
