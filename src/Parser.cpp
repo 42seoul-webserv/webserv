@@ -275,12 +275,12 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex) {
   size_t found;
   std::string temp_cate;
   std::vector<std::string> temp2;
-  Location location;
 
   for (
           ParserNode *temp = _nodeVector[serverIndex].next;
           temp != NULL; temp = temp->next
           ) {
+    Location location;
     found = temp->category.find("location ");
     if (found != std::string::npos) {
       temp_cate = temp->category;

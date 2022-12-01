@@ -139,7 +139,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
 
   // check matched location
   std::string filePath = getRealFilePath(req);
-  std::cout << "POST filePath : " << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -150,32 +149,27 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   else
   {
     HTTPResponse* response = NULL;
-    if (access(filePath.c_str(), F_OK) == FAILED) // if file doesn't exist
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0777);
+    if (writeFileFD <= -1 || access(filePath.c_str(), R_OK | W_OK) == FAILED)
     {
-      response = new HTTPResponse(ST_CREATED, std::string("Created"), context->manager->getServerName(context->addr.sin_port));
+      std::cout << filePath.c_str() << "," << writeFileFD << "\n";
+      response = new HTTPResponse(ST_BAD_REQUEST, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
+      response->setFd(-1);
+      return (response);
     }
-    else // if file exist
-    {
-      response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
-    }
+    response = new HTTPResponse(ST_ACCEPTED, std::string("Accepted"), context->manager->getServerName(context->addr.sin_port));
+    response->addHeader("Content-Location", filePath);
     response->setFd(-1);
-    // attach write event
-    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK);
-    if (writeFileFD <= -1)
-    {
-      throw std::runtime_error("file open error\n");
-    }
+    // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = response;
     newContext->req = new HTTPRequest(*context->req);
     newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
-    newContext->connectContexts = context->connectContexts;
-    newContext->connectContexts->push_back(newContext);
-    // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
-    newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
+    newContext->totalIOSize = 0;
+    // attach event
     struct kevent event;
-    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);
     return (response);
   }
@@ -188,7 +182,6 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
 
   // check matched location
   std::string filePath = getRealFilePath(req);
-  std::cout << "PUT filePath : " << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -198,23 +191,18 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
   }
   else
   {
-   HTTPResponse* response = NULL;
-    if (access(filePath.c_str(), F_OK) == FAILED) // if file doesn't exist
+    HTTPResponse* response = NULL;
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
+    if (writeFileFD <= -1 || access(filePath.c_str(), W_OK) == FAILED)
     {
-      response = new HTTPResponse(ST_CREATED, std::string("Created"), context->manager->getServerName(context->addr.sin_port));
+      response = new HTTPResponse(ST_BAD_REQUEST, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
+      response->setFd(-1);
+      return (response);
     }
-    else // if file exist
-    {
-      response = new HTTPResponse(ST_NO_CONTENT, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
-    }
+    response = new HTTPResponse(ST_ACCEPTED, std::string("Accepted"), context->manager->getServerName(context->addr.sin_port));
     response->addHeader("Content-Location", filePath);
     response->setFd(-1);
-    // attach write event
-    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
-    if (writeFileFD <= -1)
-    {
-      throw std::runtime_error("file open error\n");
-    }
+    // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = response;
     newContext->req = new HTTPRequest(*context->req);
@@ -222,8 +210,8 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = context->connectContexts;
     newContext->connectContexts->push_back(newContext);
-    // FIXME: 변수명 고칠 것! read_size가 아니라 write_size임
-    newContext->total_read_size = 0; // 변수명을 고치지 않고 일단 이 변수 사용함..
+    newContext->totalIOSize = 0;
+    // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);
@@ -368,7 +356,7 @@ bool Server::isRedirect(const std::string& url, std::pair<StatusCode, std::strin
   else
   {
     // if given argument matches Location + location has redirect.
-    std::vector<Location>::const_iterator itr;
+    std::vector<Location>::const_iterator itr = _locations.begin();
     while (itr != this->_locations.end())
     {
       if (itr->isMatchedLocation(url) && itr->isRedirect())

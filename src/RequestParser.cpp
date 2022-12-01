@@ -1,5 +1,6 @@
 #include "RequestParser.hpp"
 #include "ServerManager.hpp"
+#include <sys/time.h>
 #include <cstdlib>
 
 std::string::iterator RequestParser::getOneLine(\
@@ -95,8 +96,8 @@ void RequestParser::parseBody(HTTPRequest* request)
 
   if (!request->body.size())
   {
-    delim = request->message.find("\r\n\r\n");
-    request->body.assign(request->message.begin() + delim + 4, request->message.end());
+    delim = request->message->find("\r\n\r\n");
+    request->body.assign(request->message->begin() + delim + 4, request->message->end());
   }
   if (request->chunkedFlag)
   {
@@ -156,12 +157,12 @@ void RequestParser::getStartLine(HTTPRequest* request, size_t& end)
   std::string::iterator it;
   std::string buffer;
 
-  end = request->message.find("\r\n");
+  end = request->message->find("\r\n");
   if (end == std::string::npos)
   {
     throw (std::logic_error("startline ERROR"));
   }
-  it = request->message.begin();
+  it = request->message->begin();
   for (
           size_t i = 0, k = 0; i <= end; ++i, ++it
           )
@@ -174,7 +175,7 @@ void RequestParser::getStartLine(HTTPRequest* request, size_t& end)
           request->method = getMethodType(buffer);
           break;
         case 1:
-          request->url = buffer;
+          request->url = decodePercentEncoding(buffer);
           break;
         case 2:
           request->version = buffer;
@@ -196,7 +197,7 @@ void RequestParser::getHeader(HTTPRequest* request, size_t begin, size_t endPOS)
 {
   std::string key;
   std::string buffer;
-  std::string::iterator it = request->message.begin();
+  std::string::iterator it = request->message->begin();
 
   for (
           size_t i = begin; i != endPOS; ++i
@@ -270,7 +271,7 @@ void RequestParser::getQuery(HTTPRequest* request)
 
 void RequestParser::checkCRLF(HTTPRequest* request)
 {
-  size_t endPOS = request->message.find("\r\n\r\n");
+  size_t endPOS = request->message->find("\r\n\r\n");
   size_t nowPOS = 0;
 
   if (endPOS != std::string::npos)
@@ -286,13 +287,13 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
 {
   char buffer[BUFFER_SIZE] = {0};
 
-  if (read(fd, buffer, sizeof(buffer)) < 0)
+  if (read(fd, buffer, sizeof(buffer) - 1) < 0)
   {
     throw (std::runtime_error("receive failed\n"));
   }
   if (!request->body.size())
   {
-    request->message += buffer;
+    (*request->message) += buffer;
   }
   else
   {
@@ -315,7 +316,10 @@ void RequestParser::parseRequest(struct Context* context)
 {
   if (!context->req)
   {
+    printLog("New request\t" + getClientIP(&context->addr) + "\n" , PRINT_BLUE);
     context->req = new HTTPRequest;
+    context->req->message = new std::string("");
+    gettimeofday(&context->req->baseTime, NULL);
   }
   if (context->req->status != END && context->req->status != ERROR)
   {
@@ -329,6 +333,8 @@ void RequestParser::parseRequest(struct Context* context)
       context->req->status = ERROR;
     }
   }
+  if (context->req->status == ERROR || context->req->status == END)
+    delete (context->req->message);
   context->manager->getRequestProcessor().processRequest(context);
 }
 

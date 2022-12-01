@@ -32,6 +32,7 @@ typedef enum
 } MethodType;
 
 MethodType getMethodType(const std::string& method);
+std::string methodToString(const MethodType method);
 typedef unsigned int Port;
 typedef int FileDescriptor;
 
@@ -67,7 +68,7 @@ void printLog(const std::string& log, const std::string& color);
 std::string encodePercentEncoding(const std::string& str);
 std::string decodePercentEncoding(const std::string& encodedURI);
 std::string getClientIP(struct sockaddr_in* addr);
-std::string ft_itos(int i);
+std::string ft_itos(ssize_t i);
 int ft_stoi(const std::string& str);
 std::string getStatusCodeMessage(StatusCode code);
 long FdGetFileSize(int fd);

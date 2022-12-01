@@ -24,7 +24,7 @@ typedef enum
 class HTTPRequest
 {
 public:
-    std::string message; // request Message ( all )
+    std::string* message; // request Message ( all )
     std::string body;
     MethodType method;
     std::map<std::string, std::string> query; // url?query
@@ -34,6 +34,7 @@ public:
     bool chunkedFlag;
     RequestStatus status;
     CheckLevel checkLevel;
+    struct timeval baseTime;
 
     HTTPRequest()
     {
@@ -41,6 +42,7 @@ public:
       method = UNDEFINED;
       status = READING;
       checkLevel = CRLF;
+      message = NULL;
     }
     ~HTTPRequest()
     {
