@@ -22,7 +22,7 @@ ServerManager::~ServerManager()
   }
 }
 
-_Noreturn void ServerManager::run()
+void ServerManager::run()
 {
   struct kevent event;
 
@@ -128,7 +128,7 @@ RequestParser& ServerManager::getRequestParser()
 
 Server& ServerManager::getMatchedServer(const HTTPRequest& req)
 {
-  std::map<std::string,std::string>::iterator mit;
+  std::map<std::string,std::string>::const_iterator mit;
   for (
           std::vector<Server>::iterator it = _serverList.begin();
           it != _serverList.end();
@@ -142,11 +142,13 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
     {
       continue;
     }
-    if (mit->second.find(':') == std::string::npos)
+    std::string host;
+    host.assign(mit->second);
+    if (host.find(':') == std::string::npos)
     {
-      mit->second += ":80";
+      host += ":80";
     }
-    if (mit->second == serverName)
+    if (host == serverName)
     {
       return (server);
     }
@@ -159,7 +161,13 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
           )
   {
     Server& server = *it;
-    std::string host = req.headers.at("Host");
+    mit = req.headers.find("Host");
+    if (mit == req.headers.end())
+    {
+      continue;
+    }
+    std::string host;
+    host.assign(mit->second);
     std::string hostPort = host.substr(host.find(':') + 1);
     if (server._serverPort == ft_stoi(hostPort))
     {
