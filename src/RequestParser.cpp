@@ -357,7 +357,10 @@ void RequestParser::parseRequest(struct Context* context)
     }
   }
   if (context->req->status == ERROR || context->req->status == END)
+  {
     delete (context->req->message);
+    context->req->message = NULL;
+  }
   context->manager->getRequestProcessor().processRequest(context);
 }
 

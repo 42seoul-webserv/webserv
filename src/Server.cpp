@@ -19,7 +19,8 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
       filePath = req.url;
       if (filePath.length() == 1)
       {
-        filePath = _root + _index;
+        if (req.method == GET)
+          filePath = _root + _index;
       }
       else
       {
@@ -89,6 +90,20 @@ void Server::openServer()
   }
 }
 
+FileDescriptor Server::getErrorPageFd(const StatusCode& stCode)
+{
+  // if error_page is set in config file, then return it's fd
+  std::map<StatusCode, std::string>::const_iterator itr = this->_errorPage.find(stCode);
+  if (itr == _errorPage.end()) // if no suitable errPage
+    return (-1);
+  else
+    return (open(itr->second.c_str(), O_RDONLY)); // will return -1 or regular FD
+}
+
+
+// TODO: Location과 directory는 분리해야 한다.
+// 127.0.0.1:4242/directory 로 보냈을때 location 정보가 YoupiBanne와 합쳐짐.
+
 HTTPResponse* Server::processGETRequest(const struct Context* context)
 {
   HTTPRequest& req = *context->req;
@@ -98,8 +113,10 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
 
   if (filePath == "FAILED")
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
+    const StatusCode RETURN_STATUS = ST_NOT_FOUND;
+    HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(getErrorPageFd(RETURN_STATUS));
+//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     return (response);
   }
   // check this file is CGI path
@@ -113,16 +130,17 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   {
     if (DEBUG_MODE)
       printLog(filePath + "NOT FOUND\n", PRINT_RED);
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
-    return (response);
+    const StatusCode RETURN_STATUS = ST_NOT_FOUND;
+    HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(getErrorPageFd(RETURN_STATUS));
+//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
+//    return (response);
   }
   else
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(open(filePath.c_str(), O_RDONLY));
-    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
-
+//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     return (response);
   }
 }
@@ -142,8 +160,10 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
 
   if (filePath == "FAILED")
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
+    const StatusCode RETURN_STATUS = ST_NOT_FOUND;
+    HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(getErrorPageFd(RETURN_STATUS));
+//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     return (response);
   }
   else
@@ -153,8 +173,10 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     if (writeFileFD <= -1 || access(filePath.c_str(), R_OK | W_OK) == FAILED)
     {
       std::cout << filePath.c_str() << "," << writeFileFD << "\n";
-      response = new HTTPResponse(ST_BAD_REQUEST, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
-      response->setFd(-1);
+      const StatusCode RETURN_STATUS = ST_NOT_FOUND;
+      response = new HTTPResponse(RETURN_STATUS, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
+      response->setFd(getErrorPageFd(RETURN_STATUS));
+//      response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
       return (response);
     }
     response = new HTTPResponse(ST_ACCEPTED, std::string("Accepted"), context->manager->getServerName(context->addr.sin_port));
@@ -185,8 +207,9 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
 
   if (filePath == "FAILED")
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
+    const StatusCode RETURN_STATUS = ST_NOT_FOUND;
+    HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
   else
@@ -195,8 +218,9 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
     if (writeFileFD <= -1 || access(filePath.c_str(), W_OK) == FAILED)
     {
-      response = new HTTPResponse(ST_BAD_REQUEST, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
-      response->setFd(-1);
+      const StatusCode RETURN_STATUS = ST_BAD_REQUEST;
+      response = new HTTPResponse(RETURN_STATUS, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
+      response->setFd(getErrorPageFd(RETURN_STATUS));
       return (response);
     }
     response = new HTTPResponse(ST_ACCEPTED, std::string("Accepted"), context->manager->getServerName(context->addr.sin_port));
@@ -258,15 +282,17 @@ HTTPResponse* Server::processDELETERequest(const struct Context* context)
 
   if (filePath == "FAILED")
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
+    const StatusCode RETURN_STATUS = ST_NOT_FOUND;
+    HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
   // check is valid file
   if (access(filePath.c_str(), R_OK | W_OK) == FAILED)
   {
-    HTTPResponse* response = new HTTPResponse(ST_NOT_FOUND, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(-1);
+    const StatusCode RETURN_STATUS = ST_NOT_FOUND;
+    HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
+    response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
   else
