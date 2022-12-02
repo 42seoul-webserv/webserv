@@ -116,7 +116,6 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
     const StatusCode RETURN_STATUS = ST_NOT_FOUND;
     HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(getErrorPageFd(RETURN_STATUS));
-//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     return (response);
   }
   // check this file is CGI path
@@ -133,14 +132,12 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
     const StatusCode RETURN_STATUS = ST_NOT_FOUND;
     HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(getErrorPageFd(RETURN_STATUS));
-//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
-//    return (response);
+    return (response);
   }
   else
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(open(filePath.c_str(), O_RDONLY));
-//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     return (response);
   }
 }
@@ -345,10 +342,8 @@ void Server::processRequest(struct Context* context)
     }
   }
   context->res = response;
-  if (response->getFd() > 0)
+  if (context->res && response->getFd() > 0)
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
-  else
-    response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
   response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
 }
 

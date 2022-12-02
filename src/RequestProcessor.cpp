@@ -21,9 +21,32 @@ static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType me
 }
 
 // ASSUMPTION : request contain complete header...
+
+// WARN: Test code!
+StatusCode checkValidUrl_recur(const Server& matchedServer, const std::string& url)
+{
+  const std::string substr = url.substr(0, url.rfind('/'));
+  if (substr == url) // if substr has no /
+  {
+    return (ST_NOT_FOUND);
+  }
+  for (
+          std::vector<Location>::const_iterator it = matchedServer._locations.begin();
+          it != matchedServer._locations.end();
+          ++it
+          ) {
+    const Location &loc = *it;
+    if (loc.isMatchedLocation(url)) {
+      return (ST_OK); // 경로를 뒤에서 하나씩 제거해보면서 location과 지속 비교.
+    }
+  }
+  return (checkValidUrl_recur(matchedServer, substr));
+}
+
+
 StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
 {
-  Server& matchedServer = _serverManager.getMatchedServer(req);
+  Server& matchedServer = _serverManager.getMatchedServer(req); // FIX: 여기서 터짐.
 
   // find _location
   Location* loc = matchedServer.getMatchedLocation(req);
@@ -31,9 +54,10 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   if (loc == NULL) // _root case
   {
     // if not root
+    // http://127.0.0.1:4242/directory/nop/ 와 같은 경우도 고려해야 함.
     if (req.url != "/")
     {
-      return (ST_NOT_FOUND);
+      return (checkValidUrl_recur(matchedServer, req.url)); // recursive location checking.
     }
     if (!isAllowedMethod(matchedServer._allowMethods, req.method))
     {
