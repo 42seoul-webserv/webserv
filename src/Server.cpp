@@ -160,7 +160,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     const StatusCode RETURN_STATUS = ST_NOT_FOUND;
     HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(getErrorPageFd(RETURN_STATUS));
-//    response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     return (response);
   }
   else
@@ -173,7 +172,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
       const StatusCode RETURN_STATUS = ST_NOT_FOUND;
       response = new HTTPResponse(RETURN_STATUS, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
       response->setFd(getErrorPageFd(RETURN_STATUS));
-//      response->addHeader(HTTPResponse::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
       return (response);
     }
     response = new HTTPResponse(ST_ACCEPTED, std::string("Accepted"), context->manager->getServerName(context->addr.sin_port));
@@ -181,7 +179,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(-1);
     // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
-    newContext->res = response;
+    newContext->res = new HTTPResponse(*response);
     newContext->req = new HTTPRequest(*context->req);
     newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
@@ -212,8 +210,10 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
   else
   {
     HTTPResponse* response = NULL;
-    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_WRONLY | O_NONBLOCK);
-    if (writeFileFD <= -1 || access(filePath.c_str(), W_OK) == FAILED)
+
+    // FIXME : 왜 이미 있는 파일의 경우 fd가 쟈꾸 -1이 되지...?
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_NONBLOCK, 777);
+    if (writeFileFD <= -1)
     {
       const StatusCode RETURN_STATUS = ST_BAD_REQUEST;
       response = new HTTPResponse(RETURN_STATUS, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
@@ -225,7 +225,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     response->setFd(-1);
     // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
-    newContext->res = response;
+    newContext->res = new HTTPResponse(*response);
     newContext->req = new HTTPRequest(*context->req);
     newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
@@ -347,22 +347,30 @@ void Server::processRequest(struct Context* context)
   response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
 }
 
-Location* Server::getMatchedLocation(const HTTPRequest& req)
+const Location* getClosestMatchedLocation_recur(const Server& matchedServer, const std::string& subUrl)
 {
-  for (
-          std::vector<Location>::iterator it = _locations.begin();
-          it != _locations.end();
-          ++it
-          )
+  if (subUrl.empty()) // No location.
   {
-    Location& loc = *it;
-
-    if (loc.isMatchedLocation(req.url))
-    {
-      return (&loc);
+    return (NULL);
+  }
+  for (
+          std::vector<Location>::const_iterator it = matchedServer._locations.begin();
+          it != matchedServer._locations.end();
+          ++it
+          ) {
+    const Location &loc = *it;
+    if (loc._location == subUrl) {
+      return (&loc); // 경로를 뒤에서 하나씩 제거해보면서 location과 지속 비교.
     }
   }
-  return (NULL); // _root case?
+  return (getClosestMatchedLocation_recur(matchedServer, subUrl.substr(0, subUrl.rfind('/'))));
+}
+
+
+Location* Server::getMatchedLocation(const HTTPRequest& req)
+{
+  // location matching algorithm.
+  return (const_cast<Location *>(getClosestMatchedLocation_recur(*this, req.url)));
 }
 
 // 만약 redirection이 맞다면, 두번째 인자*buf에 데이터를 넣어줌 + true 반환.
