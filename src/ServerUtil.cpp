@@ -249,17 +249,30 @@ void clearContexts(struct Context* context)
 
     if (data == context)
       continue;
+
     if (data->req != NULL)
+    {
       delete (data->req);
+      data->req = NULL;
+    }
     if (data->res)
       res = data->res;
     if (data->ioBuffer != NULL)
+    {
       delete (data->ioBuffer);
+      data->ioBuffer = NULL;
+    }
     if (data != context)
+    {
       free (data);
+      data = NULL;
+    }
   }
   if (res != NULL)
+  {
     delete (res);
+    res = NULL;
+  }
   context->connectContexts->clear();
   context->connectContexts->push_back(context);
 }

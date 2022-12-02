@@ -132,7 +132,10 @@ void RequestProcessor::processRequest(struct Context* context)
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
       if (req.status == HEADEROK)
+      {
         delete (req.message);
+        req.message = NULL;
+      }
       return;
     }
     // * if redirection.
