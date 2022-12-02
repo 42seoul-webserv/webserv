@@ -40,6 +40,28 @@ void RequestParser::checkBodyLength(HTTPRequest* request)
   }
 }
 
+// 16진수 문자열을 long으로 변환
+long convertHexStrToLong(const std::string& hex)
+{
+  long result = 0;
+
+  static const std::string HEX_LOOKUP("0123456789abcdef");
+  for (std::string::const_iterator itr = hex.begin(); itr != hex.end(); itr++)
+  {
+    int i = 0;
+    while (i < 16)
+    {
+      if (HEX_LOOKUP[i] == *itr)
+      {
+        result = (result + i) * 16;
+        break;
+      }
+      i++;
+    }
+  }
+  return (result / 16);
+}
+
 void RequestParser::parseChunked(HTTPRequest* request)
 {
   std::string endcheck;
@@ -73,8 +95,10 @@ void RequestParser::parseChunked(HTTPRequest* request)
   {
     it = getOneLine(length_str, it, end);
     it = getOneLine(val, it, end);
-    length_int = strtol(length_str.c_str(), &endptr, 10);
-    if (*endptr != '\0' || length_int < 0)
+
+    // FIXME : chunked의 length 정보가 hex(16진수)로 들어온다 --> ex. 3e8
+    length_int = convertHexStrToLong(length_str);
+    if (length_int < 0)
     {
       throw std::logic_error("chunked length value error");
     }
