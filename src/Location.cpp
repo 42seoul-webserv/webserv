@@ -25,26 +25,14 @@ bool Location::isMatchedLocation(const std::string& url) const
 // check url is in location first...
 std::string Location::convertURLToLocationPath(const std::string& url) const
 {
-  if (!isMatchedLocation(url))
-  {
-    throw (std::runtime_error("invalid url in this location : " + _location + "\n"));
-  }
   std::string result = _root;
-  std::string filePath = url.substr(url.rfind('/'));
-  if (_location != filePath)
-  {
-    if (filePath[filePath.size()] == '/') // if [ /foo/bar/ ]
-      result = _root + filePath.substr(0, filePath.size() - 1);
-    else // if [ /foo/bar ]
-      result = _root + filePath;
-  }
+  std::string filePath;
+  filePath = url.substr(this->_location.size(), std::string::npos);
+  result = _root + filePath;
   struct stat sb;
-  if (stat(result.c_str(), &sb) == -1) // neither a file nor directory.
-    return ("FAILED");
-  if (S_ISDIR(sb.st_mode))
-  {
+  // if last url-chunk is directory, add location's _index to url. [ Ex. /YoupiBane => /YoupiBane/index.html ]
+  if (stat(result.c_str(), &sb) != -1 && S_ISDIR(sb.st_mode))
     result += ("/" + _index);
-  }
   return (result);
 }
 
