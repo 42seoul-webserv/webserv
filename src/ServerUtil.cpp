@@ -229,6 +229,8 @@ int ft_stoi(const std::string& str)
 
 long FdGetFileSize(int fd)
 {
+  if (fd < 0)
+    return 0;
   struct stat stat_buf;
   int rc = fstat(fd, &stat_buf);
   return rc == 0 ? stat_buf.st_size : -1;
