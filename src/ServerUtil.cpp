@@ -27,46 +27,14 @@ MethodType getMethodType(const std::string& method)
   return (UNDEFINED);
 }
 
-std::string getMethodType(MethodType method)
+std::string methodToString(const MethodType method)
 {
-  switch (method)
-  {
-  case GET:
-    return ("GET");
-  case POST:
-    return ("POST");  
-  case PUT:
-    return ("PUT");
-  case PATCH:
-    return ("PATCH");
-  case DELETE:
-    return ("GET");
-  case HEAD:
-    return ("HEAD");      
-  default:
+  const char* const METHODS[] = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"};
+
+  if (method == UNDEFINED)
     return ("UNDEFINED");
-  }
-}
-
-// TODO: THIS FUNCTION IS TEMPORARY
-#include <sstream>
-
-static std::string getResponse(FileDescriptor indexFile)
-{
-  char buffer[1024] = {0};
-  int readSize = read(indexFile, buffer, sizeof(buffer)); // blocked
-  std::ostringstream ss;
-  std::string result;
-  ss << readSize;
-
-  result += "HTTP/1.1 200 OK\r\n";
-  result += "Server: webserv\r\n";
-  result += "Content-length: " + ss.str() + "\r\n";
-  result += "Content-Type: text/html\r\n";
-  result += "\r\n";
-  result += buffer;
-
-  return (result);
+  else
+    return (METHODS[(int)method]);
 }
 
 std::string getClientIP(struct sockaddr_in* addr)
@@ -193,19 +161,19 @@ void socketReceiveHandler(struct Context* context)
 void acceptHandler(struct Context* context)
 {
 //  static uint32_t connections;
-
-//  printLog("accept handler called\n", PRINT_CYAN);
+  if (DEBUG_MODE)
+    printLog("accept handler called\n", PRINT_CYAN);
   socklen_t len = sizeof(context->addr);
   FileDescriptor newSocket;
 
   if ((newSocket = accept(context->fd, reinterpret_cast<sockaddr*>(&context->addr), &len)) < 0)
   {
-    printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
+    if (DEBUG_MODE)
+      printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
     return ;
   }
   else
   {
-//    std::cout << "CONNECTION : " << connections++ << "  fd : " << context->threadKQ << "\n";
     // set socket option
     if (fcntl(newSocket, F_SETFL, O_NONBLOCK) < 0)
     {
@@ -216,14 +184,19 @@ void acceptHandler(struct Context* context)
     {
       throw (std::runtime_error("Socket opt failed\n"));
     }
-    printLog("connect : " + getClientIP(&context->addr) + "\n" , PRINT_GREEN);
+    printLog("connect\t\t" + getClientIP(&context->addr) + "\n" , PRINT_GREEN);
 
     struct Context* newContext = new struct Context(newSocket, context->addr, socketReceiveHandler, context->manager);
+    newContext->fd = newSocket;
     newContext->threadKQ = context->threadKQ;
+    newContext->connectContexts = new std::vector<struct Context*>();
+    newContext->connectContexts->push_back(newContext);
 
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
+    if (THREAD_MODE)
+      delete (context);
   }
 }
 
@@ -237,12 +210,6 @@ void handleEvent(struct kevent* event)
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
-      if (eventData->req != NULL)
-        delete (eventData->req);
-      eventData->req = NULL;
-      if (eventData->res != NULL)
-        delete (eventData->res);
-      eventData->res = NULL;
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
@@ -276,16 +243,18 @@ void writeFileHandle(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
-  std::string bodySubstr = req.body.substr(context->buffer_size, req.body.size());
-  if ((writeSize = write(context->fd,bodySubstr.c_str(), req.body.size() - context->buffer_size)) < 0)
+  if ((writeSize = write(context->fd, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
   {
-    printLog("error: client: " + getClientIP(&context->addr) + " : write failed\n", PRINT_RED);
+    printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
-  context->buffer_size += writeSize; // get total write size
-  if (context->buffer_size >= req.body.size()) // If write finished
+  context->totalIOSize += writeSize; // get total write size
+  if (context->totalIOSize >= req.body.size()) // If write finished
   {
     close(context->fd);
-    delete (context->req);
+    if (context->req != NULL)
+    {
+      delete (context->req);
+    }
     delete (context);
   }
 }
@@ -344,7 +313,7 @@ std::string decodePercentEncoding(const std::string& str)
   return (result);
 }
 
-std::string ft_itos(int i)
+std::string ft_itos(ssize_t i)
 {
   std::stringstream ss;
   ss << i;
@@ -366,4 +335,34 @@ long FdGetFileSize(int fd)
   struct stat stat_buf;
   int rc = fstat(fd, &stat_buf);
   return rc == 0 ? stat_buf.st_size : -1;
+}
+
+void clearContexts(struct Context* context)
+{
+  // 내부에서 본인 제외 모두 삭제.
+  HTTPResponse* res = NULL;
+
+  for (
+          std::vector<struct Context*>::iterator it = context->connectContexts->begin();
+          it != context->connectContexts->end();
+          ++it
+          )
+  {
+    struct Context* data = *it;
+
+    if (data == context)
+      continue;
+    if (data->req != NULL)
+      delete (data->req);
+    if (data->res)
+      res = data->res;
+    if (data->ioBuffer != NULL)
+      delete (data->ioBuffer);
+    if (data != context)
+      free (data);
+  }
+  if (res != NULL)
+    delete (res);
+  context->connectContexts->clear();
+  context->connectContexts->push_back(context);
 }

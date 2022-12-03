@@ -30,6 +30,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   // check _location
   if (loc == NULL) // _root case
   {
+    // if not root
     if (req.url != "/")
     {
       return (ST_NOT_FOUND);
@@ -39,15 +40,25 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
       return (ST_METHOD_NOT_ALLOWED);
     }
 
-    std::string contentLengthString = req.headers.at("Content-Length");
-    if (contentLengthString.empty())
+    try
     {
-      return (ST_LENGTH_REQUIRED);
+      std::string contentLengthString = req.headers.at("Content-Length");
+      if (contentLengthString.empty())
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
+      int contentLength = ft_stoi(contentLengthString);
+      if (matchedServer._clientMaxBodySize < contentLength)
+      {
+        return (ST_PAYLOAD_TOO_LARGE);
+      }
     }
-    int contentLength = ft_stoi(contentLengthString);
-    if (matchedServer._clientMaxBodySize < contentLength)
+    catch (std::exception& e)
     {
-      return (ST_PAYLOAD_TOO_LARGE);
+      if (req.method != GET && req.method != HEAD)
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
     }
   }
   else
@@ -57,15 +68,25 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
       return (ST_METHOD_NOT_ALLOWED);
     }
 
-    std::string contentLengthString = req.headers.at("Content-Length");
-    if (contentLengthString.empty())
+    try
     {
-      return (ST_LENGTH_REQUIRED);
+      std::string contentLengthString = req.headers.at("Content-Length");
+      if (contentLengthString.empty())
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
+      int contentLength = ft_stoi(contentLengthString);
+      if (loc->clientMaxBodySize < contentLength)
+      {
+        return (ST_PAYLOAD_TOO_LARGE);
+      }
     }
-    int contentLength = ft_stoi(contentLengthString);
-    if (loc->clientMaxBodySize < contentLength)
+    catch (std::exception& e)
     {
-      return (ST_PAYLOAD_TOO_LARGE);
+      if (req.method != GET && req.method != HEAD)
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
     }
   }
   return (ST_OK);
@@ -80,11 +101,10 @@ void RequestProcessor::processRequest(struct Context* context)
   }
   // check request status
   HTTPRequest& req = *context->req;
-  Server& server = _serverManager.getMatchedServer(req);
-
   if (req.status == ERROR)
   {
-    printLog(req.message, PRINT_RED);
+    if (DEBUG_MODE)
+      printLog(*req.message, PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
     context->res = response;
 
@@ -92,7 +112,9 @@ void RequestProcessor::processRequest(struct Context* context)
     response->sendToClient(context);
     return;
   }
-  else if (req.status == HEADEROK)
+
+  Server& server = _serverManager.getMatchedServer(req);
+  if (req.status == HEADEROK || req.status == END)
   {
     StatusCode status = checkValidHeader(req);
 
@@ -103,6 +125,8 @@ void RequestProcessor::processRequest(struct Context* context)
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
+      if (req.status == HEADEROK)
+        delete (req.message);
       return;
     }
     // * if redirection.
@@ -122,8 +146,13 @@ void RequestProcessor::processRequest(struct Context* context)
       server.processRequest(context);
       return;
     }
-    else // need to read body
+    else if (req.status == HEADEROK) // need to read body
     {
+        return;
+     }
+    else
+    {
+      server.processRequest(context);
       return;
     }
   }
@@ -131,10 +160,9 @@ void RequestProcessor::processRequest(struct Context* context)
   {
     return ;
   }
-  else // status == END
+  else
   {
-    server.processRequest(context);
-    return;
+
   }
 }
 

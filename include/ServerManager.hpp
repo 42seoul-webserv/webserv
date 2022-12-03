@@ -6,6 +6,7 @@
 #include "Parser.hpp"
 #include "RequestProcessor.hpp"
 #include "RequestParser.hpp"
+#include "HTTPResponse.hpp"
 #include "ThreadPool.hpp"
 
 class ServerManager;
@@ -21,11 +22,13 @@ struct Context
     HTTPRequest* req;
     CGI* cgi;
     HTTPResponse* res; // -> for file FD, ContentLength... etc
-    char* read_buffer;
-    size_t  buffer_size;
-    size_t  total_read_size; // 보낼 때 마다 합산.
+    char* ioBuffer;
+    size_t  bufferSize;
+    size_t  totalIOSize; // 보낼 때 마다 합산.
     FileDescriptor threadKQ;
+    std::vector<struct Context*>* connectContexts;
 
+    Context(){}
     Context(int _fd,
             struct sockaddr_in _addr,
             void (* _handler)(struct Context* obj),
@@ -36,12 +39,37 @@ struct Context
             manager(_manager),
             req(NULL),
             res(NULL),
-            cgi(NULL),
-            read_buffer(NULL),
-            buffer_size(0),
-            total_read_size(0),
-            threadKQ(0)
+            ioBuffer(NULL),
+            bufferSize(0),
+            totalIOSize(0),
+            threadKQ(0),
+            connectContexts(NULL)
     {
+    }
+    ~Context()
+    {
+      if (connectContexts)
+      {
+        for (
+              std::vector<struct Context*>::iterator it = connectContexts->begin();
+              it != connectContexts->end();
+              ++it
+              )
+        {
+          struct Context* context = *it;
+
+          if (context->req != NULL)
+            delete (context->req);
+          if (context->ioBuffer != NULL)
+            delete (context->ioBuffer);
+          // 이렇게 안하면 재귀 호출됨...
+          if (context != this)
+            free (context);
+        }
+        // 중복되는 자료.
+        delete (this->connectContexts);
+      }
+      delete (this->res);
     }
 };
 
@@ -70,10 +98,12 @@ public:
     RequestParser& getRequestParser();
     Server& getMatchedServer(const HTTPRequest& req);
 };
+
 void socketReceiveHandler(struct Context* context);
 void acceptHandler(struct Context* context);
 void handleEvent(struct kevent* event);
 void writeFileHandle(struct Context* context);
 void pipeWriteHandler(struct Context* context);
+void clearContexts(struct Context* context);
 
 #endif //SERVERMANAGER_HPP

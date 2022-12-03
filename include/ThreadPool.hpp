@@ -20,6 +20,7 @@ public:
     pthread_mutex_t _jobQueueMutex;
     std::vector<pthread_t> _workerThreads;
     std::queue<struct kevent*> _eventQueue;
+    FileDescriptor _serverKQ;
 
     explicit ThreadPool(size_t threadNumber);
     ~ThreadPool();

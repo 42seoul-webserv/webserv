@@ -1,4 +1,5 @@
 #include "HTTPResponse.hpp"
+#include "ServerManager.hpp"
 
 /**----------------------
  * * HeaderType         |
@@ -69,14 +70,14 @@ std::string HeaderType::getDate()
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + std::to_string(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + std::to_string(pLocal->tm_year + 1900) +
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
            " GMT";
   return (result);
 }
 
-HeaderType::t_pair HeaderType::CONTENT_LENGTH(const size_t& len)
+HeaderType::t_pair HeaderType::CONTENT_LENGTH(const ssize_t& len)
 {
-  return (std::pair<std::string, std::string>("Content-Length", std::to_string(len)));
+  return (std::pair<std::string, std::string>("Content-Length", ft_itos(len)));
 }
 
 HeaderType::t_pair HeaderType::CONTENT_LANGUAGE(const std::string& language)
@@ -149,7 +150,7 @@ HTTPResponseHeader::HTTPResponseHeader(const std::string& version, const int& st
 HTTPResponseHeader& HTTPResponseHeader::operator=(const HTTPResponseHeader& header)
 {
   _version = header._version;
-  _status_code = header._status_code;
+  _status_code = header.getStatusCode();
   _statusMessage = header._statusMessage;
   _description = header._description;
   return (*this);
@@ -196,7 +197,7 @@ const std::map<std::string, std::string>& HTTPResponseHeader::getDescription() c
   return this->_description;
 }
 
-int HTTPResponseHeader::getContentLength() const
+ssize_t HTTPResponseHeader::getContentLength() const
 {
   std::string len = this->_description.find("Content-Length")->second;
   return ft_stoi(len);
@@ -207,13 +208,13 @@ std::string HTTPResponseHeader::toString() const
   // (1) if _status_code is out of range, throw error
   if (_status_code < 100 || _status_code > 599)
   {
-    throw std::runtime_error("Status Code:" + std::to_string(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
+    throw std::runtime_error("Status Code:" + ft_itos(_status_code) + " -> HttpResponse::toString() : status code is out of range\n");
   }
 
-  // (2) if there is no status messege, throw error
+  // (2) if there is no status message, throw error
   if (_statusMessage == "null")
   {
-    throw std::runtime_error("HttpResponse::toString() : status messege unset\n");
+    throw std::runtime_error("HttpResponse::toString() : status message unset\n");
   }
 
   // (3) if server name unset.
@@ -222,14 +223,13 @@ std::string HTTPResponseHeader::toString() const
     throw std::runtime_error("HttpResponse::toString() : server name unset.\n");
   }
 
-  // TODO: std::to_string은 C++11이라 쓰면 안된다!
-  std::string header_message = _version + " " + std::to_string(_status_code) + " " + _statusMessage + "\r\n";
-  HTTPResponseHeader::t_iterator itr = _description.find("Tranfer-Encoding");
+  std::string header_message = _version + " " + ft_itos(_status_code) + " " + _statusMessage + "\r\n";
+  HTTPResponseHeader::t_iterator itr = _description.find("Transfer-Encoding");
   itr = _description.begin();
   bool is_chunked = isTransferChunked();
   while (itr != _description.end())
   {
-    if (is_chunked && (itr->first == "Content-Length"))
+    if ((is_chunked && (itr->first == "Content-Length")) || (itr->first == "Content-Length" && itr->second == "-1"))
     {
       // ignore Content-Length
       itr++;
@@ -256,7 +256,7 @@ void HTTPResponseHeader::setDefaultHeaderDescription()
 {
   this->addHeader(HTTPResponseHeader::DATE());
   this->addHeader(HTTPResponseHeader::CONNECTION("keep-alive"));
-  this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(-1));
+  this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
 }
 
 HTTPResponseHeader::HTTPResponseHeader(const HTTPResponseHeader& header)
@@ -295,97 +295,132 @@ FileDescriptor HTTPResponse::getFd() const
 
 void HTTPResponse::sendToClient(struct Context* context)
 {
+  clearContexts(context);
+  if (this->getHeader().getStatusCode() >= 400)
+    this->addHeader("Connection", "close");
   // (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
+  newSendContext->connectContexts = context->connectContexts;
+  newSendContext->connectContexts->push_back(newSendContext);
   newSendContext->res = this;
-  std::string header = this->getHeader().toString() + "\n"; // << "\r\n"이 맞는거 같음
-  newSendContext->read_buffer = new char[header.size()];
-  memmove(newSendContext->read_buffer, header.c_str(), header.size());
-  newSendContext->buffer_size = header.size();
+  // add header content
+  std::string header = this->getHeader().toString() + "\n";
+  newSendContext->ioBuffer = new char[header.size()];
+  memmove(newSendContext->ioBuffer, header.c_str(), header.size());
+  newSendContext->bufferSize = header.size();
   newSendContext->threadKQ = context->threadKQ;
+  newSendContext->req = context->req;
   struct kevent event;
-  EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD, 0, 0, newSendContext);
+  EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
   context->manager->attachNewEvent(newSendContext, event);
+  if (context->res->_status_code >= 400)
+  {
+    EV_SET(&event, newSendContext->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+    context->manager->attachNewEvent(newSendContext, event);
+  }
   // (2) Send Body
   if (this->getFd() >= 0 && this->getContentLength() > 0 && this->getStatusCode() != ST_NO_CONTENT)
   {
     struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
+    newReadContext->connectContexts = context->connectContexts;
+    newReadContext->connectContexts->push_back(newReadContext);
     newReadContext->res = this;
+    newReadContext->req = context->req;
     newReadContext->threadKQ = context->threadKQ;
     struct kevent _event;
     EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
     context->manager->attachNewEvent(newReadContext, _event);
   }
-  printLog(context->res->getStatusMessage() + " : " + getClientIP(&context->addr) + "\n", PRINT_BLUE);
-  delete (context->req);
+  printLog(methodToString(context->req->method)  + "\t\t" + getClientIP(&context->addr) + '\t' + ft_itos(context->res->_status_code) + '\n', ((int)context->res->_status_code < 400) ? PRINT_BLUE : PRINT_MAGENTA);
+  // 다음 요청에서 재사용하지 않기 위해서 처리함.
+//  delete (context->req);
   context->req = NULL;
 }
 
 void HTTPResponse::socketSendHandler(struct Context* context)
 {
-//  printLog("sk send handler called\n", PRINT_CYAN);
-//  std::cout << context->threadKQ << "\n";
+  if (DEBUG_MODE)
+  {
+    printLog("sk send handler called\n", PRINT_CYAN);
+  }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
   ssize_t sendSize;
 
-  if ((sendSize = send(context->fd, context->read_buffer, context->buffer_size, MSG_DONTWAIT)) < 0)
+  if ((sendSize = send(context->fd, context->ioBuffer, context->bufferSize, MSG_DONTWAIT)) < 0)
   {
-    printLog("error: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
+    if (DEBUG_MODE)
+    {
+      printLog(strerror(errno), PRINT_YELLOW);
+      std::cout << '\n' << context->bufferSize << "\n";
+      printLog("error: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
+    }
+    return;
   }
   // partial send handle
-  if (sendSize < context->buffer_size)
+  if (sendSize < context->bufferSize)
   {
-    memmove(context->read_buffer, &context->read_buffer[sendSize], context->buffer_size - sendSize);
-    context->buffer_size = context->buffer_size - sendSize;
+    memmove(context->ioBuffer, &context->ioBuffer[sendSize], context->bufferSize - sendSize);
+    context->bufferSize = context->bufferSize - sendSize;
   }
   else
   {
     // enable read event
-    if (context->res->_fileFd > 0 && context->res->getContentLength() > context->total_read_size)
+    if (context->res->_fileFd > 0 && context->res->getContentLength() > context->totalIOSize)
     {
       struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
       newReadContext->res = context->res;
       newReadContext->threadKQ = context->threadKQ;
-      newReadContext->total_read_size = context->total_read_size;
+      newReadContext->totalIOSize = context->totalIOSize;
+      newReadContext->connectContexts = context->connectContexts;
+      newReadContext->connectContexts->push_back(newReadContext);
       struct kevent _event;
       EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
       context->manager->attachNewEvent(newReadContext, _event);
     }
-    // delete sk event
-    struct kevent ev[1];
-    EV_SET(ev, context->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
-    context->manager->attachNewEvent(context, ev[0]);
-    if (context->req != NULL)
+    else
     {
-      delete (context->req);
+      if (context->res->_status_code >= 400)
+      {
+        shutdown(context->fd, SHUT_RDWR);
+        struct kevent ev[1];
+        EV_SET(ev, context->fd, EVFILT_READ, EV_ADD, 0, 0, context);
+        context->manager->attachNewEvent(context, ev[0]);
+      }
+      // delete sk event
+      struct kevent ev[1];
+      EV_SET(ev, context->fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+      context->manager->attachNewEvent(context, ev[0]);
     }
-    context->req = NULL;
-    delete[] (context->read_buffer);
-    delete (context);
+    // delete used buffer
+    delete[] (context->ioBuffer);
+    context->ioBuffer = NULL;
   }
-
 }
 
 void HTTPResponse::bodyFdReadHandler(struct Context* context)
 {
-//  printLog("file read handler called\n", PRINT_CYAN);
-//  std::cout << context->threadKQ << "\n";
+  if (DEBUG_MODE)
+  {
+    printLog("file read handler called\n", PRINT_CYAN);
+  }
   char* buffer = new char[BUFFER_SIZE];
 
   ssize_t current_rd_size = read(context->res->_fileFd, buffer, BUFFER_SIZE);
   if (current_rd_size < 0)
-  { // if read failed
-    printLog("error: client: " + getClientIP(&context->addr) + " : read failed\n", PRINT_RED);
+  {
+    if (DEBUG_MODE)
+    {
+      printLog("error: client: " + getClientIP(&context->addr) + " : read failed\n", PRINT_RED);
+    }
     close(context->res->_fileFd);
     delete[] (buffer);
-//    throw (std::runtime_error("Read Failed\n"));
   }
   else // 데이터가 들어왔다면, 소켓에 버퍼에 있는 데이터를 전송하는 socket send event를 등록.
   {
-    context->total_read_size += current_rd_size; // 읽은 길이를 누적.
+    context->totalIOSize += current_rd_size; // 읽은 길이를 누적.
     // Content_length와 누적 읽은 길이가 같아지면 file_fd 닫고 file_fd에 -1대입.
     bool is_read_finished = false;
-    if (context->total_read_size >= context->res->getContentLength())
+    if (context->totalIOSize >= context->res->getContentLength())
     {
       close(context->res->_fileFd); // fd_file을 닫고.
       context->res->_fileFd = -1;   // socketSendHandler가 file_fd가 -1이면 소켓을 종료.
@@ -394,20 +429,21 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     // ResponseContext를 만들어서 넘긴다.
     struct kevent event;
     struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
+    newSendContext->connectContexts = context->connectContexts;
+    newSendContext->connectContexts->push_back(newSendContext);
     newSendContext->res = context->res;
-    newSendContext->read_buffer = buffer;
+    newSendContext->ioBuffer = buffer;
     newSendContext->threadKQ = context->threadKQ;
-    newSendContext->buffer_size = current_rd_size;
-    newSendContext->total_read_size = context->total_read_size;
-    EV_SET(&event, context->fd, EVFILT_WRITE, EV_ADD, 0, 0, newSendContext);
+    newSendContext->bufferSize = current_rd_size;
+    newSendContext->totalIOSize = context->totalIOSize;
+    EV_SET(&event, context->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
     context->manager->attachNewEvent(newSendContext, event);
-    // 만약 다 읽어서 flag가 true가 되면 삭제.
+    // read handler가 중복 호출 되는 것을 방지함
     if (!is_read_finished)
     {
       struct kevent ev[1];
       EV_SET(ev, context->res->_fileFd, EVFILT_READ, EV_DISABLE, 0, 0, context);
       context->manager->attachNewEvent(context, ev[0]);
-      delete (context);
     }
   }
 }

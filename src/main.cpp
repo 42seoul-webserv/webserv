@@ -4,6 +4,8 @@
 #include <cstring>
 int main(int argc, char *argv[], char *envp[])
 {
+  if (THREAD_MODE)
+    std::cout << "Thread mode is on, thread number is " << THREAD_NO << '\n';
   if (argc == 2)
   {
     try

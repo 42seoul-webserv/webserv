@@ -4,13 +4,12 @@
 #include <string>
 #include <vector>
 
-#define BUFFER_SIZE 10240
+#define BUFFER_SIZE (16 * 1024)
 #define LISTEN_QUEUE_SIZE 1024
 #define FAILED (-1)
 #define THREAD_NO 64
-#ifndef THREAD_MODE
- #define THREAD_MODE 0
-#endif
+#define THREAD_MODE (0)
+#define DEBUG_MODE (0)
 
 // colors
 #define PRINT_RED     "\x1b[31m"
@@ -33,7 +32,7 @@ typedef enum
 } MethodType;
 
 MethodType getMethodType(const std::string& method);
-std::string getMethodType(MethodType method);
+std::string methodToString(const MethodType method);
 typedef unsigned int Port;
 typedef int FileDescriptor;
 
@@ -69,7 +68,7 @@ void printLog(const std::string& log, const std::string& color);
 std::string encodePercentEncoding(const std::string& str);
 std::string decodePercentEncoding(const std::string& encodedURI);
 std::string getClientIP(struct sockaddr_in* addr);
-std::string ft_itos(int i);
+std::string ft_itos(ssize_t i);
 int ft_stoi(const std::string& str);
 std::string getStatusCodeMessage(StatusCode code);
 long FdGetFileSize(int fd);
