@@ -34,6 +34,7 @@ public:
     std::pair<StatusCode, std::string> _redirect;
     Location* getMatchedLocation(const HTTPRequest& req);
     void processRequest(struct Context* context);
+    FileDescriptor getErrorPageFd(const StatusCode& stCode); // open and return ErrorPage file_descriptor.
     void openServer();
 
     // check if server has valid redirection setting. (1. 서버 자체가 리다이렉션인지도 체크)

@@ -19,6 +19,7 @@ ServerManager::~ServerManager()
           )
   {
     delete (*it);
+    *it = NULL;
   }
 }
 

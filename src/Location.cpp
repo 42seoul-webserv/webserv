@@ -1,4 +1,5 @@
 #include "Location.hpp"
+#include <sys/stat.h> // for lstat()
 
 static std::string getLocation(const std::string& url)
 {
@@ -24,17 +25,14 @@ bool Location::isMatchedLocation(const std::string& url) const
 // check url is in location first...
 std::string Location::convertURLToLocationPath(const std::string& url) const
 {
-  if (!isMatchedLocation(url))
-  {
-    throw (std::runtime_error("invalid url in this location : " + _location + "\n"));
-  }
-  std::string result;
-  std::string filePath = url.substr(url.rfind('/'));
-  if (filePath.length() == 1)  // index file case
-  {
-    filePath += _index;
-  }
+  std::string result = _root;
+  std::string filePath;
+  filePath = url.substr(this->_location.size(), std::string::npos);
   result = _root + filePath;
+  struct stat sb;
+  // if last url-chunk is directory, add location's _index to url. [ Ex. /YoupiBane => /YoupiBane/index.html ]
+  if (stat(result.c_str(), &sb) != -1 && S_ISDIR(sb.st_mode))
+    result += ("/" + _index);
   return (result);
 }
 
