@@ -250,11 +250,15 @@ void clearContexts(struct Context* context)
     if (data == context)
       continue;
     if (data->req != NULL)
-      delete (data->req);
+    {
+      //delete (data->req);
+    }
     if (data->res)
       res = data->res;
     if (data->ioBuffer != NULL)
+    {
       delete (data->ioBuffer);
+    }
     if (data != context)
       free (data);
   }
