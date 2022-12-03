@@ -12,6 +12,8 @@ class CGI
   public:
     pid_t pid;
     size_t envCount;
+    std::string inFilePath;
+    std::string outFilePath;
     FileDescriptor writeFD;
     FileDescriptor readFD;
     int exitStatus;
@@ -25,8 +27,8 @@ class CGI
     static std::string getCWD();
     static void parseStartLine(struct Context* context, std::string &message);
     static void parseHeader(HTTPResponse* res, std::string &message);
-    static void parseBody(HTTPResponse* res, std::string message);
-    static void parseCGI(struct Context* context);
+    static void parseBody(HTTPResponse* res, std::string message, size_t count);
+    static void parseCGI(struct Context* context, size_t count);
     void closeProcess(); //child수거?, response 생성?
     void processInit(CGI* cgi); // fork, pipe init
     void setCGIenv(Server server, HTTPRequest& req, struct Context* context);

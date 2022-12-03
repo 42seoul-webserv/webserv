@@ -50,6 +50,9 @@ std::string getClientIP(struct sockaddr_in* addr)
 void CGIChildHandler(struct Context* context)
 {
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
+  struct kevent event;
+  EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE , 0, 0, NULL);
+  context->manager->attachNewEvent(context, event);
   if (context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
@@ -62,7 +65,10 @@ void CGIChildHandler(struct Context* context)
   }
   else
   {
-    CGI::parseCGI(context);
+    size_t count;
+    context->cgi->readFD = open(context->cgi->outFilePath.c_str(), O_RDONLY);
+    count = FdGetFileSize(context->cgi->readFD);
+    CGI::parseCGI(context, count);
     delete context->cgi;
     context->cgi = NULL;
     context->res->sendToClient(context);
@@ -84,15 +90,19 @@ void pipeWriteHandler(struct Context* context)
     //throw std::runtime_error("write failed");
   }
   else//pid kevent register, cgichildHandler call
-  {std::cerr<<"cgi write end"<<std::endl;
+  {//std::cerr<<"cgi write end"<<std::endl;
+    close(context->cgi->writeFD);
     struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
     newContext->cgi = context->cgi;
-    newContext->req = context->req;
+    newContext->req = new HTTPRequest(*context->req);
+    newContext->threadKQ = context->threadKQ;
+    newContext->totalIOSize = 0;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     struct kevent event;
-    EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, context->cgi->exitStatus, newContext);
+    EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD, NOTE_EXIT | NOTE_EXITSTATUS, context->cgi->exitStatus, newContext);
     context->manager->attachNewEvent(newContext, event);
-    close(context->cgi->writeFD);
-    delete (context);
+    //delete (context);
   }
 }
 
@@ -320,7 +330,7 @@ void clearContexts(struct Context* context)
     }
     if (data != context)
     {
-      free (data);
+      //free (data);
       data = NULL;
     }
   }

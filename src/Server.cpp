@@ -150,7 +150,7 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
 // TODO: 이 부분은 form-data 처리랑도 연관 있으니 추후 토의후 마저 구현할 것.
 // 참고 내용 : http://blog.storyg.co/rest-api-response-body-best-pratics
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
-{std::cerr <<"inpost" << std::endl;
+{//std::cerr <<"inpost" << std::endl;
   HTTPRequest& req = *context->req;
 
   // check matched location
@@ -381,7 +381,7 @@ Location* Server::getMatchedLocation(const HTTPRequest& req)
     {
       if (it->_location == "/cgi-bin")
       {
-        std::cerr << "matched CGI" << std::endl;
+        //std::cerr << "matched CGI" << std::endl;
         Location &loc = *it;
         return (&loc);
       }
