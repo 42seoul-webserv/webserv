@@ -29,15 +29,16 @@ CGI::~CGI()
 
 void CGI::parseBody(HTTPResponse* res, std::string message)
 {
-  int fd[2];
-  res->addHeader("Content-Length", ft_itos(message.size()));
-  if (pipe(fd) < 0)
+  //int fd[2];
+  res->addHeader("Content-Length", ft_itos(100000000));
+  //res->addHeader("Content-Length", ft_itos(message.size()));
+ /* if (pipe(fd) < 0)
   {
     throw (std::runtime_error("cgi pipe boom"));
   }
   write(fd[P_W], message.c_str(), message.size());
-  close(fd[P_W]);
-  res->setFd(fd[P_R]);
+  close(fd[P_W]);*/
+  //res->setFd(fd[P_R]);
 }
 
 void CGI::parseHeader(HTTPResponse* res, std::string &message)
@@ -96,7 +97,7 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
 
   end = message.find("\r\n");
   if (end == std::string::npos)
-  {
+  {std::cerr << "1" << std::endl;
     throw (std::logic_error("startline ERROR"));
   }
   it = message.begin();
@@ -115,7 +116,9 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
           statusmessage.assign(buffer);
           break;
         default:
+        {std::cerr << "2" << std::endl;
           throw (std::logic_error("startline ERROR"));
+        }
       }
       k++;
       buffer.clear();
@@ -130,19 +133,20 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
 }
 
 void CGI::parseCGI(struct Context* context)
-{
+{close(context->cgi->readFD);
+  context->cgi->readFD = open("../tempfile/out", O_RDONLY);
   std::string message;
   char buffer[BUFFER_SIZE] = {0};
-
-  while (read(context->cgi->readFD, buffer, sizeof(buffer)))
-  {
-    message.append(buffer);
-    memset(buffer, 0, sizeof(buffer));
-  }
-  close(context->cgi->readFD);
+  read(context->cgi->readFD, buffer, 58);
+  message.append(buffer);
+//  close(context->cgi->readFD);
   parseStartLine(context, message);
+
   parseHeader(context->res, message);
+
   parseBody(context->res, message);
+
+  context->res->setFd(context->cgi->readFD);
 }
 
 void CGI::CGIEvent(struct Context* context)
@@ -198,6 +202,7 @@ std::string CGI::getCWD()
     throw (std::runtime_error("getcwd fail"));
   }
   path.assign(buffer);
+  path.erase(path.find("/build"));
   return (path);
 }
 //path다르게 들어오면 redirection?아니면 오류 처리?
@@ -238,7 +243,7 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("SERVER_NAME", server._serverName);
   addEnv("GATEWAY_INTERFACE", "CGI/1.1");
   addEnv("SERVER_PORT", ft_itos(server._serverPort));
-  addEnv("REQUEST_METHOD", getMethodType(req.method));
+  addEnv("REQUEST_METHOD", methodToString(req.method));
   addEnv("SCRIPT_NAME", "webserv/1.1");
   addEnv("QUERY_STRING", getQueryFullPath(req));
   addEnv("REMOTE_ADDR", getClientIP(&context->addr));
@@ -255,16 +260,27 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
 // fork, pipe init
 void CGI::processInit(CGI* cgi)
 {
-  int infd[2];
-  int outfd[2];
+  int inFD;
+  int outFD;
+  int temp_in = dup(STDIN_FILENO);
+	int temp_out = dup(STDOUT_FILENO);
+  std::string infilepath;
+  std::string outfilepath;
 
-  if (pipe(infd) == -1 || pipe(outfd) == -1)
-  {
-    throw (std::runtime_error("pipe make fail"));
-  }
+  infilepath.assign(getCWD());
+  infilepath.append("/tempfile/");
+  infilepath.append("in");
+  outfilepath.assign(getCWD());
+  outfilepath.append("/tempfile/");
+  outfilepath.append("out");
+ 
   printf("path : %s\n", cgi->path);
   printf("cmd : %s\n", cgi->cmd[0]);
   printf("null check : %p", cgi->cmd[1]);
+  inFD = open(infilepath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+  outFD = open(outfilepath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+  dup2(outFD, STDOUT_FILENO);
+  dup2(inFD, STDIN_FILENO);
   cgi->pid = fork();
   if (cgi->pid < 0)
   {
@@ -272,10 +288,6 @@ void CGI::processInit(CGI* cgi)
   }
   if (cgi->pid == 0)
   {
-    close(infd[P_W]);
-    close(outfd[P_R]);
-    dup2(outfd[P_W], STDOUT_FILENO);
-    dup2(infd[P_R], STDIN_FILENO);
     if (execve(cgi->path, cgi->cmd, cgi->env) < 0)
     {
       std::cerr << errno;
@@ -283,14 +295,16 @@ void CGI::processInit(CGI* cgi)
       exit (1);
     }
   }
-  close(infd[P_R]);
-  close(outfd[P_W]);
-  cgi->writeFD = infd[P_W];
-  cgi->readFD = outfd[P_R];
+  close(inFD);
+  inFD = open(infilepath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+  dup2(temp_out, STDOUT_FILENO);
+  dup2(temp_in, STDIN_FILENO);
+  cgi->writeFD = inFD;
+  cgi->readFD = outFD;
 }
 
 void CGIProcess(struct Context* context)
-{
+{std::cerr<< "cgi ckeck" << std::endl;
   context->cgi = new CGI();
   HTTPRequest& req = *context->req;
   Server& server = context->manager->getMatchedServer(req);
@@ -301,13 +315,17 @@ void CGIProcess(struct Context* context)
 }
 
 bool isCGIRequest(const std::string& file, Location* loc)
-{
+{std::cerr <<"iscgi req" << std::endl;
+std::cerr << "filepath : " << file << std::endl;
+std::cerr << "loc : " << loc->_location << std::endl;
   size_t findPOS;
 
   if (loc->cgiInfo.size() == 0)
   {
     return false;
   }
+  else
+    return true;
   findPOS = file.find(*loc->cgiInfo.begin());
   if (findPOS == std::string::npos)
   {

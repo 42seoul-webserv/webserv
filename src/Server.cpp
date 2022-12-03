@@ -150,7 +150,7 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
 // TODO: 이 부분은 form-data 처리랑도 연관 있으니 추후 토의후 마저 구현할 것.
 // 참고 내용 : http://blog.storyg.co/rest-api-response-body-best-pratics
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
-{
+{std::cerr <<"inpost" << std::endl;
   HTTPRequest& req = *context->req;
 
   // check matched location
@@ -162,6 +162,11 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
+  }
+  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  {
+    CGIProcess(context);
+    return (NULL);
   }
   else
   {
@@ -316,6 +321,10 @@ void Server::processRequest(struct Context* context)
     case POST:
     {
       response = (processPOSTRequest(context));
+      if (!response)//cgi
+      {
+        return;
+      }
       break ;
     }
     case PUT:
@@ -366,6 +375,18 @@ const Location* getClosestMatchedLocation_recur(const Server& matchedServer, con
 
 Location* Server::getMatchedLocation(const HTTPRequest& req)
 {
+  if (req.method == POST && req.url.find(".bla") != std::string::npos)
+  {
+    for (std::vector<Location>::iterator it = _locations.begin(); it != _locations.end(); ++it)
+    {
+      if (it->_location == "/cgi-bin")
+      {
+        std::cerr << "matched CGI" << std::endl;
+        Location &loc = *it;
+        return (&loc);
+      }
+    }
+  }
   // location matching algorithm.
   return (const_cast<Location *>(getClosestMatchedLocation_recur(*this, req.url)));
 }

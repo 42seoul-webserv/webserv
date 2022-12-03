@@ -47,57 +47,6 @@ std::string getClientIP(struct sockaddr_in* addr)
   return (str);
 }
 
-// TODO: Handlers -> ServerManager Methods or something else...
-void responseHandler(struct Context* context)
-{
-  FileDescriptor indexFile;
-
-  if ((indexFile = open("../_index.html", O_RDONLY)) < 0)
-  {
-    printLog("error: client: " + getClientIP(&context->addr) + " : open failed\n", PRINT_RED);
-    throw (std::runtime_error("Open Failed\n"));
-  }
-  std::string res = getResponse(indexFile);
-  if (send(context->fd, res.data(), res.size(), 0) < 0)
-  {
-    printLog("error: client: " + getClientIP(&context->addr) + " : send failed\n", PRINT_RED);
-    throw (std::runtime_error("Send Failed\n"));
-  }
-  printLog(getClientIP(&context->addr) + " send response\n", PRINT_BLUE);
-  close(context->fd);
-  close(indexFile);
-
-  delete (context);
-}
-
-void readHandler(struct Context* context)
-{
-  // read socket TODO: if chunked..?
-  char buffer[BUFFER_SIZE] = {0};
-  struct kevent event;
-
-  // TODO: get HTTPRequest Object from HTTPRequestParser
-  // 해당 부분이 non-blocked 형식으로 하는데, 따로 kevent로 돌려야하나? - request handling 어떻게함?
-  // 큰 파일이 들어오는 경우 header만 먼저 읽어들이고 이후의 데이터를 판단해야할 것.
-  if (recv(context->fd, buffer, sizeof(buffer), MSG_DONTWAIT) < 0)
-  {
-    printLog("error: " + getClientIP(&context->addr) + " : receive failed\n", PRINT_RED);
-    throw (std::runtime_error("receive failed\n"));
-  }
-  else
-  {
-    // FIXME: below codes only can do GET METHOD
-    struct Context* newContext = new struct Context(context->fd, context->addr, responseHandler, context->manager);
-    EV_SET(&event, newContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
-    if (kevent(context->manager->getKqueue(), &event, 1, NULL, 0, NULL) < 0)
-    {
-      printLog("error: " + getClientIP(&context->addr) + " : event attachServerEvent failed\n", PRINT_RED);
-      throw (std::runtime_error("Event attachServerEvent failed (response)\n"));
-    }
-    delete (context);
-  }
-}
-
 void CGIChildHandler(struct Context* context)
 {
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
@@ -116,10 +65,6 @@ void CGIChildHandler(struct Context* context)
     CGI::parseCGI(context);
     delete context->cgi;
     context->cgi = NULL;
-    char buffer[BUFFER_SIZE];
-    buffer[BUFFER_SIZE - 1] = '\0';
-    read(context->res->getFd(), buffer, BUFFER_SIZE);
-    std::cout << "fd body chekc"<< buffer << std::endl;
     context->res->sendToClient(context);
   }
 }
@@ -129,15 +74,17 @@ void pipeWriteHandler(struct Context* context)
   size_t count;
   char buffer[BUFFER_SIZE] = {0};
 
-  count = context->req->body.copy(buffer, BUFFER_SIZE);
-  context->req->body.erase(0, count);
-  if (count != 0)//re wirte
+  count = write(context->cgi->writeFD, context->req->body.c_str(), context->req->body.size());
+//  count = context->req->body.copy(buffer, BUFFER_SIZE);
+//  context->req->body.erase(0, count);
+  if (count == 0)//re wirte
   {
-    std::cout << "write check : "<<write(context->cgi->writeFD, buffer, count) << std::endl;
-      //throw std::runtime_error("write failed");
+    std::cerr << "cgi write erro "<< std::endl;
+    //write(context->cgi->writeFD, buffer, count);
+    //throw std::runtime_error("write failed");
   }
   else//pid kevent register, cgichildHandler call
-  {
+  {std::cerr<<"cgi write end"<<std::endl;
     struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
     newContext->cgi = context->cgi;
     newContext->req = context->req;

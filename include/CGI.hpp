@@ -19,8 +19,10 @@ class CGI
     char** cmd;
     char* path;
 
+
+
     std::string getQueryFullPath(HTTPRequest& req);
-    std::string getCWD();
+    static std::string getCWD();
     static void parseStartLine(struct Context* context, std::string &message);
     static void parseHeader(HTTPResponse* res, std::string &message);
     static void parseBody(HTTPResponse* res, std::string message);
