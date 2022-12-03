@@ -152,6 +152,10 @@ void writeFileHandle(struct Context* context)
     {
       delete (context->req);
     }
+    if (context->res != NULL)
+    {
+      delete (context->res);
+    }
     delete (context);
   }
 }
