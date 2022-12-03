@@ -212,7 +212,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     HTTPResponse* response = NULL;
 
     // FIXME : 왜 이미 있는 파일의 경우 fd가 쟈꾸 -1이 되지...?
-    FileDescriptor writeFileFD = open(filePath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK);
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
     if (writeFileFD <= -1)
     {
       const StatusCode RETURN_STATUS = ST_BAD_REQUEST;
