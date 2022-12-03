@@ -255,6 +255,10 @@ void writeFileHandle(struct Context* context)
     {
       delete (context->req);
     }
+    if (context->res != NULL)
+    {
+      delete (context->res);
+    }
     delete (context);
   }
 }
@@ -332,6 +336,8 @@ int ft_stoi(const std::string& str)
 
 long FdGetFileSize(int fd)
 {
+  if (fd < 0)
+    return 0;
   struct stat stat_buf;
   int rc = fstat(fd, &stat_buf);
   return rc == 0 ? stat_buf.st_size : -1;
@@ -352,17 +358,30 @@ void clearContexts(struct Context* context)
 
     if (data == context)
       continue;
+
     if (data->req != NULL)
+    {
       delete (data->req);
+      data->req = NULL;
+    }
     if (data->res)
       res = data->res;
     if (data->ioBuffer != NULL)
+    {
       delete (data->ioBuffer);
+      data->ioBuffer = NULL;
+    }
     if (data != context)
+    {
       free (data);
+      data = NULL;
+    }
   }
   if (res != NULL)
+  {
     delete (res);
+    res = NULL;
+  }
   context->connectContexts->clear();
   context->connectContexts->push_back(context);
 }

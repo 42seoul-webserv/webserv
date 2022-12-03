@@ -295,21 +295,25 @@ FileDescriptor HTTPResponse::getFd() const
 
 void HTTPResponse::sendToClient(struct Context* context)
 {
-  clearContexts(context);
+  clearContexts(context); // FIX: 여기서 터진다!
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
+
   // (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->connectContexts = context->connectContexts;
   newSendContext->connectContexts->push_back(newSendContext);
-  newSendContext->res = this;
+  newSendContext->res = new HTTPResponse(*this);
+
   // add header content
   std::string header = this->getHeader().toString() + "\n";
   newSendContext->ioBuffer = new char[header.size()];
   memmove(newSendContext->ioBuffer, header.c_str(), header.size());
   newSendContext->bufferSize = header.size();
   newSendContext->threadKQ = context->threadKQ;
-  newSendContext->req = context->req;
+//  newSendContext->req = context->req;
+  newSendContext->req = new HTTPRequest(*context->req);
+
   struct kevent event;
   EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
   context->manager->attachNewEvent(newSendContext, event);
@@ -324,16 +328,14 @@ void HTTPResponse::sendToClient(struct Context* context)
     struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
     newReadContext->connectContexts = context->connectContexts;
     newReadContext->connectContexts->push_back(newReadContext);
-    newReadContext->res = this;
-    newReadContext->req = context->req;
+    newReadContext->res = new HTTPResponse(*this);
+    newReadContext->req = new HTTPRequest(*context->req);
     newReadContext->threadKQ = context->threadKQ;
     struct kevent _event;
     EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
     context->manager->attachNewEvent(newReadContext, _event);
   }
   printLog(methodToString(context->req->method)  + "\t\t" + getClientIP(&context->addr) + '\t' + ft_itos(context->res->_status_code) + '\n', ((int)context->res->_status_code < 400) ? PRINT_BLUE : PRINT_MAGENTA);
-  // 다음 요청에서 재사용하지 않기 위해서 처리함.
-//  delete (context->req);
   context->req = NULL;
 }
 
@@ -345,7 +347,11 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
   ssize_t sendSize;
-
+  /* send message 확인
+  std::string temp;
+  temp.assign(context->ioBuffer, context->bufferSize);
+  std::cerr << "send message" << std::endl;
+  std::cerr << temp << std::endl;*/
   if ((sendSize = send(context->fd, context->ioBuffer, context->bufferSize, MSG_DONTWAIT)) < 0)
   {
     if (DEBUG_MODE)
@@ -368,7 +374,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     if (context->res->_fileFd > 0 && context->res->getContentLength() > context->totalIOSize)
     {
       struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
-      newReadContext->res = context->res;
+      newReadContext->res = new HTTPResponse(*context->res);
       newReadContext->threadKQ = context->threadKQ;
       newReadContext->totalIOSize = context->totalIOSize;
       newReadContext->connectContexts = context->connectContexts;
@@ -414,6 +420,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     }
     close(context->res->_fileFd);
     delete[] (buffer);
+    buffer = NULL;
   }
   else // 데이터가 들어왔다면, 소켓에 버퍼에 있는 데이터를 전송하는 socket send event를 등록.
   {
@@ -431,7 +438,8 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
     newSendContext->connectContexts = context->connectContexts;
     newSendContext->connectContexts->push_back(newSendContext);
-    newSendContext->res = context->res;
+//    newSendContext->res = context->res;
+    newSendContext->res = new HTTPResponse(*context->res);
     newSendContext->ioBuffer = buffer;
     newSendContext->threadKQ = context->threadKQ;
     newSendContext->bufferSize = current_rd_size;

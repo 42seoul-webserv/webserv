@@ -40,6 +40,28 @@ void RequestParser::checkBodyLength(HTTPRequest* request)
   }
 }
 
+// 16진수 문자열을 long으로 변환
+long convertHexStrToLong(const std::string& hex)
+{
+  long result = 0;
+
+  static const std::string HEX_LOOKUP("0123456789abcdef");
+  for (std::string::const_iterator itr = hex.begin(); itr != hex.end(); itr++)
+  {
+    int i = 0;
+    while (i < 16)
+    {
+      if (HEX_LOOKUP[i] == *itr)
+      {
+        result = (result + i) * 16;
+        break;
+      }
+      i++;
+    }
+  }
+  return (result / 16);
+}
+
 void RequestParser::parseChunked(HTTPRequest* request)
 {
   std::string endcheck;
@@ -73,8 +95,10 @@ void RequestParser::parseChunked(HTTPRequest* request)
   {
     it = getOneLine(length_str, it, end);
     it = getOneLine(val, it, end);
-    length_int = strtol(length_str.c_str(), &endptr, 10);
-    if (*endptr != '\0' || length_int < 0)
+
+    // FIXME : chunked의 length 정보가 hex(16진수)로 들어온다 --> ex. 3e8
+    length_int = convertHexStrToLong(length_str);
+    if (length_int < 0)
     {
       throw std::logic_error("chunked length value error");
     }
@@ -93,7 +117,10 @@ void RequestParser::parseChunked(HTTPRequest* request)
 void RequestParser::parseBody(HTTPRequest* request)
 {
   size_t delim;
-
+  if (request->checkLevel != BODY)
+  {
+      return;
+  }
   if (!request->body.size())
   {
     delim = request->message->find("\r\n\r\n");
@@ -114,11 +141,22 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
   char* endptr;
   long int length_val;
 
+  if (request->checkLevel != HEADER)
+  {
+    return;
+  }
   if (request->method == GET || request->method == HEAD)
   {
     request->status = END;
     return;
   }
+/*  std::cerr << "header size check" << std::endl;
+  std::cerr << request->headers.size() << std::endl;
+  for (std::map<std::string, std::string>::iterator it = request->headers.begin();\
+        it != request->headers.end(); ++it)
+    {
+      std::cout << it->first << " : " << it->second<< std::endl;
+    }*/
   length = request->headers.find("Content-Length");
   chunked = request->headers.find("Transfer-Encoding");
   if (chunked != request->headers.end() && chunked->second == "chunked")
@@ -129,13 +167,18 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
   {
     throw (std::logic_error("don't have Content-Length"));
   }
-  length_val = strtol(length->second.c_str(), &endptr, 10);
-  if ((!request->chunkedFlag && *endptr != '\0') || length_val < 0)
+  if (length != request->headers.end())
   {
-    throw std::logic_error("content-length value error");
+    length_val = strtol(length->second.c_str(), &endptr, 10);
+    if ((!request->chunkedFlag && *endptr != '\0') || length_val < 0)
+    {
+     throw std::logic_error("content-length value error");
+    }
   }
   request->checkLevel = BODY;
   request->status = HEADEROK;
+  if (request->chunkedFlag)
+    request->status = READING;
 }
 
 void RequestParser::checkStartLineValid(HTTPRequest* request)
@@ -144,6 +187,9 @@ void RequestParser::checkStartLineValid(HTTPRequest* request)
   {
     return;
   }
+  /* request message 확인
+  std::cerr << "request message" << std::endl;
+  std::cerr<< *request->message << std::endl;*/
   if (request->method == UNDEFINED || \
             !request->url.size() || !request->version.size())
   {
@@ -291,6 +337,10 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
   {
     throw (std::runtime_error("receive failed\n"));
   }
+  //request message print
+/*std::string temp;
+temp.assign(buffer);
+std::cerr << temp << std::endl;*/
   if (!request->body.size())
   {
     (*request->message) += buffer;
@@ -310,6 +360,10 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
     case BODY:
       parseBody(request);
   }
+ /* std::cout << "requse heder chekc" << std::endl;
+  std::cout << *request->message << std::endl;
+  std::cout << "requse body chekc" << std::endl;
+  std::cout << request->body << std::endl;*/
 }
 
 void RequestParser::parseRequest(struct Context* context)
@@ -334,7 +388,10 @@ void RequestParser::parseRequest(struct Context* context)
     }
   }
   if (context->req->status == ERROR || context->req->status == END)
+  {
     delete (context->req->message);
+    context->req->message = NULL;
+  }
   context->manager->getRequestProcessor().processRequest(context);
 }
 

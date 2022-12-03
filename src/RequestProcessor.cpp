@@ -21,9 +21,31 @@ static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType me
 }
 
 // ASSUMPTION : request contain complete header...
+
+// WARN: Test code!
+StatusCode checkValidUrl_recur(const Server& matchedServer, const std::string& subUrl)
+{
+  if (subUrl.empty()) // if substr has no /
+  {
+    return (ST_NOT_FOUND);
+  }
+  for (
+          std::vector<Location>::const_iterator it = matchedServer._locations.begin();
+          it != matchedServer._locations.end();
+          ++it
+          ) {
+    const Location &loc = *it;
+    if (loc._location == subUrl) {
+      return (ST_OK); // 경로를 뒤에서 하나씩 제거해보면서 location과 지속 비교.
+    }
+  }
+  return (checkValidUrl_recur(matchedServer, subUrl.substr(0, subUrl.rfind('/'))));
+}
+
+
 StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
 {
-  Server& matchedServer = _serverManager.getMatchedServer(req);
+  Server& matchedServer = _serverManager.getMatchedServer(req); // FIX: 여기서 터짐.
 
   // find _location
   Location* loc = matchedServer.getMatchedLocation(req);
@@ -31,15 +53,20 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   if (loc == NULL) // _root case
   {
     // if not root
+    // http://127.0.0.1:4242/directory/nop/ 와 같은 경우도 고려해야 함.
     if (req.url != "/")
     {
-      return (ST_NOT_FOUND);
+      const StatusCode st = checkValidUrl_recur(matchedServer, req.url);
+      return (st);
     }
     if (!isAllowedMethod(matchedServer._allowMethods, req.method))
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-
+    if (req.chunkedFlag == true)
+    {
+      return (ST_OK);
+    }
     try
     {
       std::string contentLengthString = req.headers.at("Content-Length");
@@ -67,7 +94,10 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-
+    if (req.chunkedFlag == true)
+    {
+      return (ST_OK);
+    }
     try
     {
       std::string contentLengthString = req.headers.at("Content-Length");
@@ -120,13 +150,16 @@ void RequestProcessor::processRequest(struct Context* context)
 
     if (status != ST_OK)
     {
-      HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
+      HTTPResponse* response = new HTTPResponse(status, "No", context->manager->getServerName(context->addr.sin_port));
       context->res = response;
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
       if (req.status == HEADEROK)
+      {
         delete (req.message);
+        req.message = NULL;
+      }
       return;
     }
     // * if redirection.
