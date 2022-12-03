@@ -187,8 +187,9 @@ void RequestParser::checkStartLineValid(HTTPRequest* request)
   {
     return;
   }
+  /* request message 확인
   std::cerr << "request message" << std::endl;
-  std::cerr<< *request->message << std::endl;
+  std::cerr<< *request->message << std::endl;*/
   if (request->method == UNDEFINED || \
             !request->url.size() || !request->version.size())
   {

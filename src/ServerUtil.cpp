@@ -142,9 +142,6 @@ void writeFileHandle(struct Context* context)
   ssize_t writeSize = 0;
   if ((writeSize = write(context->fd, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
   {
-    std::cerr << "error check" << std::endl;
-    std::cerr << errno << std::endl;
-    std::cerr << strerror(errno)<< std::endl;
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size

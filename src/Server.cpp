@@ -181,7 +181,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = new HTTPResponse(*response);
     newContext->req = new HTTPRequest(*context->req);
-    //newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
     newContext->totalIOSize = 0;
     // attach event
@@ -227,10 +226,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = new HTTPResponse(*response);
     newContext->req = new HTTPRequest(*context->req);
-    newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
-    //newContext->connectContexts = context->connectContexts;
-    //newContext->connectContexts->push_back(newContext);
     newContext->totalIOSize = 0;
     // attach event
     struct kevent event;
