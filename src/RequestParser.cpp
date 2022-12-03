@@ -187,7 +187,7 @@ void RequestParser::checkStartLineValid(HTTPRequest* request)
   {
     return;
   }
-  std::cerr << "chekc" << std::endl;
+  std::cerr << "request message" << std::endl;
   std::cerr<< *request->message << std::endl;
   if (request->method == UNDEFINED || \
             !request->url.size() || !request->version.size())
@@ -336,9 +336,10 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
   {
     throw (std::runtime_error("receive failed\n"));
   }
-std::string temp;
+  //request message print
+/*std::string temp;
 temp.assign(buffer);
-std::cerr << temp << std::endl;
+std::cerr << temp << std::endl;*/
   if (!request->body.size())
   {
     (*request->message) += buffer;

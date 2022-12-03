@@ -150,7 +150,7 @@ void RequestProcessor::processRequest(struct Context* context)
 
     if (status != ST_OK)
     {
-      HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
+      HTTPResponse* response = new HTTPResponse(status, "No", context->manager->getServerName(context->addr.sin_port));
       context->res = response;
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
