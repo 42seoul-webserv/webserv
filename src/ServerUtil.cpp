@@ -50,10 +50,10 @@ std::string getClientIP(struct sockaddr_in* addr)
 void CGIChildHandler(struct Context* context)
 {
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
-  struct kevent event;
+/*  struct kevent event;
   EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0,NULL);
-  context->manager->attachNewEvent(context, event);
- // unlink(context->cgi->writeFilePath.c_str());
+  context->manager->attachNewEvent(context, event);*/
+  unlink(context->cgi->writeFilePath.c_str());
   if (context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
@@ -66,12 +66,11 @@ void CGIChildHandler(struct Context* context)
   }
   else
   {
-    context->connectContexts = new std::vector<struct Context*>();
     context->connectContexts->push_back(context);
     context->req = new HTTPRequest(*context->req);
     std::cerr << "body size : "<<context->req->body.size() << std::endl;
     context->cgi->parseCGI(context);
-    delete context->cgi;
+    delete context->cgi;//소멸자로 fd unlink해주는게 좋을듯?
     context->cgi = NULL;
     context->res->sendToClient(context);
   }
@@ -82,15 +81,16 @@ void CGIWriteHandler(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
-  if ((writeSize = write(context->fd, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
+  if ((writeSize = write(context->cgi->writeFD, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
   if (context->totalIOSize >= req.body.size()) // If write finished
   {
-    close(context->fd);
-    delete (context);
+    close(context->cgi->writeFD);
+    context->cgi->CGIChildEvent(context);
+    free (context);
   }
 }
 
@@ -155,6 +155,7 @@ void handleEvent(struct kevent* event)
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
+      clearContexts(eventData);
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
@@ -206,7 +207,7 @@ void writeFileHandle(struct Context* context)
     {
       delete (context->res);
     }
-    delete (context);
+    free(context);
   }
 }
 

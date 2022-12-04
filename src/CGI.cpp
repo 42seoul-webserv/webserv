@@ -135,8 +135,7 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
 
 void CGI::parseCGI(struct Context* context)
 {
-  close(context->cgi->readFD);
-  context->cgi->readFD = open(readFilePath.c_str(), O_RDONLY);
+  context->cgi->readFD = open(readFilePath.c_str(), O_RDONLY, 0777);
   std::string message;
   char buffer[1];
   size_t count;
@@ -157,24 +156,52 @@ void CGI::parseCGI(struct Context* context)
 
 void CGI::CGIFileWriteEvent(struct Context* context)
 {
-  struct Context* newContext = new struct Context(context->cgi->writeFD, context->addr, CGIWriteHandler, context->manager);
+  context->cgi->writeFD = open(context->cgi->writeFilePath.c_str(),  O_WRONLY | O_CREAT | O_TRUNC, 0777);
+  struct Context* newContext = new struct Context(context->fd, context->addr, CGIWriteHandler, context->manager);
   newContext->req = context->req;
+  newContext->cgi = context->cgi;
+  newContext->connectContexts = context->connectContexts;
   struct kevent event;
-  EV_SET(&event, newContext->fd, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
+  EV_SET(&event, newContext->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   newContext->manager->attachNewEvent(newContext, event);
+}
+
+void CGI::CGIfork(struct Context* context)
+{
+  int inFD;
+  int outFD;
+
+  context->cgi->pid = fork();
+  if (context->cgi->pid < 0)
+  {
+    throw (std::runtime_error("fork fail"));
+  }
+  if (context->cgi->pid == 0)
+  {
+    inFD = open(writeFilePath.c_str(), O_RDONLY, 0777);
+    outFD = open(readFilePath.c_str(), O_WRONLY | O_CREAT | O_TRUNC , 0777);
+    dup2(outFD, STDOUT_FILENO);
+    dup2(inFD, STDIN_FILENO);
+    close(outFD);
+    close(inFD);  
+    if (execve(context->cgi->path, context->cgi->cmd, context->cgi->env) < 0)
+    {
+      std::cerr << errno;
+      std::cerr << strerror(errno);
+      exit (1);
+    }
+      std::cerr << errno;
+      std::cerr << strerror(errno);
+      exit (2);
+  }
 }
 
 void CGI::CGIChildEvent(struct Context* context)
 {
+  context->cgi->CGIfork(context);
   struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
   newContext->cgi = context->cgi;
   newContext->req = context->req;
-  /*
-  for (std::map<std::string,std::string>::iterator it = newContext->req->headers.begin();\
-      it != newContext->req->headers.end(); ++it)
-      {
-        std::cerr<< it->first << " : "<< it->second <<std::endl;
-      }*/
   newContext->connectContexts = context->connectContexts;
   struct kevent event;
   EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
@@ -281,10 +308,6 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
 // fork, pipe init
 void CGI::processInit(CGI* cgi)
 {
-  int inFD;
-  int outFD;
-  int temp_in = dup(STDIN_FILENO);
-	int temp_out = dup(STDOUT_FILENO);
   std::string infilepath;
   std::string outfilepath;
   static size_t fileCount;
@@ -297,39 +320,6 @@ void CGI::processInit(CGI* cgi)
   outfilepath.append(ft_itos(fileCount++));
   writeFilePath = infilepath;
   readFilePath = outfilepath;
-
-  inFD = open(writeFilePath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
-  outFD = open(readFilePath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
-  dup2(outFD, STDOUT_FILENO);
-  dup2(inFD, STDIN_FILENO);
-  close(outFD);
-  close(inFD);
-  cgi->pid = fork();
-  if (cgi->pid < 0)
-  {
-    throw (std::runtime_error("fork fail"));
-  }
-  if (cgi->pid == 0)
-  {
-    if (execve(cgi->path, cgi->cmd, cgi->env) < 0)
-    {
-      std::cerr << errno;
-      std::cerr << strerror(errno);
-      exit (1);
-    }
-    std::cerr << errno;
-      std::cerr << strerror(errno);
-      exit (2);
-  }
-//  close(inFD);
-  inFD = open(writeFilePath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
-  outFD = open(readFilePath.c_str(), O_RDONLY, 0777);
-  dup2(temp_out, STDOUT_FILENO);
-  dup2(temp_in, STDIN_FILENO);
-  close(temp_out);
-  close(temp_in);
-  cgi->writeFD = inFD;
-  cgi->readFD = outFD;
 }
 
 void CGIProcess(struct Context* context)
@@ -341,7 +331,7 @@ void CGIProcess(struct Context* context)
   context->cgi->setCGIenv(server, req, context);
   context->cgi->processInit(context->cgi);
   context->cgi->CGIFileWriteEvent(context);
-  context->cgi->CGIChildEvent(context);
+  //context->cgi->CGIChildEvent(context);
 }
 
 bool isCGIRequest(const std::string& file, Location* loc)

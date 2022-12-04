@@ -295,7 +295,7 @@ FileDescriptor HTTPResponse::getFd() const
 
 void HTTPResponse::sendToClient(struct Context* context)
 {
-  clearContexts(context); // FIX: 여기서 터진다!
+  //clearContexts(context); // FIX: 여기서 터진다!
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
 

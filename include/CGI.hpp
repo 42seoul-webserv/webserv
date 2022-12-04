@@ -36,6 +36,7 @@ class CGI
     void addEnv(std::string key, std::string val);
     void CGIFileWriteEvent(struct Context* context);
     void CGIChildEvent(struct Context* context);
+    void CGIfork(struct Context* context);
     CGI();
     ~CGI();
 };
