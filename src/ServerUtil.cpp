@@ -51,7 +51,7 @@ void CGIChildHandler(struct Context* context)
 {
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
   struct kevent event;
-  EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE , 0, 0, NULL);
+  EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0,NULL);
   context->manager->attachNewEvent(context, event);
   if (context->cgi->exitStatus)
   {
@@ -65,44 +65,29 @@ void CGIChildHandler(struct Context* context)
   }
   else
   {
-    size_t count;
-    context->cgi->readFD = open(context->cgi->outFilePath.c_str(), O_RDONLY);
-    count = FdGetFileSize(context->cgi->readFD);
-    CGI::parseCGI(context, count);
+    context->connectContexts->push_back(context);
+    context->req = new HTTPRequest(*context->req);
+    CGI::parseCGI(context);
     delete context->cgi;
     context->cgi = NULL;
     context->res->sendToClient(context);
   }
 }
 
-void pipeWriteHandler(struct Context* context)
+void CGIWriteHandler(struct Context* context)
 {
-  size_t count;
-  char buffer[BUFFER_SIZE] = {0};
+  HTTPRequest& req = *context->req;
 
-  count = write(context->cgi->writeFD, context->req->body.c_str(), context->req->body.size());
-//  count = context->req->body.copy(buffer, BUFFER_SIZE);
-//  context->req->body.erase(0, count);
-  if (count == 0)//re wirte
+  ssize_t writeSize = 0;
+  if ((writeSize = write(context->fd, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
   {
-    std::cerr << "cgi write erro "<< std::endl;
-    //write(context->cgi->writeFD, buffer, count);
-    //throw std::runtime_error("write failed");
+    printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
-  else//pid kevent register, cgichildHandler call
-  {//std::cerr<<"cgi write end"<<std::endl;
-    close(context->cgi->writeFD);
-    struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
-    newContext->cgi = context->cgi;
-    newContext->req = new HTTPRequest(*context->req);
-    newContext->threadKQ = context->threadKQ;
-    newContext->totalIOSize = 0;
-    newContext->connectContexts = context->connectContexts;
-    newContext->connectContexts->push_back(newContext);
-    struct kevent event;
-    EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_ADD, NOTE_EXIT | NOTE_EXITSTATUS, context->cgi->exitStatus, newContext);
-    context->manager->attachNewEvent(newContext, event);
-    //delete (context);
+  context->totalIOSize += writeSize; // get total write size
+  if (context->totalIOSize >= req.body.size()) // If write finished
+  {
+    close(context->fd);
+    delete (context);
   }
 }
 
@@ -184,6 +169,8 @@ void handleEvent(struct kevent* event)
     }
     else
     {
+      //std::cerr << "filter chekc" << std::endl;
+      //std::cerr << event->filter << std::endl;
       eventData->handler(eventData);
     }
   }
@@ -312,12 +299,14 @@ void clearContexts(struct Context* context)
           )
   {
     struct Context* data = *it;
-
+    std::cerr<< "size :" << context->connectContexts->size() << std::endl;
+//std::cerr << "clear call"<< std::endl;
     if (data == context)
       continue;
-
+std::cerr << "clear call"<< std::endl;
     if (data->req != NULL)
     {
+      std::cerr << "del req call"<< std::endl;
       delete (data->req);
       data->req = NULL;
     }
@@ -330,7 +319,7 @@ void clearContexts(struct Context* context)
     }
     if (data != context)
     {
-      //free (data);
+      free (data);
       data = NULL;
     }
   }

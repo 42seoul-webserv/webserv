@@ -103,7 +103,7 @@ void socketReceiveHandler(struct Context* context);
 void acceptHandler(struct Context* context);
 void handleEvent(struct kevent* event);
 void writeFileHandle(struct Context* context);
-void pipeWriteHandler(struct Context* context);
+void CGIWriteHandler(struct Context* context);
 void clearContexts(struct Context* context);
-
+void CGIChildHandler(struct Context* context);
 #endif //SERVERMANAGER_HPP

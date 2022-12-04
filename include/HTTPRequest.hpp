@@ -45,8 +45,7 @@ public:
       message = NULL;
     }
     ~HTTPRequest()
-    {
-    }
+    {}
 };
 
 #endif 
