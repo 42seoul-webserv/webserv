@@ -20,11 +20,11 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
       if (filePath.length() == 1)
       {
         if (req.method == GET)
-          filePath = _root + _index;
+          filePath = _root + "/" + _index;
       }
       else
       {
-        filePath = _root + filePath;
+        filePath = _root + "/" + filePath;
       }
     }
     else // there are no matched location
@@ -36,6 +36,7 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
   {
     filePath = (loc->convertURLToLocationPath(req.url));
   }
+  std::cout << "file path from server : " << filePath << std::endl;
   return (filePath);
 }
 
