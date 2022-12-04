@@ -27,10 +27,11 @@ CGI::~CGI()
   delete []env;
 }
 
-void CGI::parseBody(HTTPResponse* res, std::string message)
+void CGI::parseBody(HTTPResponse* res, size_t count)
 {
   //int fd[2];
-  res->addHeader("Content-Length", ft_itos(100000000));
+  res->addHeader("Content-Length", ft_itos(FdGetFileSize(readFD) - count));
+  std::cerr << res->getHeader().toString() <<std::endl;
   //res->addHeader("Content-Length", ft_itos(message.size()));
  /* if (pipe(fd) < 0)
   {
@@ -97,7 +98,7 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
 
   end = message.find("\r\n");
   if (end == std::string::npos)
-  {std::cerr << "1" << std::endl;
+  {
     throw (std::logic_error("startline ERROR"));
   }
   it = message.begin();
@@ -116,7 +117,7 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
           statusmessage.assign(buffer);
           break;
         default:
-        {std::cerr << "2" << std::endl;
+        {
           throw (std::logic_error("startline ERROR"));
         }
       }
@@ -133,19 +134,24 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
 }
 
 void CGI::parseCGI(struct Context* context)
-{close(context->cgi->readFD);
-  context->cgi->readFD = open("../tempfile/out", O_RDONLY);
+{
+  close(context->cgi->readFD);
+  context->cgi->readFD = open(readFilePath.c_str(), O_RDONLY);
   std::string message;
-  char buffer[BUFFER_SIZE] = {0};
-  read(context->cgi->readFD, buffer, 58);
-  message.append(buffer);
-//  close(context->cgi->readFD);
+  char buffer[1];
+  size_t count;
+  while (read(context->cgi->readFD, buffer, 1))
+  {
+    message.append(buffer, 1);
+    if (message.find("\r\n\r\n") != std::string::npos)
+    {
+      break;
+    }
+  }
+  count = message.size();
   parseStartLine(context, message);
-
   parseHeader(context->res, message);
-
-  parseBody(context->res, message);
-
+  parseBody(context->res, count);
   context->res->setFd(context->cgi->readFD);
 }
 
@@ -163,6 +169,12 @@ void CGI::CGIChildEvent(struct Context* context)
   struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
   newContext->cgi = context->cgi;
   newContext->req = context->req;
+  /*
+  for (std::map<std::string,std::string>::iterator it = newContext->req->headers.begin();\
+      it != newContext->req->headers.end(); ++it)
+      {
+        std::cerr<< it->first << " : "<< it->second <<std::endl;
+      }*/
   newContext->connectContexts = context->connectContexts;
   struct kevent event;
   EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
@@ -186,6 +198,7 @@ void CGI::addEnv(std::string key, std::string val)
   this->env[envCount + 1] = NULL;
   envCount++;
 }
+
 
 std::string CGI::getQueryFullPath(HTTPRequest& req)
 {
@@ -257,14 +270,13 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("QUERY_STRING", getQueryFullPath(req));
   addEnv("REMOTE_ADDR", getClientIP(&context->addr));
   addEnv("CONTENT_TYPE", req.headers.find("Content-Type")->second);
-  addEnv("CONTENT_LENGTH", req.headers.find("Content-Length")->second);
-  getPATH(server, req);
-  for (size_t i = 0; i < ENVCOUNT; ++i)
+  if (req.headers.find("Content-Length") == req.headers.end())
   {
-    if (env[i] == NULL)
-      return;
-    std::cout << env[i] << std::endl;
+    addEnv("CONTENT_LENGTH", "");
   }
+  else
+    addEnv("CONTENT_LENGTH", req.headers.find("Content-Length")->second);
+  getPATH(server, req);
 }
 // fork, pipe init
 void CGI::processInit(CGI* cgi)
@@ -275,21 +287,23 @@ void CGI::processInit(CGI* cgi)
 	int temp_out = dup(STDOUT_FILENO);
   std::string infilepath;
   std::string outfilepath;
+  static size_t fileCount;
 
   infilepath.assign(getCWD());
-  infilepath.append("/tempfile/");
-  infilepath.append("in");
+  infilepath.append("/tempfile/in");
+  infilepath.append(ft_itos(fileCount));
   outfilepath.assign(getCWD());
-  outfilepath.append("/tempfile/");
-  outfilepath.append("out");
- 
-  printf("path : %s\n", cgi->path);
-  printf("cmd : %s\n", cgi->cmd[0]);
-  printf("null check : %p", cgi->cmd[1]);
-  inFD = open(infilepath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
-  outFD = open(outfilepath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+  outfilepath.append("/tempfile/out");
+  outfilepath.append(ft_itos(fileCount++));
+  writeFilePath = infilepath;
+  readFilePath = outfilepath;
+
+  inFD = open(writeFilePath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+  outFD = open(readFilePath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
   dup2(outFD, STDOUT_FILENO);
   dup2(inFD, STDIN_FILENO);
+  close(outFD);
+  close(inFD);
   cgi->pid = fork();
   if (cgi->pid < 0)
   {
@@ -303,17 +317,23 @@ void CGI::processInit(CGI* cgi)
       std::cerr << strerror(errno);
       exit (1);
     }
+    std::cerr << errno;
+      std::cerr << strerror(errno);
+      exit (2);
   }
-  close(inFD);
-  inFD = open(infilepath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+//  close(inFD);
+  inFD = open(writeFilePath.c_str(), O_RDWR | O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+  outFD = open(readFilePath.c_str(), O_RDONLY, 0777);
   dup2(temp_out, STDOUT_FILENO);
   dup2(temp_in, STDIN_FILENO);
+  close(temp_out);
+  close(temp_in);
   cgi->writeFD = inFD;
   cgi->readFD = outFD;
 }
 
 void CGIProcess(struct Context* context)
-{std::cerr<< "cgi ckeck" << std::endl;
+{
   context->cgi = new CGI();
   HTTPRequest& req = *context->req;
   Server& server = context->manager->getMatchedServer(req);
@@ -325,9 +345,7 @@ void CGIProcess(struct Context* context)
 }
 
 bool isCGIRequest(const std::string& file, Location* loc)
-{std::cerr <<"iscgi req" << std::endl;
-std::cerr << "filepath : " << file << std::endl;
-std::cerr << "loc : " << loc->_location << std::endl;
+{
   size_t findPOS;
 
   if (loc->cgiInfo.size() == 0)

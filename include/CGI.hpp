@@ -14,6 +14,8 @@ class CGI
     size_t envCount;
     FileDescriptor writeFD;
     FileDescriptor readFD;
+    std::string writeFilePath;
+    std::string readFilePath;
     int exitStatus;
     char** env;
     char** cmd;
@@ -23,10 +25,10 @@ class CGI
 
     std::string getQueryFullPath(HTTPRequest& req);
     static std::string getCWD();
-    static void parseStartLine(struct Context* context, std::string &message);
-    static void parseHeader(HTTPResponse* res, std::string &message);
-    static void parseBody(HTTPResponse* res, std::string message);
-    static void parseCGI(struct Context* context);
+    void parseStartLine(struct Context* context, std::string &message);
+    void parseHeader(HTTPResponse* res, std::string &message);
+    void parseBody(HTTPResponse* res, size_t count);
+    void parseCGI(struct Context* context);
     void closeProcess(); //child수거?, response 생성?
     void processInit(CGI* cgi); // fork, pipe init
     void setCGIenv(Server server, HTTPRequest& req, struct Context* context);

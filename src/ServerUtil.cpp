@@ -53,6 +53,7 @@ void CGIChildHandler(struct Context* context)
   struct kevent event;
   EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0,NULL);
   context->manager->attachNewEvent(context, event);
+ // unlink(context->cgi->writeFilePath.c_str());
   if (context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
@@ -65,9 +66,11 @@ void CGIChildHandler(struct Context* context)
   }
   else
   {
+    context->connectContexts = new std::vector<struct Context*>();
     context->connectContexts->push_back(context);
     context->req = new HTTPRequest(*context->req);
-    CGI::parseCGI(context);
+    std::cerr << "body size : "<<context->req->body.size() << std::endl;
+    context->cgi->parseCGI(context);
     delete context->cgi;
     context->cgi = NULL;
     context->res->sendToClient(context);
@@ -299,14 +302,12 @@ void clearContexts(struct Context* context)
           )
   {
     struct Context* data = *it;
-    std::cerr<< "size :" << context->connectContexts->size() << std::endl;
+
 //std::cerr << "clear call"<< std::endl;
     if (data == context)
       continue;
-std::cerr << "clear call"<< std::endl;
     if (data->req != NULL)
     {
-      std::cerr << "del req call"<< std::endl;
       delete (data->req);
       data->req = NULL;
     }
