@@ -310,7 +310,6 @@ void HTTPResponse::sendToClient(struct Context* context)
   // add header content
   std::string header = this->getHeader().toString() + "\n";
   newSendContext->ioBuffer = new char[header.size()];
-  this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(header.size()));
   memmove(newSendContext->ioBuffer, header.c_str(), header.size());
   newSendContext->bufferSize = header.size();
   newSendContext->threadKQ = context->threadKQ;

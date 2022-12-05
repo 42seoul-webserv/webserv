@@ -191,8 +191,10 @@ void CGI::CGIChildEvent(struct Context* context)
   struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
   newContext->cgi = context->cgi;
   newContext->req = context->req;
+  newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
   struct kevent event;
+  std::cout << "attach process ev\n";
   EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
   newContext->manager->attachNewEvent(newContext, event);
 }

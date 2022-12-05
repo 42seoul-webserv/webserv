@@ -1,5 +1,6 @@
 #include "ServerManager.hpp"
 #include "ThreadPool.hpp"
+#include <cstring>
 
 ServerManager::ServerManager(const std::string& configFilePath) :
         _processor(*this),
@@ -193,6 +194,9 @@ void ServerManager::attachNewEvent(struct Context* context, const struct kevent&
     if (DEBUG_MODE)
     {
       printLog("event attach failed\n", PRINT_YELLOW);
+	  std::cout << kq << "\n";
+	  std::cout << context->threadKQ << "\n";
+	  std::cout << context->req->status << "\n";
     }
   }
 }
