@@ -71,9 +71,33 @@ std::string HeaderType::getDate()
   }
   std::string result;
   result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
-           " GMT";
+           ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
   return (result);
 }
+
+int mod(int min, int max, int val, int diff)
+{
+  // 6| + 2 --> 0 (min0, max6, val 2)
+  // 3| - 6 --> 3 (min0, max6, val -6)
+  return ((val + (max - min)) % (max - min));
+}
+
+std::string HeaderType::getOtherDateFromNow(int year_diff, int month_diff, int day_diff, int hour_diff, int min_diff, int sec_diff)
+{
+  time_t curTime = time(NULL);          // get current time info
+  struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
+  if (pLocal == NULL)
+  {
+    // ...
+    return ("null");
+  }
+  std::string result;
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
+           ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
+  return (result);
+}
+
+
 
 HeaderType::t_pair HeaderType::CONTENT_LENGTH(const ssize_t& len)
 {
@@ -293,11 +317,62 @@ FileDescriptor HTTPResponse::getFd() const
   return _fileFd;
 }
 
+std::string gen_random_string(const int len) {
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    std::string tmp_s;
+    srand((unsigned)time(NULL) * getpid());     
+    tmp_s.reserve(len);
+
+    for (int i = 0; i < len; ++i) {
+        tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+    return tmp_s;
+}
+
 void HTTPResponse::sendToClient(struct Context* context)
 {
   clearContexts(context);
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
+
+  // * (0) Handle Cookie
+  std::map<std::string, std::string>::const_iterator headerString_itr = context->req->headers.find("Cookie");
+  if (headerString_itr != context->req->headers.end()) // if has Cookie.
+  {
+    const std::string TOKEN_KEY("webserveToken");
+    // Cookie: name=value; name2=value2; name3=value3
+    const std::string cookies = headerString_itr->second;
+    // find token. 
+    const size_t token_loc = cookies.find(TOKEN_KEY);
+
+    // if token exist, compare with connection-token. -> if differ, then set cookie's date to past.
+    if (token_loc != std::string::npos)
+    {
+      // get token
+      const size_t tokenStartLoc = token_loc + TOKEN_KEY.size() + 1;
+      const size_t tokenEndLoc = cookies.find(";", tokenStartLoc, std::string::npos);
+      // const std::string receivedToken = cookies.substr(, cookies.find(';'));
+      
+
+
+      const std::string savedToken = "fix here with real server's registered token";
+      // ...
+    }
+    else // if token doesn't exist, then set token cookie to client, then also save it to connection_info.)
+    {
+      std::string NEW_TOKEN_VALUE = gen_random_string(15); // !WARN : this method is very insecure!
+      // set client's token
+      this->addHeader(HTTPResponse::SET_COOKIE(TOKEN_KEY + "=" + NEW_TOKEN_VALUE + "; "
+                                             + "expires"));
+      // set server's token
+      // ...
+    }
+  }
+
+
 
   // (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);

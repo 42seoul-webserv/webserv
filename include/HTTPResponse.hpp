@@ -89,6 +89,8 @@ private: // Helper functions
     static std::string GET_DAY(long tm_wday);
     static std::string GET_MON(long tm_wmon);
     static std::string getDate();
+    // 현재 시간을 기준으로 얼마나 과거 혹은 미래의 날짜를 구할 건지 diff를 통해 계산. 변화가 없을 경우엔 0을 넣어주면 된다.
+    static std::string getOtherDateFromNow(int year_diff, int month_diff, int day_diff, int hour_diff, int min_diff, int sec_diff);
 };
 
 /**----------------------
