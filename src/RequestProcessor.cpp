@@ -3,6 +3,7 @@
 #include "HTTPRequest.hpp"
 #include "ServerManager.hpp"
 #include "WebservDefines.hpp"
+#include "CGI.hpp"
 
 static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
 {
@@ -63,7 +64,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-    if (req.chunkedFlag == true)
+    if (req.chunkedFlag)
     {
       return (ST_OK);
     }
@@ -90,13 +91,22 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   }
   else
   {
+    // FIXME : 여기서 안걸림. 
+    if (isCGIRequest(matchedServer.getRealFilePath(req), loc))
+    {
+      return (ST_OK);
+    }
     if (!isAllowedMethod(loc->allowMethods, req.method))
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-    if (req.chunkedFlag == true)
+    if (req.chunkedFlag == true && req.body.size() <= loc->clientMaxBodySize)
     {
       return (ST_OK);
+    }
+    if (loc->clientMaxBodySize < req.body.size())
+    {
+      return (ST_PAYLOAD_TOO_LARGE);
     }
     try
     {

@@ -11,6 +11,8 @@
 
 class ServerManager;
 
+class CGI;
+
 struct Context
 {
     int fd;
@@ -18,6 +20,7 @@ struct Context
     void (* handler)(struct Context* obj);
     ServerManager* manager;
     HTTPRequest* req;
+    CGI* cgi;
     HTTPResponse* res; // -> for file FD, ContentLength... etc
     char* ioBuffer;
     size_t  bufferSize;
@@ -56,7 +59,7 @@ struct Context
           struct Context* context = *it;
 
           if (context->req != NULL)
-            {}//delete (context->req);
+            delete (context->req);
           if (context->ioBuffer != NULL)
             delete (context->ioBuffer);
           // 이렇게 안하면 재귀 호출됨...
@@ -66,7 +69,7 @@ struct Context
         // 중복되는 자료.
         delete (this->connectContexts);
       }
-      //delete (this->res);
+      delete (this->res);
     }
 };
 
@@ -100,6 +103,7 @@ void socketReceiveHandler(struct Context* context);
 void acceptHandler(struct Context* context);
 void handleEvent(struct kevent* event);
 void writeFileHandle(struct Context* context);
+void CGIWriteHandler(struct Context* context);
 void clearContexts(struct Context* context);
-
+void CGIChildHandler(struct Context* context);
 #endif //SERVERMANAGER_HPP
