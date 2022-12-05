@@ -52,7 +52,9 @@ void ServerManager::run()
     { // time limit expired -> never happen
       printLog("time limit expired\n", PRINT_BLUE);
     }
-    else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
+    else if (event.filter == EVFILT_READ \
+            || event.filter == EVFILT_WRITE \
+            || event.filter == EVFILT_PROC)
     {
       if (THREAD_MODE)
       {

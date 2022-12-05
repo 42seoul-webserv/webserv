@@ -35,7 +35,7 @@ std::string Location::convertURLToLocationPath(const std::string& url) const
     result += ("/" + _index);
   return (result);
 }
-
+/*
 bool Location::isCGIRequest(const std::string& file)
 {
   for (
@@ -50,7 +50,7 @@ bool Location::isCGIRequest(const std::string& file)
     }
   }
   return (false);
-}
+}*/
 
 bool Location::isRedirect() const
 {

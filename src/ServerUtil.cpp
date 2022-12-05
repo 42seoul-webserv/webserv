@@ -1,6 +1,7 @@
 #include "ServerManager.hpp"
 #include "RequestProcessor.hpp"
 #include "HTTPResponse.hpp"
+#include "CGI.hpp"
 #include <sstream>
 #include <sys/stat.h>
 
@@ -46,6 +47,55 @@ std::string getClientIP(struct sockaddr_in* addr)
   return (str);
 }
 
+void CGIChildHandler(struct Context* context)
+{
+  waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
+/*  struct kevent event;
+  EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0,NULL);
+  context->manager->attachNewEvent(context, event);*/
+  unlink(context->cgi->writeFilePath.c_str());
+  struct Context* origin = (*(context->connectContexts))[0];
+  if (context->cgi->exitStatus)
+  {
+    close(context->cgi->readFD);
+    HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway borken", context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+    delete context->cgi;
+    context->cgi = NULL;
+    response->sendToClient(context);
+  }
+  else
+  {
+    //context->connectContexts->push_back(context);
+    //context->req = new HTTPRequest(*context->req);
+    free(context);
+    origin->cgi->parseCGI(origin);
+    
+    delete origin->cgi;//소멸자로 fd unlink해주는게 좋을듯?
+    origin->cgi = NULL;
+    origin->res->sendToClient(origin);
+  }
+}
+
+void CGIWriteHandler(struct Context* context)
+{
+  HTTPRequest& req = *context->req;
+
+  ssize_t writeSize = 0;
+  if ((writeSize = write(context->cgi->writeFD, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
+  {
+    printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
+  }
+  context->totalIOSize += writeSize; // get total write size
+  if (context->totalIOSize >= req.body.size()) // If write finished
+  {
+    close(context->cgi->writeFD);
+    context->cgi->CGIChildEvent(context);
+    free (context);
+  }
+}
+
 void socketReceiveHandler(struct Context* context)
 {
 //  printLog("sk recv handler called\n", PRINT_CYAN);
@@ -88,7 +138,7 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = new std::vector<struct Context*>();
     newContext->connectContexts->push_back(newContext);
-
+    newContext->test = 1;
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
@@ -102,12 +152,26 @@ void handleEvent(struct kevent* event)
   struct Context* eventData = static_cast<struct Context*>(event->udata);
   try
   {
-    if (event->flags & EV_EOF || event->fflags & EV_EOF)
+    if (event->filter != EVFILT_PROC && (event->flags & EV_EOF || event->fflags & EV_EOF))
     {
-      printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
-      shutdown(eventData->fd, SHUT_RDWR);
-      close(eventData->fd);
-      delete (eventData);
+      if (event->filter == EVFILT_READ)
+      {
+        printLog("Client closed connection (READ) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
+        shutdown(eventData->fd, SHUT_RD);
+        struct kevent ev;
+        EV_SET(&ev, event->ident, event->filter, EV_DELETE, 0, 0, NULL);
+        eventData->manager->attachNewEvent(eventData, ev);
+      }
+      else if (event->filter == EVFILT_WRITE && eventData->totalIOSize >= eventData->res->getContentLength())
+      {
+        printLog("Client closed connection (WRITE) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
+        shutdown(eventData->fd, SHUT_RDWR);
+        close(eventData->fd);
+        // clearContexts(eventData);
+        delete (eventData);
+      }
     }
     else if (event->flags & EV_ERROR)
     {
@@ -124,6 +188,8 @@ void handleEvent(struct kevent* event)
     }
     else
     {
+      //std::cerr << "filter chekc" << std::endl;
+      //std::cerr << event->filter << std::endl;
       eventData->handler(eventData);
     }
   }
@@ -156,7 +222,7 @@ void writeFileHandle(struct Context* context)
     {
       delete (context->res);
     }
-    delete (context);
+    free(context);
   }
 }
 
@@ -253,9 +319,9 @@ void clearContexts(struct Context* context)
   {
     struct Context* data = *it;
 
+//std::cerr << "clear call"<< std::endl;
     if (data == context)
       continue;
-
     if (data->req != NULL)
     {
       delete (data->req);
