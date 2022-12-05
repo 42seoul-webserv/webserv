@@ -70,7 +70,7 @@ std::string HeaderType::getDate()
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
            ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
   return (result);
 }
@@ -80,12 +80,13 @@ std::string HeaderType::getDateByYearOffset(int year_diff)
 {
   time_t curTime = time(NULL);          // get current time info
   struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
+  if (pLocal == NULL)
   {
     // ...
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900 + year_diff) +
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900 + year_diff) + " " +
            ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
   return (result);
 }
@@ -101,7 +102,7 @@ std::string HeaderType::getDateByHourOffset(int hour_diff)
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
            ft_itos(pLocal->tm_hour + hour_diff) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
   return (result);
 }
@@ -357,20 +358,21 @@ void HTTPResponse::sendToClient(struct Context* context)
     {
       // get id from cookies to compare with server-side session_id
       const size_t idStartLoc = id_loc + SESSION_KEY.size() + 1;
-      const size_t idEndLoc = cookies.find(";", idStartLoc, std::string::npos);
+      const size_t idEndLoc = cookies.find(";", idStartLoc, std::string::npos); // ! FIX 여기서 한번 터짐.
       const std::string receivedId = cookies.substr(idStartLoc, idEndLoc);
       if (!(server._sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
-        this->addHeader(HTTPResponse::SET_COOKIE("Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";")); // set past date to delete cookie.
+        this->addHeader(HTTPResponse::SET_COOKIE("Expires=" + HTTPResponse::getDateByYearOffset(-1))); // set past date to delete cookie.
+        // ! FIX : expires가 제대로 작동하지 않는다. 왜그러지?
     }
     else // if session id doesn't exist, then set token cookie to client, then also save it to connection_info.
     {
       const int OFFSET = 1;
       std::string NEW_SESSION_ID = gen_random_string(15); // !WARN : this method is very insecure!
-      this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + NEW_SESSION_ID + ";" + "Expires=" + HTTPResponse::getDateByHourOffset(OFFSET))); // set client's id
+      this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + NEW_SESSION_ID + "; " + "Expires=" + HTTPResponse::getDateByHourOffset(OFFSET))); // set client's id
       server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(OFFSET));
     }
   }
-  server._sessionStorage.clearExpiredID();
+//  server._sessionStorage.clearExpiredID();
 
   // * (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);

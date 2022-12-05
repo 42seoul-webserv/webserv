@@ -138,7 +138,6 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = new std::vector<struct Context*>();
     newContext->connectContexts->push_back(newContext);
-    newContext->test = 1;
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);

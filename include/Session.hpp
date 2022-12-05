@@ -8,6 +8,7 @@
 #include <map>
 #include <string>
 #include <ctime>
+#include <iostream>
 
 
 namespace WS {
@@ -87,8 +88,14 @@ public:
 
 public:
     // travers map, and delete expired session.
+    // ! FIX Needed
     void clearExpiredID()
     {
+      if (_storage.empty())
+      {
+        std::cerr << "Storage size : " << _storage.size() << std::endl;
+        return ;
+      }
       std::map<std::string, WS::Time>::iterator itr = _storage.begin();
       while (itr != _storage.end())
       {
