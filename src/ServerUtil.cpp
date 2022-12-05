@@ -138,7 +138,6 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = new std::vector<struct Context*>();
     newContext->connectContexts->push_back(newContext);
-    newContext->test = 1;
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
@@ -154,24 +153,11 @@ void handleEvent(struct kevent* event)
   {
     if (event->filter != EVFILT_PROC && (event->flags & EV_EOF || event->fflags & EV_EOF))
     {
-      if (event->filter == EVFILT_READ)
-      {
-        printLog("Client closed connection (READ) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
-        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
-        shutdown(eventData->fd, SHUT_RD);
-        struct kevent ev;
-        EV_SET(&ev, event->ident, event->filter, EV_DELETE, 0, 0, NULL);
-        eventData->manager->attachNewEvent(eventData, ev);
-      }
-      else if (event->filter == EVFILT_WRITE && eventData->totalIOSize >= eventData->res->getContentLength())
-      {
-        printLog("Client closed connection (WRITE) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
-        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
-        shutdown(eventData->fd, SHUT_RDWR);
-        close(eventData->fd);
-        // clearContexts(eventData);
-        delete (eventData);
-      }
+      printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+      shutdown(eventData->fd, SHUT_RDWR);
+      close(eventData->fd);
+      clearContexts(eventData);
+      delete (eventData);
     }
     else if (event->flags & EV_ERROR)
     {
@@ -217,10 +203,6 @@ void writeFileHandle(struct Context* context)
     if (context->req != NULL)
     {
       delete (context->req);
-    }
-    if (context->res != NULL)
-    {
-      delete (context->res);
     }
     free(context);
   }
@@ -310,6 +292,7 @@ void clearContexts(struct Context* context)
 {
   // 내부에서 본인 제외 모두 삭제.
   HTTPResponse* res = NULL;
+  HTTPRequest* req = NULL;
 
   for (
           std::vector<struct Context*>::iterator it = context->connectContexts->begin();
@@ -319,16 +302,20 @@ void clearContexts(struct Context* context)
   {
     struct Context* data = *it;
 
-//std::cerr << "clear call"<< std::endl;
     if (data == context)
-      continue;
-    if (data->req != NULL)
     {
-      delete (data->req);
+      continue;
+    }
+    if (data->req)
+    {
+      req = data->req;
       data->req = NULL;
     }
     if (data->res)
+    {
       res = data->res;
+      data->res = NULL;
+    }
     if (data->ioBuffer != NULL)
     {
       delete (data->ioBuffer);
@@ -344,6 +331,11 @@ void clearContexts(struct Context* context)
   {
     delete (res);
     res = NULL;
+  }
+  if (req != NULL)
+  {
+    delete (req);
+    req = NULL;
   }
   context->connectContexts->clear();
   context->connectContexts->push_back(context);

@@ -296,6 +296,8 @@ FileDescriptor HTTPResponse::getFd() const
 void HTTPResponse::sendToClient(struct Context* context)
 {
   clearContexts(context);
+  context->res = this;
+
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
 
@@ -303,16 +305,16 @@ void HTTPResponse::sendToClient(struct Context* context)
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->connectContexts = context->connectContexts;
   newSendContext->connectContexts->push_back(newSendContext);
-  newSendContext->res = new HTTPResponse(*this);
+  newSendContext->res = this;
 
   // add header content
   std::string header = this->getHeader().toString() + "\n";
   newSendContext->ioBuffer = new char[header.size()];
+  this->addHeader(HTTPResponseHeader::CONTENT_LENGTH(header.size()));
   memmove(newSendContext->ioBuffer, header.c_str(), header.size());
   newSendContext->bufferSize = header.size();
   newSendContext->threadKQ = context->threadKQ;
-//  newSendContext->req = context->req;
-  newSendContext->req = new HTTPRequest(*context->req);
+  newSendContext->req = context->req;
 
   struct kevent event;
   EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
@@ -328,8 +330,8 @@ void HTTPResponse::sendToClient(struct Context* context)
     struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
     newReadContext->connectContexts = context->connectContexts;
     newReadContext->connectContexts->push_back(newReadContext);
-    newReadContext->res = new HTTPResponse(*this);
-    newReadContext->req = new HTTPRequest(*context->req);
+    newReadContext->res = this;
+    newReadContext->req = context->req;
     newReadContext->threadKQ = context->threadKQ;
     struct kevent _event;
     EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
@@ -370,7 +372,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     if (context->res->_fileFd > 0 && context->res->getContentLength() > context->totalIOSize)
     {
       struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
-      newReadContext->res = new HTTPResponse(*context->res);
+      newReadContext->res = context->res;
       newReadContext->threadKQ = context->threadKQ;
       newReadContext->totalIOSize = context->totalIOSize;
       newReadContext->connectContexts = context->connectContexts;
@@ -381,6 +383,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     }
     else
     {
+      // if bad request, close connection
       if (context->res->_status_code >= 400)
       {
         shutdown(context->fd, SHUT_RDWR);
@@ -434,8 +437,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
     newSendContext->connectContexts = context->connectContexts;
     newSendContext->connectContexts->push_back(newSendContext);
-//    newSendContext->res = context->res;
-    newSendContext->res = new HTTPResponse(*context->res);
+    newSendContext->res = context->res;
     newSendContext->ioBuffer = buffer;
     newSendContext->threadKQ = context->threadKQ;
     newSendContext->bufferSize = current_rd_size;

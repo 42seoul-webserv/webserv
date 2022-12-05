@@ -334,6 +334,8 @@ bool isCGIRequest(const std::string& file, Location* loc)
 {
   size_t findPOS;
 
+  if (loc == NULL)
+    return (false);
   if (loc->cgiInfo.begin()->size() == 0)
   {
     return false;

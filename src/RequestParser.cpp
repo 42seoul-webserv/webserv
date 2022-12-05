@@ -387,7 +387,7 @@ void RequestParser::parseRequest(struct Context* context)
   }
   if (context->req->status == ERROR || context->req->status == END)
   {
-   // std::cout << *context->req->message << '\n';
+//    std::cout << *context->req->message << '\n';
     delete (context->req->message);
     context->req->message = NULL;
   }
