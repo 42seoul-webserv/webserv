@@ -75,14 +75,23 @@ std::string HeaderType::getDate()
   return (result);
 }
 
-int mod(int min, int max, int val, int diff)
+// ! WARN: need to handle [Date + diff --> next day / previous day] ...etc
+std::string HeaderType::getDateByYearOffset(int year_diff)
 {
-  // 6| + 2 --> 0 (min0, max6, val 2)
-  // 3| - 6 --> 3 (min0, max6, val -6)
-  return ((val + (max - min)) % (max - min));
+  time_t curTime = time(NULL);          // get current time info
+  struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
+  {
+    // ...
+    return ("null");
+  }
+  std::string result;
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900 + year_diff) +
+           ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
+  return (result);
 }
 
-std::string HeaderType::getOtherDateFromNow(int year_diff, int month_diff, int day_diff, int hour_diff, int min_diff, int sec_diff)
+// ! WARN: need to handle [Date + diff --> next day / previous day] ...etc
+std::string HeaderType::getDateByHourOffset(int hour_diff)
 {
   time_t curTime = time(NULL);          // get current time info
   struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
@@ -93,11 +102,9 @@ std::string HeaderType::getOtherDateFromNow(int year_diff, int month_diff, int d
   }
   std::string result;
   result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
-           ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
+           ft_itos(pLocal->tm_hour + hour_diff) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
   return (result);
 }
-
-
 
 HeaderType::t_pair HeaderType::CONTENT_LENGTH(const ssize_t& len)
 {
@@ -339,42 +346,33 @@ void HTTPResponse::sendToClient(struct Context* context)
     this->addHeader("Connection", "close");
 
   // * (0) Handle Cookie
+  Server& server = context->manager->getMatchedServer(*context->req);
   std::map<std::string, std::string>::const_iterator headerString_itr = context->req->headers.find("Cookie");
-  if (headerString_itr != context->req->headers.end()) // if has Cookie.
+  if (headerString_itr != context->req->headers.end()) // if header has Cookie.
   {
-    const std::string TOKEN_KEY("webserveToken");
-    // Cookie: name=value; name2=value2; name3=value3
+    const std::string SESSION_KEY("WEBSERV_ID");
     const std::string cookies = headerString_itr->second;
-    // find token. 
-    const size_t token_loc = cookies.find(TOKEN_KEY);
-
-    // if token exist, compare with connection-token. -> if differ, then set cookie's date to past.
-    if (token_loc != std::string::npos)
+    const size_t id_loc = cookies.find(SESSION_KEY);
+    if (id_loc != std::string::npos) // if session id exists,
     {
-      // get token
-      const size_t tokenStartLoc = token_loc + TOKEN_KEY.size() + 1;
-      const size_t tokenEndLoc = cookies.find(";", tokenStartLoc, std::string::npos);
-      // const std::string receivedToken = cookies.substr(, cookies.find(';'));
-      
-
-
-      const std::string savedToken = "fix here with real server's registered token";
-      // ...
+      // get id from cookies to compare with server-side session_id
+      const size_t idStartLoc = id_loc + SESSION_KEY.size() + 1;
+      const size_t idEndLoc = cookies.find(";", idStartLoc, std::string::npos);
+      const std::string receivedId = cookies.substr(idStartLoc, idEndLoc);
+      if (!(server._sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
+        this->addHeader(HTTPResponse::SET_COOKIE("Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";")); // set past date to delete cookie.
     }
-    else // if token doesn't exist, then set token cookie to client, then also save it to connection_info.)
+    else // if session id doesn't exist, then set token cookie to client, then also save it to connection_info.
     {
-      std::string NEW_TOKEN_VALUE = gen_random_string(15); // !WARN : this method is very insecure!
-      // set client's token
-      this->addHeader(HTTPResponse::SET_COOKIE(TOKEN_KEY + "=" + NEW_TOKEN_VALUE + "; "
-                                             + "expires"));
-      // set server's token
-      // ...
+      const int OFFSET = 1;
+      std::string NEW_SESSION_ID = gen_random_string(15); // !WARN : this method is very insecure!
+      this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + NEW_SESSION_ID + ";" + "Expires=" + HTTPResponse::getDateByHourOffset(OFFSET))); // set client's id
+      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(OFFSET));
     }
   }
+  server._sessionStorage.clearExpiredID();
 
-
-
-  // (1) Send Header
+  // * (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->connectContexts = context->connectContexts;
   newSendContext->connectContexts->push_back(newSendContext);
@@ -397,7 +395,7 @@ void HTTPResponse::sendToClient(struct Context* context)
     EV_SET(&event, newSendContext->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
     context->manager->attachNewEvent(newSendContext, event);
   }
-  // (2) Send Body
+  // * (2) Send Body
   if (this->getFd() >= 0 && this->getContentLength() > 0 && this->getStatusCode() != ST_NO_CONTENT)
   {
     struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);

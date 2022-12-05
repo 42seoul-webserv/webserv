@@ -19,7 +19,7 @@ set(SOURCE_FILES
         src/Location.cpp
         src/ThreadPool.cpp
         src/CGI.cpp
-        )
+        src/Session.cpp include/Session.hpp)
 
 add_executable(webserv
         ${SOURCE_FILES}

@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <vector>
 #include <string>
+#include "Session.hpp"
 
 class HTTPResponse;
 
@@ -32,6 +33,7 @@ public:
     int _serverPort;
     int _clientMaxBodySize;
     std::pair<StatusCode, std::string> _redirect;
+    Session _sessionStorage;
     Location* getMatchedLocation(const HTTPRequest& req);
     void processRequest(struct Context* context);
     FileDescriptor getErrorPageFd(const StatusCode& stCode); // open and return ErrorPage file_descriptor.
