@@ -98,7 +98,8 @@ void CGIWriteHandler(struct Context* context)
 
 void socketReceiveHandler(struct Context* context)
 {
-//  printLog("sk recv handler called\n", PRINT_CYAN);
+	if (DEBUG_MODE)
+		printLog("sk recv handler called\n", PRINT_CYAN);
   if (!context)
     throw (std::runtime_error("NULL context"));
   context->manager->getRequestParser().parseRequest(context);
@@ -200,10 +201,6 @@ void writeFileHandle(struct Context* context)
   if (context->totalIOSize >= req.body.size()) // If write finished
   {
     close(context->fd);
-    if (context->req != NULL)
-    {
-      delete (context->req);
-    }
     free(context);
   }
 }

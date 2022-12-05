@@ -4,8 +4,8 @@ project("webserv")
 
 set(CMAKE_CXX_STANDARD 98)
 
-add_compile_options(-g3 -fsanitize=address)
-add_link_options(-g3 -fsanitize=address)
+#add_compile_options(-g3 -fsanitize=thread)
+#add_link_options(-g3 -fsanitize=thread)
 
 set(SOURCE_FILES
         src/main.cpp
