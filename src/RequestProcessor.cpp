@@ -64,7 +64,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-    if (req.chunkedFlag == true)
+    if (req.chunkedFlag)
     {
       return (ST_OK);
     }
@@ -100,9 +100,13 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-    if (req.chunkedFlag == true)
+    if (req.chunkedFlag == true && req.body.size() <= loc->clientMaxBodySize)
     {
       return (ST_OK);
+    }
+    if (loc->clientMaxBodySize < req.body.size())
+    {
+      return (ST_PAYLOAD_TOO_LARGE);
     }
     try
     {

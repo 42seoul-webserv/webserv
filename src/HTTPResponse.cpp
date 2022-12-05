@@ -295,7 +295,7 @@ FileDescriptor HTTPResponse::getFd() const
 
 void HTTPResponse::sendToClient(struct Context* context)
 {
-  //clearContexts(context); // FIX: 여기서 터진다!
+  clearContexts(context);
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
 
@@ -347,11 +347,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
   ssize_t sendSize;
-// send message 확인
-/*  std::string temp;
-  temp.assign(context->ioBuffer, context->bufferSize);
-  std::cerr << "send message" << std::endl;
-  std::cerr << temp << std::endl;*/
+
   if ((sendSize = send(context->fd, context->ioBuffer, context->bufferSize, MSG_DONTWAIT)) < 0)
   {
     if (DEBUG_MODE)

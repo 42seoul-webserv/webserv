@@ -29,17 +29,9 @@ CGI::~CGI()
 
 void CGI::parseBody(HTTPResponse* res, size_t count)
 {
-  //int fd[2];
   res->addHeader("Content-Length", ft_itos(FdGetFileSize(readFD) - count));
-  std::cerr << res->getHeader().toString() <<std::endl;
-  //res->addHeader("Content-Length", ft_itos(message.size()));
- /* if (pipe(fd) < 0)
-  {
-    throw (std::runtime_error("cgi pipe boom"));
-  }
-  write(fd[P_W], message.c_str(), message.size());
-  close(fd[P_W]);*/
-  //res->setFd(fd[P_R]);
+//  std::cerr << std::endl;
+//  std::cerr << res->getHeader().toString() <<std::endl;
 }
 
 void CGI::parseHeader(HTTPResponse* res, std::string &message)
@@ -154,12 +146,13 @@ void CGI::parseCGI(struct Context* context)
   context->res->setFd(context->cgi->readFD);
 }
 
-void CGI::CGIFileWriteEvent(struct Context* context)
+void CGI::attachFileWriteEvent(struct Context* context)
 {
   context->cgi->writeFD = open(context->cgi->writeFilePath.c_str(),  O_WRONLY | O_CREAT | O_TRUNC, 0777);
   struct Context* newContext = new struct Context(context->fd, context->addr, CGIWriteHandler, context->manager);
   newContext->req = context->req;
   newContext->cgi = context->cgi;
+  newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
   struct kevent event;
   EV_SET(&event, newContext->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
@@ -186,13 +179,9 @@ void CGI::CGIfork(struct Context* context)
     close(inFD);  
     if (execve(context->cgi->path, context->cgi->cmd, context->cgi->env) < 0)
     {
-      std::cerr << errno;
       std::cerr << strerror(errno);
       exit (1);
     }
-      std::cerr << errno;
-      std::cerr << strerror(errno);
-      exit (2);
   }
 }
 
@@ -241,7 +230,7 @@ std::string CGI::getQueryFullPath(HTTPRequest& req)
   }
   return (temp);
 }
-std::string CGI::getCWD()
+std::string CGI::ft_getcwd()
 {
   char buffer[PATH_MAX];
   std::string path;
@@ -262,7 +251,7 @@ void CGI::getPATH(Server server, HTTPRequest& req)
   std::string requestcmd;
   Location* location = server.getMatchedLocation(req);
 
-  requestpath.assign(getCWD());
+  requestpath.assign(ft_getcwd());
   requestpath.append(location->_root);
   requestpath.append("/");
   requestpath.append(location->cgiInfo[1]);
@@ -286,7 +275,7 @@ void CGI::getPATH(Server server, HTTPRequest& req)
 }
 
 void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
-{
+{//X-Secret-Header-For-Test: 1
   addEnv("SERVER_SOFTWARE", "webserv/1.1");
   addEnv("SERVER_PROTOCOL", "HTTP/1.1");
   addEnv("SERVER_NAME", server._serverName);
@@ -297,6 +286,10 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("QUERY_STRING", getQueryFullPath(req));
   addEnv("REMOTE_ADDR", getClientIP(&context->addr));
   addEnv("CONTENT_TYPE", req.headers.find("Content-Type")->second);
+  if (req.headers.find("X-Secret-Header-For-Test") != req.headers.end())
+  {
+    addEnv("HTTP_X_SECRET_HEADER_FOR_TEST", "1");
+  }
   if (req.headers.find("Content-Length") == req.headers.end())
   {
     addEnv("CONTENT_LENGTH", "");
@@ -304,18 +297,22 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   else
     addEnv("CONTENT_LENGTH", req.headers.find("Content-Length")->second);
   getPATH(server, req);
+/*  for (size_t i = 0; i < envCount; ++i)
+  {
+    std::cerr << env[i]<< std::endl;
+  }*/
 }
 // fork, pipe init
-void CGI::processInit(CGI* cgi)
+void CGI::setFilePath(CGI* cgi)
 {
   std::string infilepath;
   std::string outfilepath;
   static size_t fileCount;
 
-  infilepath.assign(getCWD());
+  infilepath.assign(ft_getcwd());
   infilepath.append("/tempfile/in");
   infilepath.append(ft_itos(fileCount));
-  outfilepath.assign(getCWD());
+  outfilepath.assign(ft_getcwd());
   outfilepath.append("/tempfile/out");
   outfilepath.append(ft_itos(fileCount++));
   writeFilePath = infilepath;
@@ -329,16 +326,15 @@ void CGIProcess(struct Context* context)
   Server& server = context->manager->getMatchedServer(req);
 
   context->cgi->setCGIenv(server, req, context);
-  context->cgi->processInit(context->cgi);
-  context->cgi->CGIFileWriteEvent(context);
-  //context->cgi->CGIChildEvent(context);
+  context->cgi->setFilePath(context->cgi);
+  context->cgi->attachFileWriteEvent(context);
 }
 
 bool isCGIRequest(const std::string& file, Location* loc)
 {
   size_t findPOS;
 
-  if (loc->cgiInfo.size() == 0)
+  if (loc->cgiInfo.begin()->size() == 0)
   {
     return false;
   }

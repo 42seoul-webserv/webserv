@@ -24,17 +24,17 @@ class CGI
 
 
     std::string getQueryFullPath(HTTPRequest& req);
-    static std::string getCWD();
+    static std::string ft_getcwd();
     void parseStartLine(struct Context* context, std::string &message);
     void parseHeader(HTTPResponse* res, std::string &message);
     void parseBody(HTTPResponse* res, size_t count);
     void parseCGI(struct Context* context);
     void closeProcess(); //child수거?, response 생성?
-    void processInit(CGI* cgi); // fork, pipe init
+    void setFilePath(CGI* cgi); // fork, pipe init
     void setCGIenv(Server server, HTTPRequest& req, struct Context* context);
     void getPATH(Server server, HTTPRequest& req);
     void addEnv(std::string key, std::string val);
-    void CGIFileWriteEvent(struct Context* context);
+    void attachFileWriteEvent(struct Context* context);
     void CGIChildEvent(struct Context* context);
     void CGIfork(struct Context* context);
     CGI();

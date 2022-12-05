@@ -165,6 +165,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   }
   else if (isCGIRequest(filePath, getMatchedLocation(req)))
   {
+    clearContexts(context);
     CGIProcess(context);
     return (NULL);
   }
@@ -180,7 +181,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
       response->setFd(getErrorPageFd(RETURN_STATUS));
       return (response);
     }
-    response = new HTTPResponse(ST_ACCEPTED, std::string("Accepted"), context->manager->getServerName(context->addr.sin_port));
+    response = new HTTPResponse(ST_ACCEPTED, std::string("ACCEPTED"), context->manager->getServerName(context->addr.sin_port));
     response->addHeader("Content-Location", filePath);
     response->setFd(-1);
     // prepare event context

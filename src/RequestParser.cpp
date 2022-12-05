@@ -150,13 +150,6 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
     request->status = END;
     return;
   }
-/*  std::cerr << "header size check" << std::endl;
-  std::cerr << request->headers.size() << std::endl;
-  for (std::map<std::string, std::string>::iterator it = request->headers.begin();\
-        it != request->headers.end(); ++it)
-    {
-      std::cout << it->first << " : " << it->second<< std::endl;
-    }*/
   length = request->headers.find("Content-Length");
   chunked = request->headers.find("Transfer-Encoding");
   if (chunked != request->headers.end() && chunked->second == "chunked")
@@ -322,6 +315,11 @@ void RequestParser::checkCRLF(HTTPRequest* request)
 
   if (endPOS != std::string::npos)
   {
+    //request message
+    //std::string temp;
+    //temp.assign(request->message->begin(), request->message->begin() + endPOS);
+    //std::cerr << "requeset" << std::endl;
+    //std::cerr << temp << std::endl;
     request->checkLevel = STARTLINE;
     getStartLine(request, nowPOS);
     getQuery(request);
@@ -389,6 +387,7 @@ void RequestParser::parseRequest(struct Context* context)
   }
   if (context->req->status == ERROR || context->req->status == END)
   {
+   // std::cout << *context->req->message << '\n';
     delete (context->req->message);
     context->req->message = NULL;
   }

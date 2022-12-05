@@ -54,6 +54,7 @@ void CGIChildHandler(struct Context* context)
   EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0,NULL);
   context->manager->attachNewEvent(context, event);*/
   unlink(context->cgi->writeFilePath.c_str());
+  struct Context* origin = (*(context->connectContexts))[0];
   if (context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
@@ -66,13 +67,14 @@ void CGIChildHandler(struct Context* context)
   }
   else
   {
-    context->connectContexts->push_back(context);
-    context->req = new HTTPRequest(*context->req);
-    std::cerr << "body size : "<<context->req->body.size() << std::endl;
-    context->cgi->parseCGI(context);
-    delete context->cgi;//소멸자로 fd unlink해주는게 좋을듯?
-    context->cgi = NULL;
-    context->res->sendToClient(context);
+    //context->connectContexts->push_back(context);
+    //context->req = new HTTPRequest(*context->req);
+    free(context);
+    origin->cgi->parseCGI(origin);
+    
+    delete origin->cgi;//소멸자로 fd unlink해주는게 좋을듯?
+    origin->cgi = NULL;
+    origin->res->sendToClient(origin);
   }
 }
 
@@ -136,7 +138,7 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = new std::vector<struct Context*>();
     newContext->connectContexts->push_back(newContext);
-
+    newContext->test = 1;
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
@@ -152,11 +154,24 @@ void handleEvent(struct kevent* event)
   {
     if (event->filter != EVFILT_PROC && (event->flags & EV_EOF || event->fflags & EV_EOF))
     {
-      printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
-      shutdown(eventData->fd, SHUT_RDWR);
-      close(eventData->fd);
-      clearContexts(eventData);
-      delete (eventData);
+      if (event->filter == EVFILT_READ)
+      {
+        printLog("Client closed connection (READ) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
+        shutdown(eventData->fd, SHUT_RD);
+        struct kevent ev;
+        EV_SET(&ev, event->ident, event->filter, EV_DELETE, 0, 0, NULL);
+        eventData->manager->attachNewEvent(eventData, ev);
+      }
+      else if (event->filter == EVFILT_WRITE && eventData->totalIOSize >= eventData->res->getContentLength())
+      {
+        printLog("Client closed connection (WRITE) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
+        shutdown(eventData->fd, SHUT_RDWR);
+        close(eventData->fd);
+        // clearContexts(eventData);
+        delete (eventData);
+      }
     }
     else if (event->flags & EV_ERROR)
     {
