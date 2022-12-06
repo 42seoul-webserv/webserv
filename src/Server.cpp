@@ -105,7 +105,7 @@ FileDescriptor Server::getErrorPageFd(const StatusCode& stCode)
 // TODO: Location과 directory는 분리해야 한다.
 // 127.0.0.1:4242/directory 로 보냈을때 location 정보가 YoupiBanne와 합쳐짐.
 
-HTTPResponse* Server::processGETRequest(const struct Context* context)
+HTTPResponse* Server::processGETRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
@@ -119,13 +119,12 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
-  // check this file is CGI path
-  //if (CGI)
-  //{
-  //  cgiRequest(req, filePath);
-  //  return ;
-  //}
-  // check is valid file
+  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  {
+    clearContexts(context);
+    CGIProcess(context);
+    return (NULL);
+  }
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
     if (DEBUG_MODE)
@@ -153,6 +152,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {//std::cerr <<"inpost" << std::endl;
   HTTPRequest& req = *context->req;
 
+  std::cout << "POST\n";
   // check matched location
   std::string filePath = getRealFilePath(req);
 
@@ -165,6 +165,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   }
   else if (isCGIRequest(filePath, getMatchedLocation(req)))
   {
+	  std::cout << "CGI\n";
     clearContexts(context);
     CGIProcess(context);
     return (NULL);
@@ -186,9 +187,10 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(-1);
     // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
-    newContext->res = new HTTPResponse(*response);
-    newContext->req = new HTTPRequest(*context->req);
+    newContext->res = response;
+    newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
+	std::cout << "CONTEXT KQ : " << newContext->threadKQ << ", " << context->threadKQ << "\n";
     newContext->totalIOSize = 0;
     // attach event
     struct kevent event;
@@ -231,8 +233,8 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     response->setFd(-1);
     // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
-    newContext->res = new HTTPResponse(*response);
-    newContext->req = new HTTPRequest(*context->req);
+    newContext->res = response;
+    newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
     newContext->totalIOSize = 0;
     // attach event

@@ -44,7 +44,7 @@ public:
     Server();
     ~Server();
 private:
-    HTTPResponse* processGETRequest(const struct Context* context);
+    HTTPResponse* processGETRequest(struct Context* context);
     HTTPResponse* processPOSTRequest(struct Context* context);
     HTTPResponse* processPUTRequest(struct Context* context);
     HTTPResponse* processDELETERequest(const struct Context* context);
