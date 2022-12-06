@@ -147,7 +147,7 @@ void RequestProcessor::processRequest(struct Context* context)
       printLog(*req.message, PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
     context->res = response;
-
+    response->setFd(-1);
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
     response->sendToClient(context);
     return;
@@ -165,6 +165,7 @@ void RequestProcessor::processRequest(struct Context* context)
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
       response->sendToClient(context);
+      response->setFd(-1);
       if (req.status == HEADEROK)
       {
         delete (req.message);
@@ -181,6 +182,7 @@ void RequestProcessor::processRequest(struct Context* context)
       // set location header.
       response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+      response->setFd(-1);
       response->sendToClient(context);
       return ;
     }
