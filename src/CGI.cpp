@@ -153,7 +153,6 @@ void CGI::attachFileWriteEvent(struct Context* context)
   newContext->req = context->req;
   newContext->cgi = context->cgi;
   newContext->threadKQ = context->threadKQ;
-  newContext->connectContexts = context->connectContexts;
   struct kevent event;
   EV_SET(&event, newContext->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   newContext->manager->attachNewEvent(newContext, event);
@@ -193,6 +192,7 @@ void CGI::CGIChildEvent(struct Context* context)
   newContext->req = context->req;
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
+  newContext->connectContexts->push_back(newContext);
   struct kevent event;
   std::cout << "attach process ev\n";
   EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
@@ -269,6 +269,7 @@ void CGI::getPATH(Server server, HTTPRequest& req)
   }
   else
   {
+    delete[] (cmd[1]);
     cmd[1] = NULL;
   }
   addEnv("PATH_INFO", requestpath);
@@ -334,24 +335,12 @@ void CGIProcess(struct Context* context)
 
 bool isCGIRequest(const std::string& file, Location* loc)
 {
-  size_t findPOS;
-
   if (loc == NULL)
     return (false);
-  if (loc->cgiInfo.begin()->size() == 0)
+  if (loc->cgiInfo.begin()->empty())
   {
-    return false;
+    return (false);
   }
   else
-    return true;
-  findPOS = file.find(*loc->cgiInfo.begin());
-  if (findPOS == std::string::npos)
-  {
-    return false;
-  }
-  if (!file.compare(findPOS, std::string::npos, *loc->cgiInfo.begin()))
-  {
-    return true;
-  }
-  return false;
+    return (true);
 }

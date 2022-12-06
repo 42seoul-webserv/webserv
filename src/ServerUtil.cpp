@@ -58,7 +58,7 @@ void CGIChildHandler(struct Context* context)
   if (context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
-    HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway borken", context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway broken", context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
     delete context->cgi;
@@ -118,6 +118,8 @@ void acceptHandler(struct Context* context)
   {
     if (DEBUG_MODE)
       printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
+    if (THREAD_MODE)
+      delete (context);
     return ;
   }
   else
@@ -127,8 +129,8 @@ void acceptHandler(struct Context* context)
     {
       throw (std::runtime_error("fcntl non block failed\n"));
     }
-    struct linger _linger = {1, 0};
-    if (setsockopt(newSocket, SOL_SOCKET, SO_LINGER, &_linger, sizeof(_linger)) < 0 )
+    struct linger optLinger = {1, 0};
+    if (setsockopt(newSocket, SOL_SOCKET, SO_LINGER, &optLinger, sizeof(optLinger)) < 0 )
     {
       throw (std::runtime_error("Socket opt failed\n"));
     }
@@ -175,8 +177,6 @@ void handleEvent(struct kevent* event)
     }
     else
     {
-      //std::cerr << "filter chekc" << std::endl;
-      //std::cerr << event->filter << std::endl;
       eventData->handler(eventData);
     }
   }
