@@ -10,6 +10,9 @@
 #include <ctime>
 #include <iostream>
 
+#define SESSION_VALID   (1)
+#define SESSION_INVALID (0)
+#define SESSION_UNSET   (-1)
 
 namespace WS {
     class Time {

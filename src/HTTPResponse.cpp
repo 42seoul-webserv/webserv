@@ -367,6 +367,28 @@ void HTTPResponse::sendToClient(struct Context* context)
 
   // * (0) Handle Cookie
   Server& server = context->manager->getMatchedServer(*context->req);
+  server._sessionStorage.clearExpiredID(); // clear expired session.
+  int sessionStatus = server.isSessionValid(*context->req);
+  if (sessionStatus == SESSION_UNSET) // create session_id and pass to client
+  {
+      std::string NEW_SESSION_ID = gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
+      this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) 
+                                          + "=" + NEW_SESSION_ID + "; " 
+                                          + "Expires=" + HTTPResponse::getDateByHourOffset(+SESSION_EXPIRE_HOUR)));
+      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(SESSION_EXPIRE_HOUR)); 
+  } 
+  else if (sessionStatus == SESSION_INVALID) // unset client's session-cookie.
+  {
+    this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) + "=" 
+                                          + Session::gen_random_string(SESSION_ID_LENGH) + "; " 
+                                          + "Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";"
+                                          )); // set past date to delete cookie.
+  }
+  else // valid client session
+    std::cout << "# Client session validated\n";
+
+
+  /*
   std::map<std::string, std::string>::const_iterator headerString_itr = context->req->headers.find("Cookie");
   if (headerString_itr != context->req->headers.end()) // if header has Cookie.
   {  
@@ -392,7 +414,7 @@ void HTTPResponse::sendToClient(struct Context* context)
       server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(+OFFSET));
     }
   }
-  server._sessionStorage.clearExpiredID();
+  */
 
   // * (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
