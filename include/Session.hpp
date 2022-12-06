@@ -51,19 +51,19 @@ namespace WS {
           struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
 
           if (_year != pLocal->tm_year)
-            return (_year > pLocal->tm_year);
+            return (_year < pLocal->tm_year);
           else if (this->_month != pLocal->tm_mon)
-            return (_month > pLocal->tm_mon);
+            return (_month < pLocal->tm_mon);
           else if (this->_day != pLocal->tm_mday)
-            return (_day > pLocal->tm_mday);
+            return (_day < pLocal->tm_mday);
           else if (this->_hour != pLocal->tm_hour)
-            return (_hour > pLocal->tm_hour);
+            return (_hour < pLocal->tm_hour);
           else if (this->_min != pLocal->tm_min)
-            return (_min > pLocal->tm_min);
+            return (_min < pLocal->tm_min);
           else if (this->_sec != pLocal->tm_sec)
-            return (_sec > pLocal->tm_sec);
+            return (_sec < pLocal->tm_sec);
           else
-            return (false);
+            return (true);
         }
 
         Time& getByHourOffset(int hour_offset)
@@ -93,35 +93,36 @@ public:
     {
       if (_storage.empty())
       {
-        std::cerr << "Storage size : " << _storage.size() << std::endl;
+        std::cerr << "Session_Storage is empty" << std::endl;
         return ;
       }
       std::map<std::string, WS::Time>::iterator itr = _storage.begin();
       while (itr != _storage.end())
       {
+        std::cout << "Check Expired ID : " + itr->first  << " --> " << (itr->second.isPast() ? "true" : "false") << std::endl;
         if (itr->second.isPast()) // if expired Session ID
-          this->_storage.erase(itr->first);
-        itr++;
+          this->_storage.erase((itr++)->first);
+        else
+          ++itr;
       }
     }
 
     // validate given id
     bool isValid_ID(const std::string& clientID)
     {
-      // traverse through storage. if given id is inside storage, then return true;
-      std::map<std::string, WS::Time>::iterator itr = _storage.begin();
-      while (itr != _storage.end())
-      {
-        if (clientID == itr->first) // if _storage has clientID
-          return true;
-        itr++;
-      }
-      return false;
+      if (Session::find(clientID) != _storage.end())
+        return (true);
+      return (false);
     }
 
     void add(const std::string& id, const WS::Time& expire_time)
     {
       _storage[id] = expire_time;
+    }
+
+    std::map<std::string, WS::Time>::iterator find(const std::string& id)
+    {
+      return _storage.find(id);
     }
 };
 

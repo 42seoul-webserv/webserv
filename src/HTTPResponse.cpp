@@ -60,6 +60,23 @@ std::string HeaderType::GET_MON(long tm_wmon)
   }
 }
 
+std::string ft_itos_width(int num, int minimum_width)
+{
+  std::string origin = ft_itos(num);
+  std::string result;
+  if (origin.size() < minimum_width)
+  {
+    for (int i = 0; i < minimum_width - origin.size(); i++)
+    {
+      result.append("0");
+    }
+    result.append(origin);
+    return (result);
+  }
+  else
+    return (origin);
+}
+
 std::string HeaderType::getDate()
 {
   time_t curTime = time(NULL);          // get current time info
@@ -70,8 +87,8 @@ std::string HeaderType::getDate()
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
-           ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
+           ft_itos_width(pLocal->tm_hour, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
   return (result);
 }
 
@@ -86,8 +103,8 @@ std::string HeaderType::getDateByYearOffset(int year_diff)
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900 + year_diff) + " " +
-           ft_itos(pLocal->tm_hour) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900 + year_diff) + " " +
+           ft_itos_width(pLocal->tm_hour, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
   return (result);
 }
 
@@ -102,8 +119,8 @@ std::string HeaderType::getDateByHourOffset(int hour_diff)
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
-           ft_itos(pLocal->tm_hour + hour_diff) + ":" + ft_itos(pLocal->tm_min) + ":" + ft_itos(pLocal->tm_sec) + " GMT";
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
+           ft_itos_width(pLocal->tm_hour + hour_diff, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
   return (result);
 }
 
@@ -344,7 +361,7 @@ void HTTPResponse::sendToClient(struct Context* context)
 {
   clearContexts(context);
   context->res = this;
-
+  // 인증된 세션의 경우 화면을 이동해도 로그인이 풀리지 않고 로그아웃하기 전까지 유지.
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
 
@@ -353,28 +370,31 @@ void HTTPResponse::sendToClient(struct Context* context)
   std::map<std::string, std::string>::const_iterator headerString_itr = context->req->headers.find("Cookie");
   if (headerString_itr != context->req->headers.end()) // if header has Cookie.
   {
+    const size_t      SESSION_ID_LENGH = 15;
     const std::string SESSION_KEY("WEBSERV_ID");
     const std::string cookies = headerString_itr->second;
     const size_t id_loc = cookies.find(SESSION_KEY);
     if (id_loc != std::string::npos) // if session id exists,
     {
-      // get id from cookies to compare with server-side session_id
       const size_t idStartLoc = id_loc + SESSION_KEY.size() + 1;
-      const size_t idEndLoc = cookies.find(";", idStartLoc, std::string::npos); // ! FIX 여기서 한번 터짐.
-      const std::string receivedId = cookies.substr(idStartLoc, idEndLoc);
+      const std::string receivedId = cookies.substr(idStartLoc, SESSION_ID_LENGH);
       if (!(server._sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
-        this->addHeader(HTTPResponse::SET_COOKIE("Expires=" + HTTPResponse::getDateByYearOffset(-1))); // set past date to delete cookie.
-        // ! FIX : expires가 제대로 작동하지 않는다. 왜그러지?
+      {
+        std::cout << "[ Validation failed ]\n";
+        this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + gen_random_string(SESSION_ID_LENGH) + "; " + "Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";")); // set past date to delete cookie.
+      }
+      else
+        std::cout << "[ Valication success ]\n";
     }
     else // if session id doesn't exist, then set token cookie to client, then also save it to connection_info.
     {
-      const int OFFSET = 1;
-      std::string NEW_SESSION_ID = gen_random_string(15); // !WARN : this method is very insecure!
-      this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + NEW_SESSION_ID + "; " + "Expires=" + HTTPResponse::getDateByHourOffset(OFFSET))); // set client's id
-      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(OFFSET));
+      const int OFFSET = 1; // expires in 1 hour.
+      std::string NEW_SESSION_ID = gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
+      this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + NEW_SESSION_ID + "; " + "expires=" + HTTPResponse::getDateByHourOffset(+OFFSET))); // set client's id
+      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(+OFFSET));
     }
   }
-//  server._sessionStorage.clearExpiredID();
+  server._sessionStorage.clearExpiredID();
 
   // * (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
