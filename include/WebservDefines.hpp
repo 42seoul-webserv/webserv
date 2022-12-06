@@ -8,12 +8,11 @@
 #define LISTEN_QUEUE_SIZE 1024
 #define FAILED (-1)
 #define THREAD_NO 16
-#define THREAD_MODE (1)
-#define DEBUG_MODE (0)
+#define THREAD_MODE (0)
+#define DEBUG_MODE (1)
 #define SESSION_ID_LENGH (15)
 #define SESSION_KEY ("WEBSERV_ID")
 #define SESSION_EXPIRE_HOUR (+1)
-
 // colors
 #define PRINT_RED     "\x1b[31m"
 #define PRINT_GREEN   "\x1b[32m"

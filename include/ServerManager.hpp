@@ -8,10 +8,9 @@
 #include "RequestParser.hpp"
 #include "HTTPResponse.hpp"
 #include "ThreadPool.hpp"
+#include "CGI.hpp"
 
 class ServerManager;
-
-class CGI;
 
 struct Context
 {
@@ -19,8 +18,8 @@ struct Context
     struct sockaddr_in addr;
     void (* handler)(struct Context* obj);
     ServerManager* manager;
-    HTTPRequest* req;
     CGI* cgi;
+    HTTPRequest* req;
     HTTPResponse* res; // -> for file FD, ContentLength... etc
     char* ioBuffer;
     size_t  bufferSize;
@@ -37,6 +36,7 @@ struct Context
             addr(_addr),
             handler(_handler),
             manager(_manager),
+            cgi(NULL),
             req(NULL),
             res(NULL),
             ioBuffer(NULL),
@@ -62,7 +62,7 @@ struct Context
             delete (context->ioBuffer);
           // 이렇게 안하면 재귀 호출됨...
           if (context != this)
-            free (context);
+            free(context);
         }
         // 중복되는 자료.
         delete (this->connectContexts);
@@ -87,7 +87,7 @@ public:
     void run();
     void initServers();
     void attachServerEvent(Server& server);
-    void attachNewEvent(struct Context* context, const struct kevent& event);
+    int attachNewEvent(struct Context* context, const struct kevent& event);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();

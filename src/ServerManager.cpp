@@ -181,7 +181,7 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
   return (_serverList[0]);
 }
 
-void ServerManager::attachNewEvent(struct Context* context, const struct kevent& event)
+int ServerManager::attachNewEvent(struct Context* context, const struct kevent& event)
 {
   FileDescriptor kq;
 
@@ -194,9 +194,13 @@ void ServerManager::attachNewEvent(struct Context* context, const struct kevent&
     if (DEBUG_MODE)
     {
       printLog("event attach failed\n", PRINT_YELLOW);
-	  std::cout << kq << "\n";
-	  std::cout << context->threadKQ << "\n";
-	  std::cout << context->req->status << "\n";
+      std::cout << kq << " (attach) \n";
+      std::cout << event.ident << "(ident) (attach) \n";
+      std::cout << strerror(errno) << " (attach) \n";
+      std::cout << context->threadKQ << " (attach) \n";
+      std::cout << context->req->status << " (attach) \n";
     }
+    return (FAILED);
   }
+  return (0);
 }
