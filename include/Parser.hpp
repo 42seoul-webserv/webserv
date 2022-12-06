@@ -16,7 +16,7 @@
 #define DEFAULT_INDEX "_index.html"
 #define DEFAULT_ROOT "./"
 #define DEFAULT_SOCKET_LISTEN_ADDR "0.0.0.0:80"
-#define DEFAULT_ALLOW_METHODS GET
+#define DEFAULT_ALLOW_METHODS UNDEFINED
 
 struct ParserNode
 {

@@ -91,14 +91,13 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   }
   else
   {
-    // FIXME : 여기서 안걸림. 
-    if (isCGIRequest(matchedServer.getRealFilePath(req), loc))
-    {
-      return (ST_OK);
-    }
     if (!isAllowedMethod(loc->allowMethods, req.method))
     {
       return (ST_METHOD_NOT_ALLOWED);
+    }
+    if (isCGIRequest(matchedServer.getRealFilePath(req), loc))
+    {
+      return (ST_OK);
     }
     if (req.chunkedFlag == true && req.body.size() <= loc->clientMaxBodySize)
     {
@@ -146,9 +145,13 @@ void RequestProcessor::processRequest(struct Context* context)
     if (DEBUG_MODE)
       printLog(*req.message, PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
+    Server& server = _serverManager.getMatchedServer(req);
+
     context->res = response;
-    response->setFd(-1);
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+    response->setFd(server.getErrorPageFd(ST_BAD_REQUEST));
+    if (response->getFd() > 0)
+      response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     response->sendToClient(context);
     return;
   }
@@ -164,8 +167,10 @@ void RequestProcessor::processRequest(struct Context* context)
       context->res = response;
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+      response->setFd(server.getErrorPageFd(status));
+      if (response->getFd() > 0)
+        response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
       response->sendToClient(context);
-      response->setFd(-1);
       if (req.status == HEADEROK)
       {
         delete (req.message);
