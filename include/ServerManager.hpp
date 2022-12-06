@@ -58,8 +58,6 @@ struct Context
         {
           struct Context* context = *it;
 
-          if (context->req != NULL)
-            delete (context->req);
           if (context->ioBuffer != NULL)
             delete (context->ioBuffer);
           // 이렇게 안하면 재귀 호출됨...
@@ -69,7 +67,6 @@ struct Context
         // 중복되는 자료.
         delete (this->connectContexts);
       }
-      delete (this->res);
     }
 };
 

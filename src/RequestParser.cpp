@@ -368,7 +368,7 @@ void RequestParser::parseRequest(struct Context* context)
 {
   if (!context->req)
   {
-    printLog("New request\t" + getClientIP(&context->addr) + "\n" , PRINT_BLUE);
+    printLog("New request\t" + getClientIP(&context->addr) + "\n" , PRINT_CYAN);
     context->req = new HTTPRequest;
     context->req->message = new std::string("");
     gettimeofday(&context->req->baseTime, NULL);
@@ -387,7 +387,7 @@ void RequestParser::parseRequest(struct Context* context)
   }
   if (context->req->status == ERROR || context->req->status == END)
   {
-   // std::cout << *context->req->message << '\n';
+//    std::cout << *context->req->message << '\n';
     delete (context->req->message);
     context->req->message = NULL;
   }

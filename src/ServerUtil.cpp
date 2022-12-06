@@ -58,7 +58,7 @@ void CGIChildHandler(struct Context* context)
   if (context->cgi->exitStatus)
   {
     close(context->cgi->readFD);
-    HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway borken", context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway broken", context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
     delete context->cgi;
@@ -98,7 +98,8 @@ void CGIWriteHandler(struct Context* context)
 
 void socketReceiveHandler(struct Context* context)
 {
-//  printLog("sk recv handler called\n", PRINT_CYAN);
+	if (DEBUG_MODE)
+		printLog("sk recv handler called\n", PRINT_CYAN);
   if (!context)
     throw (std::runtime_error("NULL context"));
   context->manager->getRequestParser().parseRequest(context);
@@ -117,6 +118,8 @@ void acceptHandler(struct Context* context)
   {
     if (DEBUG_MODE)
       printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
+    if (THREAD_MODE)
+      delete (context);
     return ;
   }
   else
@@ -126,8 +129,8 @@ void acceptHandler(struct Context* context)
     {
       throw (std::runtime_error("fcntl non block failed\n"));
     }
-    struct linger _linger = {1, 0};
-    if (setsockopt(newSocket, SOL_SOCKET, SO_LINGER, &_linger, sizeof(_linger)) < 0 )
+    struct linger optLinger = {1, 0};
+    if (setsockopt(newSocket, SOL_SOCKET, SO_LINGER, &optLinger, sizeof(optLinger)) < 0 )
     {
       throw (std::runtime_error("Socket opt failed\n"));
     }
@@ -153,24 +156,11 @@ void handleEvent(struct kevent* event)
   {
     if (event->filter != EVFILT_PROC && (event->flags & EV_EOF || event->fflags & EV_EOF))
     {
-      if (event->filter == EVFILT_READ)
-      {
-        printLog("Client closed connection (READ) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
-        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
-        shutdown(eventData->fd, SHUT_RD);
-        struct kevent ev;
-        EV_SET(&ev, event->ident, event->filter, EV_DELETE, 0, 0, NULL);
-        eventData->manager->attachNewEvent(eventData, ev);
-      }
-      else if (event->filter == EVFILT_WRITE && eventData->totalIOSize >= eventData->res->getContentLength())
-      {
-        printLog("Client closed connection (WRITE) : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
-        std::cout << "Total io : " << eventData->totalIOSize << std::endl;
-        shutdown(eventData->fd, SHUT_RDWR);
-        close(eventData->fd);
-        // clearContexts(eventData);
-        delete (eventData);
-      }
+      printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
+      shutdown(eventData->fd, SHUT_RDWR);
+      close(eventData->fd);
+      clearContexts(eventData);
+      delete (eventData);
     }
     else if (event->flags & EV_ERROR)
     {
@@ -187,8 +177,6 @@ void handleEvent(struct kevent* event)
     }
     else
     {
-      //std::cerr << "filter chekc" << std::endl;
-      //std::cerr << event->filter << std::endl;
       eventData->handler(eventData);
     }
   }
@@ -213,14 +201,6 @@ void writeFileHandle(struct Context* context)
   if (context->totalIOSize >= req.body.size()) // If write finished
   {
     close(context->fd);
-    if (context->req != NULL)
-    {
-      delete (context->req);
-    }
-    if (context->res != NULL)
-    {
-      delete (context->res);
-    }
     free(context);
   }
 }
@@ -309,6 +289,7 @@ void clearContexts(struct Context* context)
 {
   // 내부에서 본인 제외 모두 삭제.
   HTTPResponse* res = NULL;
+  HTTPRequest* req = NULL;
 
   for (
           std::vector<struct Context*>::iterator it = context->connectContexts->begin();
@@ -318,16 +299,20 @@ void clearContexts(struct Context* context)
   {
     struct Context* data = *it;
 
-//std::cerr << "clear call"<< std::endl;
     if (data == context)
-      continue;
-    if (data->req != NULL)
     {
-      delete (data->req);
+      continue;
+    }
+    if (data->req)
+    {
+      req = data->req;
       data->req = NULL;
     }
     if (data->res)
+    {
       res = data->res;
+      data->res = NULL;
+    }
     if (data->ioBuffer != NULL)
     {
       delete (data->ioBuffer);
@@ -343,6 +328,11 @@ void clearContexts(struct Context* context)
   {
     delete (res);
     res = NULL;
+  }
+  if (req != NULL)
+  {
+    delete (req);
+    req = NULL;
   }
   context->connectContexts->clear();
   context->connectContexts->push_back(context);
