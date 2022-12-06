@@ -58,7 +58,6 @@ Session::~Session()
 }
 
 // travers map, and delete expired session.
-// ! FIX Needed
 void Session::clearExpiredID()
 {
   if (_storage.empty())
