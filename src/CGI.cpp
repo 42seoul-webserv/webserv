@@ -191,11 +191,11 @@ void CGI::CGIChildEvent(struct Context* context)
   newContext->connectContexts = context->connectContexts;
   while (true)
   {
-    context->cgi->CGIfork(context);
+    newContext->cgi->CGIfork(newContext);
     EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
     if (newContext->manager->attachNewEvent(newContext, event) < 0)
     {
-      kill(context->cgi->pid, SIGKILL);
+      kill(newContext->cgi->pid, SIGKILL);
     }
     else
     {
@@ -376,4 +376,20 @@ bool isCGIRequest(const std::string& file, Location* loc)
   }
   else
     return (true);
+}
+
+bool clearCGI(struct Context* context)
+{
+  struct stat stat_buf;
+  if (fstat(context->fd, &stat_buf) < 0)
+  {
+    std::cerr << "clear chekc" <<std::endl;
+    close(context->cgi->readFD);
+    close(context->cgi->writeFD);
+    delete (context->cgi);
+    context->cgi = NULL;
+    free(context);
+    return true;
+  }
+  return false;
 }

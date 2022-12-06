@@ -44,6 +44,8 @@ class CGI
     CGI();
     ~CGI();
 };
+
+bool clearCGI(struct Context* context);
 void CGIProcess(struct Context* context); //processinit, kevent(fd), 
 bool isCGIRequest(const std::string& file, Location* loc);//cgi 확인
 #endif

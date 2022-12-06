@@ -3,7 +3,6 @@
 #include "HTTPResponse.hpp"
 #include "CGI.hpp"
 #include <sstream>
-#include <sys/stat.h>
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -49,13 +48,10 @@ std::string getClientIP(struct sockaddr_in* addr)
 
 void CGIParseHandler(struct Context* context)
 {
-  struct stat stat_buf;
-  if (fstat(context->fd, &stat_buf) < 0)
+  if (clearCGI(context) == true)
   {
-    close(context->cgi->readFD);
     return;
   }
-
   char buffer[BUFFER_SIZE];
   std::string message;
   size_t bodyPOS;
@@ -85,9 +81,13 @@ void CGIParseHandler(struct Context* context)
 }
 
 void CGIChildHandler(struct Context* context)
-{
+{   
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
   unlink(context->cgi->writeFilePath.c_str());
+  if (clearCGI(context) == true)
+  {
+    return;
+  }
   if (context->cgi->exitStatus)
   {
     struct Context* origin = (*(context->connectContexts))[0];
@@ -117,6 +117,10 @@ void CGIChildHandler(struct Context* context)
 
 void CGIWriteHandler(struct Context* context)
 {
+    if (clearCGI(context) == true)
+    {
+      return;
+    }
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
@@ -205,7 +209,6 @@ void handleEvent(struct kevent* event)
         close (eventData->cgi->readFD);
         delete (eventData->cgi);
       }
-
       eventData->req = NULL;
       delete (eventData);
     }

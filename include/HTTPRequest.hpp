@@ -45,7 +45,10 @@ public:
       message = NULL;
     }
     ~HTTPRequest()
-    {}
+    {
+        if (message)
+            delete message;
+    }
 };
 
 #endif 
