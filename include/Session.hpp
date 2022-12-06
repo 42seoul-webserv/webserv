@@ -22,56 +22,11 @@ namespace WS {
         int _year;
 
     public:
-        Time()
-        {
-          time_t curTime = time(NULL);          // get current time info
-          struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
-          _sec = pLocal->tm_sec;
-          _min = pLocal->tm_min;
-          _hour = pLocal->tm_hour;
-          _day = pLocal->tm_mday;
-          _month = pLocal->tm_mon;
-          _year = pLocal->tm_year;
-        }
-
-        Time(struct tm* pLocal)
-        {
-          _sec = pLocal->tm_sec;
-          _min = pLocal->tm_min;
-          _hour = pLocal->tm_hour;
-          _day = pLocal->tm_mday;
-          _month = pLocal->tm_mon;
-          _year = pLocal->tm_year;
-        }
-
+        Time();
+        Time(struct tm* pLocal);
         // 현재 시간을 기준으로 위 time정보가 과거인지 판단.
-        bool isPast()
-        {
-          time_t curTime = time(NULL);          // get current time info
-          struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
-
-          if (_year != pLocal->tm_year)
-            return (_year < pLocal->tm_year);
-          else if (this->_month != pLocal->tm_mon)
-            return (_month < pLocal->tm_mon);
-          else if (this->_day != pLocal->tm_mday)
-            return (_day < pLocal->tm_mday);
-          else if (this->_hour != pLocal->tm_hour)
-            return (_hour < pLocal->tm_hour);
-          else if (this->_min != pLocal->tm_min)
-            return (_min < pLocal->tm_min);
-          else if (this->_sec != pLocal->tm_sec)
-            return (_sec < pLocal->tm_sec);
-          else
-            return (true);
-        }
-
-        Time& getByHourOffset(int hour_offset)
-        {
-          Time resultTime;
-          this->_hour += hour_offset;
-          return (*this);
-        }
+        bool isPast();
+        Time& getByHourOffset(int hour_offset);
     };
 }
 
@@ -81,49 +36,18 @@ private:
     std::map<std::string, WS::Time> _storage;
 
 public:
-    ~Session()
-    {
-      _storage.clear();
-    }
-
-public:
-    // travers map, and delete expired session.
-    // ! FIX Needed
-    void clearExpiredID()
-    {
-      if (_storage.empty())
-      {
-        std::cerr << "Session_Storage is empty" << std::endl;
-        return ;
-      }
-      std::map<std::string, WS::Time>::iterator itr = _storage.begin();
-      while (itr != _storage.end())
-      {
-        std::cout << "Check Expired ID : " + itr->first  << " --> " << (itr->second.isPast() ? "true" : "false") << std::endl;
-        if (itr->second.isPast()) // if expired Session ID
-          this->_storage.erase((itr++)->first);
-        else
-          ++itr;
-      }
-    }
-
+    ~Session();
+    // delete expired id inside the storage
+    void clearExpiredID();
     // validate given id
-    bool isValid_ID(const std::string& clientID)
-    {
-      if (Session::find(clientID) != _storage.end())
-        return (true);
-      return (false);
-    }
-
-    void add(const std::string& id, const WS::Time& expire_time)
-    {
-      _storage[id] = expire_time;
-    }
-
-    std::map<std::string, WS::Time>::iterator find(const std::string& id)
-    {
-      return _storage.find(id);
-    }
+    bool isValid_ID(const std::string& clientID);
+    // add session_id to the storage
+    void add(const std::string& id, const WS::Time& expire_time);
+    // find given id in storage
+    std::map<std::string, WS::Time>::iterator find(const std::string& id);
+    // generate random string
+    static std::string gen_random_string(int len);
+   
 };
 
 

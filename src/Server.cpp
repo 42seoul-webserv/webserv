@@ -7,6 +7,32 @@
 
 // TODO : autoindex
 
+// TEST function for session + CGI. Need to implement others.
+bool Server::isSessionValid(const HTTPRequest& req)
+{
+  std::map<std::string, std::string>::const_iterator headerString_itr = req.headers.find("Cookie");
+  if (headerString_itr != req.headers.end()) // if header has Cookie.
+  {
+    const std::string cookies = headerString_itr->second;
+    const size_t id_loc = cookies.find(SESSION_KEY);
+    if (id_loc != std::string::npos) // if session id exists,
+    {
+      const size_t idStartLoc = id_loc + std::string(SESSION_KEY).size() + 1;
+      const std::string receivedId = cookies.substr(idStartLoc, SESSION_ID_LENGH);
+      if (!(this->_sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
+      {
+        std::cout << "[ Validation failed ]\n";
+        return (false);
+      }
+      else
+      {
+        std::cout << "[ Valication success ]\n";
+        return (true);
+      }
+    }
+  }
+}
+
 std::string Server::getRealFilePath(const HTTPRequest& req)
 {
   Location* loc = getMatchedLocation(req);

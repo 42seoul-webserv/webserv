@@ -369,19 +369,17 @@ void HTTPResponse::sendToClient(struct Context* context)
   Server& server = context->manager->getMatchedServer(*context->req);
   std::map<std::string, std::string>::const_iterator headerString_itr = context->req->headers.find("Cookie");
   if (headerString_itr != context->req->headers.end()) // if header has Cookie.
-  {
-    const size_t      SESSION_ID_LENGH = 15;
-    const std::string SESSION_KEY("WEBSERV_ID");
+  {  
     const std::string cookies = headerString_itr->second;
     const size_t id_loc = cookies.find(SESSION_KEY);
     if (id_loc != std::string::npos) // if session id exists,
     {
-      const size_t idStartLoc = id_loc + SESSION_KEY.size() + 1;
+      const size_t idStartLoc = id_loc + std::string(SESSION_KEY).size() + 1;
       const std::string receivedId = cookies.substr(idStartLoc, SESSION_ID_LENGH);
       if (!(server._sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
       {
         std::cout << "[ Validation failed ]\n";
-        this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + gen_random_string(SESSION_ID_LENGH) + "; " + "Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";")); // set past date to delete cookie.
+        this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) + "=" + Session::gen_random_string(SESSION_ID_LENGH) + "; " + "Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";")); // set past date to delete cookie.
       }
       else
         std::cout << "[ Valication success ]\n";
@@ -390,7 +388,7 @@ void HTTPResponse::sendToClient(struct Context* context)
     {
       const int OFFSET = 1; // expires in 1 hour.
       std::string NEW_SESSION_ID = gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
-      this->addHeader(HTTPResponse::SET_COOKIE(SESSION_KEY + "=" + NEW_SESSION_ID + "; " + "expires=" + HTTPResponse::getDateByHourOffset(+OFFSET))); // set client's id
+      this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) + "=" + NEW_SESSION_ID + "; " + "expires=" + HTTPResponse::getDateByHourOffset(+OFFSET))); // set client's id
       server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(+OFFSET));
     }
   }
