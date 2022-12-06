@@ -1,5 +1,7 @@
 #include "CGI.hpp"
 #include <cctype>
+#include "ServerManager.hpp"
+#include <signal.h>
 # define P_W	1
 # define P_R	0
 
@@ -13,6 +15,10 @@ CGI::CGI()
   cmd[1] = new char[PATH_MAX];
   cmd[2] = NULL;
   env = new char*[ENVCOUNT];
+  pid = -1;
+  writeFD = -1;
+  readFD = -1;
+  exitStatus = -1;
 }
 
 CGI::~CGI()
@@ -143,6 +149,7 @@ void CGI::attachFileWriteEvent(struct Context* context)
   newContext->req = context->req;
   newContext->cgi = context->cgi;
   newContext->threadKQ = context->threadKQ;
+  newContext->connectContexts = context->connectContexts;
   struct kevent event;
   EV_SET(&event, newContext->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   newContext->manager->attachNewEvent(newContext, event);
@@ -176,17 +183,25 @@ void CGI::CGIfork(struct Context* context)
 
 void CGI::CGIChildEvent(struct Context* context)
 {
-  context->cgi->CGIfork(context);
   struct Context* newContext = new struct Context(context->fd, context->addr, CGIChildHandler, context->manager);
+  struct kevent event;
   newContext->cgi = context->cgi;
   newContext->req = context->req;
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
-  newContext->connectContexts->push_back(newContext);
-  struct kevent event;
-  std::cout << "attach process ev\n";
-  EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
-  newContext->manager->attachNewEvent(newContext, event);
+  while (true)
+  {
+    context->cgi->CGIfork(context);
+    EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
+    if (newContext->manager->attachNewEvent(newContext, event) < 0)
+    {
+      kill(context->cgi->pid, SIGKILL);
+    }
+    else
+    {
+      break ;
+    }
+  }
 }
 
 void CGI::addEnv(std::string key, std::string val)

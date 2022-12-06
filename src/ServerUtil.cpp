@@ -49,6 +49,13 @@ std::string getClientIP(struct sockaddr_in* addr)
 
 void CGIParseHandler(struct Context* context)
 {
+  struct stat stat_buf;
+  if (fstat(context->fd, &stat_buf) < 0)
+  {
+    close(context->cgi->readFD);
+    return;
+  }
+
   char buffer[BUFFER_SIZE];
   std::string message;
   size_t bodyPOS;
@@ -70,6 +77,7 @@ void CGIParseHandler(struct Context* context)
     origin->cgi->readFD = open(origin->cgi->readFilePath.c_str(), O_RDONLY);
     lseek(origin->cgi->readFD, message.size() ,SEEK_SET);
     origin->cgi->parseCGI(origin, message);
+    origin->cgi->pid = -1;
     delete origin->cgi;//소멸자로 fd unlink해주는게 좋을듯?
     origin->cgi = NULL;
     origin->res->sendToClient(origin);
@@ -80,9 +88,9 @@ void CGIChildHandler(struct Context* context)
 {
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
   unlink(context->cgi->writeFilePath.c_str());
-  struct Context* origin = (*(context->connectContexts))[0];
   if (context->cgi->exitStatus)
   {
+    struct Context* origin = (*(context->connectContexts))[0];
     HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway broken", context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));

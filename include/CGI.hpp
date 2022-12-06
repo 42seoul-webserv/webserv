@@ -2,11 +2,14 @@
 # define CGI_HPP
 #include <unistd.h>
 #include <cstdlib>
-#include "ServerManager.hpp"
 #include "HTTPResponse.hpp"
+#include "HTTPRequest.hpp"
+#include "Server.hpp"
 # define ENVCOUNT 60
 //void pipeWriteHandler(); -> serverutil
 //void CGIChildHandler();
+struct Context;
+
 class CGI
 {
   public:

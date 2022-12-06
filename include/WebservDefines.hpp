@@ -8,8 +8,8 @@
 #define LISTEN_QUEUE_SIZE 1024
 #define FAILED (-1)
 #define THREAD_NO 16
-#define THREAD_MODE (1)
-#define DEBUG_MODE (0)
+#define THREAD_MODE (0)
+#define DEBUG_MODE (1)
 
 // colors
 #define PRINT_RED     "\x1b[31m"

@@ -152,7 +152,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {//std::cerr <<"inpost" << std::endl;
   HTTPRequest& req = *context->req;
 
-  std::cout << "POST\n";
   // check matched location
   std::string filePath = getRealFilePath(req);
 
@@ -165,7 +164,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   }
   else if (isCGIRequest(filePath, getMatchedLocation(req)))
   {
-	  std::cout << "CGI\n";
     clearContexts(context);
     CGIProcess(context);
     return (NULL);
