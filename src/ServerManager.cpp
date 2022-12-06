@@ -81,6 +81,17 @@ void ServerManager::initServers()
           )
   {
     server->openServer();
+    for (
+        std::vector<Server>::iterator temp = _serverList.begin();
+        temp != server;
+        ++temp
+        )
+    {
+      if ((*temp)._serverPort == (*server)._serverPort && (*temp)._serverName == (*server)._serverName)
+        throw (std::runtime_error("Same port and Same server\n"));
+      if ((*temp)._serverPort == (*server)._serverPort)
+        return ;
+    }
     attachServerEvent(*server);
   }
 }
