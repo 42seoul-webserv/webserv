@@ -1,4 +1,5 @@
 #include "CGI.hpp"
+#include <cctype>
 # define P_W	1
 # define P_R	0
 
@@ -270,8 +271,38 @@ void CGI::getPATH(Server server, HTTPRequest& req)
     cmd[1] = NULL;
   }
   addEnv("PATH_INFO", requestpath);
-  requestpath.append("?var1=value1&var2=with%20percent%20encoding");
+  requestpath.append(encodePercentEncoding(getQueryFullPath(req)));
   addEnv("REQUEST_URI", requestpath);
+}
+
+void CGI::setRequestEnv(HTTPRequest& req)
+{
+  std::string schema = "HTTP_";
+  std::string key;
+  std::string val;
+  char c;
+
+  for (std::map<std::string, std::string>::const_iterator it = req.headers.begin();\
+        it != req.headers.end(); ++it)
+  {
+    //transfer(it->frist,key) &key assign
+    key.assign(schema);
+    for (size_t i = 0; i < it->first.size(); ++i)
+    {
+      c = it->first[i];
+      if (islower(c))
+      {
+        c = toupper(c);
+      }
+      else if (c == '-')
+      {
+        c = '_';
+      }
+      key.append(&c, 1);
+    }
+    val.assign(it->second);
+    addEnv(key, val);
+  }
 }
 
 void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
@@ -283,26 +314,18 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("SERVER_PORT", ft_itos(server._serverPort));
   addEnv("REQUEST_METHOD", methodToString(req.method));
   addEnv("SCRIPT_NAME", "webserv/1.1");
-  addEnv("QUERY_STRING", getQueryFullPath(req));
+  addEnv("QUERY_STRING", encodePercentEncoding(getQueryFullPath(req)));
   addEnv("REMOTE_ADDR", getClientIP(&context->addr));
   addEnv("CONTENT_TYPE", req.headers.find("Content-Type")->second);
-  if (req.headers.find("X-Secret-Header-For-Test") != req.headers.end())
-  {
-    addEnv("HTTP_X_SECRET_HEADER_FOR_TEST", "1");
-  }
-  if (req.headers.find("Content-Length") == req.headers.end())
-  {
-    addEnv("CONTENT_LENGTH", "");
-  }
-  else
-    addEnv("CONTENT_LENGTH", req.headers.find("Content-Length")->second);
   getPATH(server, req);
+  setRequestEnv(req);
 /*  for (size_t i = 0; i < envCount; ++i)
   {
     std::cerr << env[i]<< std::endl;
   }*/
 }
 // fork, pipe init
+
 void CGI::setFilePath(CGI* cgi)
 {
   std::string infilepath;
