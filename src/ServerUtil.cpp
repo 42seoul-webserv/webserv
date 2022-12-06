@@ -197,6 +197,9 @@ void handleEvent(struct kevent* event)
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
       clearContexts(eventData);
+      if (eventData->req != NULL)
+        delete (eventData->req);
+      eventData->req = NULL;
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
