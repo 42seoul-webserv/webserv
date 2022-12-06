@@ -199,6 +199,13 @@ void handleEvent(struct kevent* event)
       clearContexts(eventData);
       if (eventData->req != NULL)
         delete (eventData->req);
+      if (eventData->cgi)
+      {
+        close (eventData->cgi->writeFD);
+        close (eventData->cgi->readFD);
+        delete (eventData->cgi);
+      }
+
       eventData->req = NULL;
       delete (eventData);
     }
