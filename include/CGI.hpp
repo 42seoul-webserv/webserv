@@ -28,7 +28,7 @@ class CGI
     void parseStartLine(struct Context* context, std::string &message);
     void parseHeader(HTTPResponse* res, std::string &message);
     void parseBody(HTTPResponse* res, size_t count);
-    void parseCGI(struct Context* context);
+    void parseCGI(struct Context* context, std::string& message);
     void closeProcess(); //child수거?, response 생성?
     void setFilePath(CGI* cgi); // fork, pipe init
     void setCGIenv(Server server, HTTPRequest& req, struct Context* context);

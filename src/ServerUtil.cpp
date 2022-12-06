@@ -47,34 +47,63 @@ std::string getClientIP(struct sockaddr_in* addr)
   return (str);
 }
 
+void CGIParseHandler(struct Context* context)
+{
+  char buffer[BUFFER_SIZE];
+  std::string message;
+  size_t bodyPOS;
+  size_t readCount;
+
+  readCount = read(context->cgi->readFD, buffer, BUFFER_SIZE);
+  message.assign(buffer, readCount);
+  bodyPOS = message.find("\r\n\r\n");
+  if (bodyPOS == std::string::npos)
+  {
+    return;
+  }
+  else
+  {
+    message.resize(bodyPOS + 4);
+    struct Context* origin = (*(context->connectContexts))[0];
+    close(origin->cgi->readFD);
+    free(context);
+    origin->cgi->readFD = open(origin->cgi->readFilePath.c_str(), O_RDONLY);
+    lseek(origin->cgi->readFD, message.size() ,SEEK_SET);
+    origin->cgi->parseCGI(origin, message);
+    delete origin->cgi;//소멸자로 fd unlink해주는게 좋을듯?
+    origin->cgi = NULL;
+    origin->res->sendToClient(origin);
+  }
+}
+
 void CGIChildHandler(struct Context* context)
 {
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
-/*  struct kevent event;
-  EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0,NULL);
-  context->manager->attachNewEvent(context, event);*/
   unlink(context->cgi->writeFilePath.c_str());
   struct Context* origin = (*(context->connectContexts))[0];
   if (context->cgi->exitStatus)
   {
-    close(context->cgi->readFD);
     HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway borken", context->manager->getServerName(context->addr.sin_port));
     response->setFd(-1);
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
     delete context->cgi;
     context->cgi = NULL;
-    response->sendToClient(context);
+    free(context);
+    origin->res = response;
+    origin->res->sendToClient(origin);
   }
   else
   {
-    //context->connectContexts->push_back(context);
-    //context->req = new HTTPRequest(*context->req);
+    context->cgi->readFD = open(context->cgi->readFilePath.c_str(), O_RDONLY);
+    struct Context* newContext = new struct Context(context->fd, context->addr, CGIParseHandler, context->manager);
+    newContext->req = context->req;
+    newContext->cgi = context->cgi;
+    newContext->threadKQ = context->threadKQ;
+    newContext->connectContexts = context->connectContexts;
+    struct kevent event;
+    EV_SET(&event, newContext->cgi->readFD, EVFILT_READ, EV_ADD, 0, 0, newContext);
+    newContext->manager->attachNewEvent(newContext, event);
     free(context);
-    origin->cgi->parseCGI(origin);
-    
-    delete origin->cgi;//소멸자로 fd unlink해주는게 좋을듯?
-    origin->cgi = NULL;
-    origin->res->sendToClient(origin);
   }
 }
 

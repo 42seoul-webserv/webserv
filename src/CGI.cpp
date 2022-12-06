@@ -126,20 +126,9 @@ void CGI::parseStartLine(struct Context* context, std::string &message)
   message.erase(0, end + 2);
 }
 
-void CGI::parseCGI(struct Context* context)
+void CGI::parseCGI(struct Context* context, std::string& message)
 {
-  context->cgi->readFD = open(readFilePath.c_str(), O_RDONLY, 0777);
-  std::string message;
-  char buffer[1];
   size_t count;
-  while (read(context->cgi->readFD, buffer, 1))
-  {
-    message.append(buffer, 1);
-    if (message.find("\r\n\r\n") != std::string::npos)
-    {
-      break;
-    }
-  }
   count = message.size();
   parseStartLine(context, message);
   parseHeader(context->res, message);
@@ -306,7 +295,7 @@ void CGI::setRequestEnv(HTTPRequest& req)
 }
 
 void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
-{//X-Secret-Header-For-Test: 1
+{
   addEnv("SERVER_SOFTWARE", "webserv/1.1");
   addEnv("SERVER_PROTOCOL", "HTTP/1.1");
   addEnv("SERVER_NAME", server._serverName);
