@@ -376,13 +376,26 @@ const Location* getClosestMatchedLocation_recur(const Server& matchedServer, con
 
 Location* Server::getMatchedLocation(const HTTPRequest& req)
 {
-  if (req.method == POST && req.url.find(".bla") != std::string::npos)
+  size_t extensionPOS = req.url.find(".");
+  size_t delimPOS;
+  std::string extension;
+
+  if (req.method == POST && extensionPOS != std::string::npos)
   {
+    extension.assign("/cgi-");
+    delimPOS = req.url.find("/", extensionPOS);
+    if (delimPOS == std::string::npos)
+    {
+      extension.append(req.url.begin() + extensionPOS + 1, req.url.end());
+    }
+    else
+    {
+      extension.append(req.url.begin() + extensionPOS + 1, req.url.begin() + delimPOS);
+    }
     for (std::vector<Location>::iterator it = _locations.begin(); it != _locations.end(); ++it)
     {
-      if (it->_location == "/cgi-bin")
+      if (it->_location == extension)
       {
-        //std::cerr << "matched CGI" << std::endl;
         Location &loc = *it;
         return (&loc);
       }

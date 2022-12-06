@@ -230,11 +230,9 @@ std::string CGI::ft_getcwd()
     throw (std::runtime_error("getcwd fail"));
   }
   path.assign(buffer);
-  path.erase(path.find("/build"));
+  path.erase(path.find("/build"));// 나중에 고쳐야하나
   return (path);
 }
-//path다르게 들어오면 redirection?아니면 오류 처리?
-
 void CGI::getPATH(Server server, HTTPRequest& req)
 {
   std::string requestpath;
@@ -244,24 +242,32 @@ void CGI::getPATH(Server server, HTTPRequest& req)
   requestpath.assign(ft_getcwd());
   requestpath.append(location->_root);
   requestpath.append("/");
-  requestpath.append(location->cgiInfo[1]);
-  requestpath.copy(path, requestpath.size() + 1);
-  requestpath.copy(cmd[0], requestpath.size() + 1);
-  path[requestpath.size()] = '\0';
-  cmd[0][requestpath.size()] = '\0';
-  if (location->cgiInfo.size() > 2)
+  if (location->cgiInfo.size() == 2)
   {
-    requestcmd.assign(location->cgiInfo[2]);
-    requestcmd.copy(cmd[1], requestcmd.size() + 1);
-    cmd[1][requestcmd.size()] = '\0';
+    requestpath.append(location->cgiInfo[1]);
+    requestpath.copy(path, requestpath.size() + 1);
+    requestpath.copy(cmd[0], requestpath.size() + 1);
+    path[requestpath.size()] = '\0';
+    cmd[0][requestpath.size()] = '\0';
+    cmd[1] = NULL;
+    addEnv("PATH_INFO", requestpath);
+    requestpath.append(encodePercentEncoding(getQueryFullPath(req)));
+    addEnv("REQUEST_URI", requestpath);
   }
   else
   {
-    cmd[1] = NULL;
+    requestpath.append(location->cgiInfo[2]);
+    requestpath.copy(cmd[1], requestpath.size() + 1);
+    cmd[1][requestpath.size()] = '\0';
+    requestcmd.assign(location->cgiInfo[1]);
+    requestcmd.copy(path, requestcmd.size() + 1);
+    path[requestcmd.size()] = '\0';
+    requestcmd.copy(cmd[0], requestcmd.size() + 1);
+    cmd[0][requestcmd.size()] = '\0';
+    addEnv("PATH_INFO", requestcmd);
+    requestcmd.append(encodePercentEncoding(getQueryFullPath(req)));
+    addEnv("REQUEST_URI", requestcmd);
   }
-  addEnv("PATH_INFO", requestpath);
-  requestpath.append(encodePercentEncoding(getQueryFullPath(req)));
-  addEnv("REQUEST_URI", requestpath);
 }
 
 void CGI::setRequestEnv(HTTPRequest& req)
