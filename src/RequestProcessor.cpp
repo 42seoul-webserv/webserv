@@ -26,6 +26,7 @@ static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType me
 // WARN: Test code!
 StatusCode checkValidUrl_recur(const Server& matchedServer, const std::string& subUrl)
 {
+  std::cout << subUrl << " <- sub\n";
   if (subUrl.empty()) // if substr has no /
   {
     return (ST_NOT_FOUND);
@@ -55,11 +56,11 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   {
     // if not root
     // http://127.0.0.1:4242/directory/nop/ 와 같은 경우도 고려해야 함.
-    if (req.url != "/")
-    {
-      const StatusCode st = checkValidUrl_recur(matchedServer, req.url);
-      return (st);
-    }
+    // if (req.url != "/")
+    // {
+    //   const StatusCode st = checkValidUrl_recur(matchedServer, req.url);
+    //   return (st);
+    // }
     if (!isAllowedMethod(matchedServer._allowMethods, req.method))
     {
       return (ST_METHOD_NOT_ALLOWED);

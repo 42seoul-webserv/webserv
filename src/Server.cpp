@@ -164,6 +164,7 @@ static FileDescriptor createIndexPage(const std::string& filePath)
   const std::string html_end = "</body></html>";
   write(pipe_fd[WRITE], html_end.c_str(), html_end.size());
   close(pipe_fd[WRITE]);
+  // FIX: kqueue에 등록해야 한다. kqueue쪽에서 close하는거에 이벤트가 발생하기 때문이다. 
   return (pipe_fd[READ]);
 }
 
@@ -177,6 +178,7 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
 
   // check matched location
   std::string filePath = getRealFilePath(req);
+  std::cout << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -202,8 +204,10 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
   else
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
-    if (getMatchedLocation(req)->_autoindex == true) // if autoindex : on
+    Location* loc = getMatchedLocation(req);
+    if (loc && loc->_autoindex == true) // if autoindex : on
     {
+      std::cout << "creating auto index...\n";
       response->setFd(createIndexPage(filePath));
     }
     else // if autoindex : off
@@ -420,7 +424,10 @@ void Server::processRequest(struct Context* context)
   }
   context->res = response;
   if (context->res && response->getFd() > 0)
+  {
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
+    std::cout << "GET response content len : " << response->getContentLength() << std::endl;
+  }
   response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
 }
 
