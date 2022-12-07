@@ -32,6 +32,10 @@ CGI::~CGI()
     delete []env[i];
   }
   delete []env;
+  unlink(writeFilePath.c_str());
+  unlink(readFilePath.c_str());
+  close (writeFD);
+  close (readFD);
 }
 
 void CGI::parseBody(HTTPResponse* res, size_t count)
@@ -150,6 +154,7 @@ void CGI::attachFileWriteEvent(struct Context* context)
   newContext->cgi = context->cgi;
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
+  newContext->connectContexts->push_back(newContext);
   struct kevent event;
   EV_SET(&event, newContext->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   newContext->manager->attachNewEvent(newContext, event);
@@ -189,6 +194,7 @@ void CGI::CGIChildEvent(struct Context* context)
   newContext->req = context->req;
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
+  newContext->connectContexts->push_back(newContext);
   while (true)
   {
     newContext->cgi->CGIfork(newContext);
@@ -376,20 +382,4 @@ bool isCGIRequest(const std::string& file, Location* loc)
   }
   else
     return (true);
-}
-
-bool clearCGI(struct Context* context)
-{
-  struct stat stat_buf;
-  if (fstat(context->fd, &stat_buf) < 0)
-  {
-    std::cerr << "clear chekc" <<std::endl;
-    close(context->cgi->readFD);
-    close(context->cgi->writeFD);
-    delete (context->cgi);
-    context->cgi = NULL;
-    free(context);
-    return true;
-  }
-  return false;
 }

@@ -295,7 +295,6 @@ FileDescriptor HTTPResponse::getFd() const
 
 void HTTPResponse::sendToClient(struct Context* context)
 {
-  clearContexts(context);
   context->res = this;
 
   if (this->getHeader().getStatusCode() >= 400)

@@ -121,7 +121,6 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
   }
   else if (isCGIRequest(filePath, getMatchedLocation(req)))
   {
-    clearContexts(context);
     CGIProcess(context);
     return (NULL);
   }
@@ -164,7 +163,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   }
   else if (isCGIRequest(filePath, getMatchedLocation(req)))
   {
-    clearContexts(context);
     CGIProcess(context);
     return (NULL);
   }
@@ -188,7 +186,8 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     newContext->res = response;
     newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
-	std::cout << "CONTEXT KQ : " << newContext->threadKQ << ", " << context->threadKQ << "\n";
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     newContext->totalIOSize = 0;
     // attach event
     struct kevent event;
@@ -234,6 +233,8 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
     newContext->totalIOSize = 0;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);

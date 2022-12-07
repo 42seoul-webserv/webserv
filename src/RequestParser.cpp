@@ -24,17 +24,17 @@ void RequestParser::checkBodyLength(HTTPRequest* request)
 
   if (request->method == GET || request->method == HEAD)
   {
-    request->body.clear();
+    request->body->clear();
     request->status = END;
     return;
   }
   length = static_cast<size_t>\
             (strtol(request->headers.find("Content-Length")->second.c_str(), NULL, 10));
-  if (request->body.size() > length)
+  if (request->body->size() > length)
   {
     throw (std::logic_error("body length more long"));
   }
-  else if (request->body.size() == length)
+  else if (request->body->size() == length)
   {
     request->status = END;
   }
@@ -75,7 +75,7 @@ void RequestParser::parseChunked(HTTPRequest* request)
   std::string val;
 
   for (
-          rit = request->body.rbegin(); rit != request->body.rend(); ++rit
+          rit = request->body->rbegin(); rit != request->body->rend(); ++rit
           )
   {
     endcheck.insert(endcheck.begin(), *rit);
@@ -88,9 +88,9 @@ void RequestParser::parseChunked(HTTPRequest* request)
   {
     return;
   }
-  end = request->body.end();
+  end = request->body->end();
   for (
-          it = request->body.begin(); it != end - 5;
+          it = request->body->begin(); it != end - 5;
           )
   {
     it = getOneLine(length_str, it, end);
@@ -110,7 +110,7 @@ void RequestParser::parseChunked(HTTPRequest* request)
     val.clear();
     length_str.clear();
   }
-  request->body.assign(chunckedbody.begin(), chunckedbody.end());
+  request->body->assign(chunckedbody.begin(), chunckedbody.end());
   request->status = END;
 }
 
@@ -121,10 +121,10 @@ void RequestParser::parseBody(HTTPRequest* request)
   {
       return;
   }
-  if (!request->body.size())
+  if (!request->body->size())
   {
     delim = request->message->find("\r\n\r\n");
-    request->body.assign(request->message->begin() + delim + 4, request->message->end());
+    request->body->assign(request->message->begin() + delim + 4, request->message->end());
   }
   if (request->chunkedFlag)
   {
@@ -339,13 +339,13 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
 /*std::string temp;
 temp.assign(buffer);
 std::cerr << temp << std::endl;*/
-  if (!request->body.size())
+  if (!request->body->size())
   {
     (*request->message) += buffer;
   }
   else
   {
-    request->body += buffer;
+    *request->body += buffer;
   }
   switch (request->checkLevel)
   {
@@ -371,6 +371,7 @@ void RequestParser::parseRequest(struct Context* context)
     printLog("New request\t" + getClientIP(&context->addr) + "\n" , PRINT_CYAN);
     context->req = new HTTPRequest;
     context->req->message = new std::string("");
+    context->req->body = new std::string("");
     gettimeofday(&context->req->baseTime, NULL);
   }
   if (context->req->status != END && context->req->status != ERROR)
@@ -387,7 +388,6 @@ void RequestParser::parseRequest(struct Context* context)
   }
   if (context->req->status == ERROR || context->req->status == END)
   {
-//    std::cout << *context->req->message << '\n';
     delete (context->req->message);
     context->req->message = NULL;
   }

@@ -101,11 +101,11 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_OK);
     }
-    if (req.chunkedFlag == true && req.body.size() <= loc->clientMaxBodySize)
+    if (req.chunkedFlag == true && req.body->size() <= loc->clientMaxBodySize)
     {
       return (ST_OK);
     }
-    if (loc->clientMaxBodySize < req.body.size())
+    if (loc->clientMaxBodySize < req.body->size())
     {
       return (ST_PAYLOAD_TOO_LARGE);
     }
