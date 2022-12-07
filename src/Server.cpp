@@ -59,7 +59,7 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
   {
     filePath = (loc->convertURLToLocationPath(req.url));
   }
-  std::cout << "file path from server : " << filePath << std::endl;
+  // std::cout << "file path from server : " << filePath << std::endl;
   return (filePath);
 }
 
@@ -127,7 +127,7 @@ FileDescriptor Server::getErrorPageFd(const StatusCode& stCode)
 #define READ  (0)
 #define WRITE (1)
 
-static FileDescriptor createIndexPage(const std::string& filePath)
+static FileDescriptor createIndexPage(const std::string& filePath, Location& location) // * Here
 {
   std::cout << "Creating autoindex page...\n";
   int pipe_fd[2];
@@ -144,9 +144,10 @@ static FileDescriptor createIndexPage(const std::string& filePath)
   write(pipe_fd[WRITE], body_1.c_str(), body_1.size());
 
   DIR *dir = opendir(filePath.c_str());
-  if (dir == NULL)
+  if (dir == NULL) // if file
   {
-    write(pipe_fd[WRITE], "Unable to parse directory's index", html_start.size());
+    const std::string messege = "this is not a directory.";
+    write(pipe_fd[WRITE], messege.c_str(), messege.size());
   }
   else
   {
@@ -155,8 +156,19 @@ static FileDescriptor createIndexPage(const std::string& filePath)
     {
       if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
         continue;
-      // <a href="">Label</a>
-      const std::string body_2 = "<a href=\"" + filePath + "/" + entry->d_name + ">" + std::string(entry->d_name) + "</a><br>";
+      struct stat sb;
+      std::string body_2;
+
+      std::string subdir = filePath + "/" + entry->d_name;
+      stat(subdir.c_str(), &sb);
+      if (S_ISDIR(sb.st_mode))
+      {
+        body_2 = "<a href=\"" + location._location + "/" + entry->d_name + "\">" + std::string(entry->d_name) + "</a><br>";
+      }
+      else
+      {
+        body_2 = std::string(entry->d_name) + "<br>";
+      }
       write(pipe_fd[WRITE], body_2.c_str(), body_2.size());
     }
     closedir(dir);
@@ -164,7 +176,6 @@ static FileDescriptor createIndexPage(const std::string& filePath)
   const std::string html_end = "</body></html>";
   write(pipe_fd[WRITE], html_end.c_str(), html_end.size());
   close(pipe_fd[WRITE]);
-  // FIX: kqueue에 등록해야 한다. kqueue쪽에서 close하는거에 이벤트가 발생하기 때문이다. 
   return (pipe_fd[READ]);
 }
 
@@ -178,7 +189,7 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
 
   // check matched location
   std::string filePath = getRealFilePath(req);
-  std::cout << filePath << std::endl;
+  // std::cout << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -207,8 +218,8 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
     Location* loc = getMatchedLocation(req);
     if (loc && loc->_autoindex == true) // if autoindex : on
     {
-      std::cout << "creating auto index...\n";
-      response->setFd(createIndexPage(filePath));
+      // std::cout << "creating auto index...\n";
+      response->setFd(createIndexPage(filePath, *loc)); // * Here
     }
     else // if autoindex : off
     {
@@ -246,7 +257,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0777);
     if (writeFileFD <= -1 || access(filePath.c_str(), R_OK | W_OK) == FAILED)
     {
-      std::cout << filePath.c_str() << "," << writeFileFD << "\n";
+      // std::cout << filePath.c_str() << "," << writeFileFD << "\n";
       const StatusCode RETURN_STATUS = ST_NOT_FOUND;
       response = new HTTPResponse(RETURN_STATUS, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
       response->setFd(getErrorPageFd(RETURN_STATUS));
@@ -426,7 +437,7 @@ void Server::processRequest(struct Context* context)
   if (context->res && response->getFd() > 0)
   {
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
-    std::cout << "GET response content len : " << response->getContentLength() << std::endl;
+    // std::cout << "GET response content len : " << response->getContentLength() << std::endl;
   }
   response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
 }

@@ -430,9 +430,9 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     }
     return;
   }
-  std::cout << sendSize << '\n';
-  context->ioBuffer[sendSize - 1] = 0;
-      std::cout << context->ioBuffer << '\n';
+  // std::cout << sendSize << '\n';
+  // context->ioBuffer[sendSize - 1] = 0;
+      // std::cout << context->ioBuffer << '\n';
   // partial send handle
   if (sendSize < context->bufferSize)
   {
@@ -496,7 +496,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
   }
   else // 데이터가 들어왔다면, 소켓에 버퍼에 있는 데이터를 전송하는 socket send event를 등록.
   {
-    std::cout << buffer << '\n';
+    // std::cout << buffer << '\n';
     context->totalIOSize += current_rd_size; // 읽은 길이를 누적.
     // Content_length와 누적 읽은 길이가 같아지면 file_fd 닫고 file_fd에 -1대입.
     bool is_read_finished = false;
