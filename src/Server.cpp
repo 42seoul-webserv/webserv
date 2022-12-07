@@ -121,7 +121,6 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
   }
   else if (isCGIRequest(filePath, getMatchedLocation(req)))
   {
-    clearContexts(context);
     CGIProcess(context);
     return (NULL);
   }
@@ -164,7 +163,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
   }
   else if (isCGIRequest(filePath, getMatchedLocation(req)))
   {
-    clearContexts(context);
     CGIProcess(context);
     return (NULL);
   }
@@ -188,7 +186,8 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     newContext->res = response;
     newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
-	std::cout << "CONTEXT KQ : " << newContext->threadKQ << ", " << context->threadKQ << "\n";
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     newContext->totalIOSize = 0;
     // attach event
     struct kevent event;
@@ -217,7 +216,6 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
   {
     HTTPResponse* response = NULL;
 
-    // FIXME : 왜 이미 있는 파일의 경우 fd가 쟈꾸 -1이 되지...?
     FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY |O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
     if (writeFileFD <= -1)
     {
@@ -235,6 +233,8 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
     newContext->totalIOSize = 0;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
@@ -297,7 +297,7 @@ HTTPResponse* Server::processDELETERequest(const struct Context* context)
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Delete file requested"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_ACCEPTED, std::string("Delete file requested"), context->manager->getServerName(context->addr.sin_port));
     if (unlink(filePath.c_str()) == FAILED)
       response->setStatus(ST_INTERNAL_SERVER_ERROR, "Server Error");
     response->setFd(-1);

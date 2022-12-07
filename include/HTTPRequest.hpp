@@ -25,7 +25,7 @@ class HTTPRequest
 {
 public:
     std::string* message; // request Message ( all )
-    std::string body;
+    std::string* body;
     MethodType method;
     std::map<std::string, std::string> query; // url?query
     std::string url; // pure url
@@ -43,9 +43,15 @@ public:
       status = READING;
       checkLevel = CRLF;
       message = NULL;
+      body = NULL;
     }
     ~HTTPRequest()
-    {}
+    {
+        if (message != NULL)
+            delete message;
+        if (body != NULL)
+            delete (body);
+    }
 };
 
 #endif 

@@ -9,7 +9,7 @@
 #include "HTTPResponse.hpp"
 #include "ThreadPool.hpp"
 #include "CGI.hpp"
-
+#include <sys/stat.h>
 class ServerManager;
 
 struct Context
