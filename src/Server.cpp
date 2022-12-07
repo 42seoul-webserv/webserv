@@ -280,6 +280,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     newContext->totalIOSize = 0;
     newContext->pipeFD[0] = context->pipeFD[0];
     newContext->pipeFD[1] = context->pipeFD[1];
+    response->_writeFD = writeFileFD;
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
@@ -328,6 +329,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     newContext->connectContexts->push_back(newContext);
     newContext->pipeFD[0] = context->pipeFD[0];
     newContext->pipeFD[1] = context->pipeFD[1];
+    response->_writeFD = writeFileFD;
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
