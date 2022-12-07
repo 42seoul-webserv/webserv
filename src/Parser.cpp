@@ -311,7 +311,7 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex) {
       // if has redirection
       if (!redirects.empty() && redirects.size() == 2) {
         std::vector<std::string>::const_iterator itr = redirects.begin();
-        location._redirect.first = static_cast<StatusCode>(std::stod(*itr));
+        location._redirect.first = static_cast<StatusCode>(ft_stoi(*itr));
         itr++;
         location._redirect.second = *itr;
       }
@@ -411,7 +411,7 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string>& _errorPage,
             it != errorPageNode->elem.end(); ++it
             )
     {
-      _errorPage[static_cast<StatusCode>(std::stod(it->first))] = *(it->second.begin());
+      _errorPage[static_cast<StatusCode>(ft_stoi(it->first))] = *(it->second.begin());
     }
   }
 }
@@ -422,7 +422,7 @@ void ConfigParser::getRedirect(Server &server, unsigned int serverIndex)
   if (!redirects.empty() && redirects.size() == 2)
   {
     std::vector<std::string>::const_iterator itr = redirects.begin();
-    server._redirect.first = static_cast<StatusCode>(std::stod(*itr)) ;
+    server._redirect.first = static_cast<StatusCode>(ft_stoi(*itr)) ;
     itr++;
     server._redirect.second = *itr;
   }

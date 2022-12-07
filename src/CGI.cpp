@@ -32,6 +32,10 @@ CGI::~CGI()
     delete []env[i];
   }
   delete []env;
+  unlink(writeFilePath.c_str());
+  unlink(readFilePath.c_str());
+  close (writeFD);
+  close (readFD);
 }
 
 void CGI::parseBody(HTTPResponse* res, size_t count)
@@ -150,6 +154,7 @@ void CGI::attachFileWriteEvent(struct Context* context)
   newContext->cgi = context->cgi;
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
+  newContext->connectContexts->push_back(newContext);
   struct kevent event;
   EV_SET(&event, newContext->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   newContext->manager->attachNewEvent(newContext, event);
@@ -189,13 +194,14 @@ void CGI::CGIChildEvent(struct Context* context)
   newContext->req = context->req;
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
+  newContext->connectContexts->push_back(newContext);
   while (true)
   {
-    context->cgi->CGIfork(context);
+    newContext->cgi->CGIfork(newContext);
     EV_SET(&event, newContext->cgi->pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT | NOTE_EXITSTATUS, newContext->cgi->exitStatus, newContext);
     if (newContext->manager->attachNewEvent(newContext, event) < 0)
     {
-      kill(context->cgi->pid, SIGKILL);
+      kill(newContext->cgi->pid, SIGKILL);
     }
     else
     {

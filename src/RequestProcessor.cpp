@@ -70,52 +70,14 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     try
     {
-      std::string contentLengthString = req.headers.at("Content-Length");
-      if (contentLengthString.empty())
+      std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
+      if (it == req.headers.end())
+        throw (std::logic_error(""));
+      if (it->second.empty())
       {
         return (ST_LENGTH_REQUIRED);
       }
-      int contentLength = ft_stoi(contentLengthString);
-      if (matchedServer._clientMaxBodySize < contentLength)
-      {
-        return (ST_PAYLOAD_TOO_LARGE);
-      }
-    }
-    catch (std::exception& e)
-    {
-      if (req.method != GET && req.method != HEAD)
-      {
-        return (ST_LENGTH_REQUIRED);
-      }
-    }
-  }
-  else
-  {
-    // FIXME : 여기서 안걸림. 
-    if (isCGIRequest(matchedServer.getRealFilePath(req), loc))
-    {
-      return (ST_OK);
-    }
-    if (!isAllowedMethod(loc->allowMethods, req.method))
-    {
-      return (ST_METHOD_NOT_ALLOWED);
-    }
-    if (req.chunkedFlag == true && req.body.size() <= loc->clientMaxBodySize)
-    {
-      return (ST_OK);
-    }
-    if (loc->clientMaxBodySize < req.body.size())
-    {
-      return (ST_PAYLOAD_TOO_LARGE);
-    }
-    try
-    {
-      std::string contentLengthString = req.headers.at("Content-Length");
-      if (contentLengthString.empty())
-      {
-        return (ST_LENGTH_REQUIRED);
-      }
-      int contentLength = ft_stoi(contentLengthString);
+      int contentLength = ft_stoi(it->second);
       if (loc->clientMaxBodySize < contentLength)
       {
         return (ST_PAYLOAD_TOO_LARGE);
@@ -123,7 +85,48 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     catch (std::exception& e)
     {
-      if (req.method != GET && req.method != HEAD)
+      if (req.method != GET && req.method != HEAD && req.method != DELETE)
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
+    }
+  }
+  else
+  {
+    if (!isAllowedMethod(loc->allowMethods, req.method))
+    {
+      return (ST_METHOD_NOT_ALLOWED);
+    }
+    if (isCGIRequest(matchedServer.getRealFilePath(req), loc))
+    {
+      return (ST_OK);
+    }
+    if (req.chunkedFlag == true && req.body->size() <= loc->clientMaxBodySize)
+    {
+      return (ST_OK);
+    }
+    if (loc->clientMaxBodySize < req.body->size())
+    {
+      return (ST_PAYLOAD_TOO_LARGE);
+    }
+    try
+    {
+      std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
+      if (it == req.headers.end())
+        throw (std::logic_error(""));
+      if (it->second.empty())
+      {
+        return (ST_LENGTH_REQUIRED);
+      }
+      int contentLength = ft_stoi(it->second);
+      if (loc->clientMaxBodySize < contentLength)
+      {
+        return (ST_PAYLOAD_TOO_LARGE);
+      }
+    }
+    catch (std::exception& e)
+    {
+      if (req.method != GET && req.method != HEAD && req.method != DELETE)
       {
         return (ST_LENGTH_REQUIRED);
       }
@@ -146,9 +149,13 @@ void RequestProcessor::processRequest(struct Context* context)
     if (DEBUG_MODE)
       printLog(*req.message, PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
+    Server& server = _serverManager.getMatchedServer(req);
+
     context->res = response;
-    response->setFd(-1);
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+    response->setFd(server.getErrorPageFd(ST_BAD_REQUEST));
+    if (response->getFd() > 0)
+      response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     response->sendToClient(context);
     return;
   }
@@ -164,8 +171,10 @@ void RequestProcessor::processRequest(struct Context* context)
       context->res = response;
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+      response->setFd(server.getErrorPageFd(status));
+      if (response->getFd() > 0)
+        response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
       response->sendToClient(context);
-      response->setFd(-1);
       if (req.status == HEADEROK)
       {
         delete (req.message);

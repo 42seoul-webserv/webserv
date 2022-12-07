@@ -344,7 +344,6 @@ FileDescriptor HTTPResponse::getFd() const
 
 void HTTPResponse::sendToClient(struct Context* context)
 {
-  clearContexts(context);
   context->res = this;
   // 인증된 세션의 경우 화면을 이동해도 로그인이 풀리지 않고 로그아웃하기 전까지 유지.
   if (this->getHeader().getStatusCode() >= 400)

@@ -3,7 +3,7 @@
 #include "HTTPResponse.hpp"
 #include "CGI.hpp"
 #include <sstream>
-#include <sys/stat.h>
+#include <set>
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -49,13 +49,6 @@ std::string getClientIP(struct sockaddr_in* addr)
 
 void CGIParseHandler(struct Context* context)
 {
-  struct stat stat_buf;
-  if (fstat(context->fd, &stat_buf) < 0)
-  {
-    close(context->cgi->readFD);
-    return;
-  }
-
   char buffer[BUFFER_SIZE];
   std::string message;
   size_t bodyPOS;
@@ -73,21 +66,17 @@ void CGIParseHandler(struct Context* context)
     message.resize(bodyPOS + 4);
     struct Context* origin = (*(context->connectContexts))[0];
     close(origin->cgi->readFD);
-    free(context);
     origin->cgi->readFD = open(origin->cgi->readFilePath.c_str(), O_RDONLY);
     lseek(origin->cgi->readFD, message.size() ,SEEK_SET);
     origin->cgi->parseCGI(origin, message);
     origin->cgi->pid = -1;
-    delete origin->cgi;//소멸자로 fd unlink해주는게 좋을듯?
-    origin->cgi = NULL;
     origin->res->sendToClient(origin);
   }
 }
 
 void CGIChildHandler(struct Context* context)
-{
+{   
   waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
-  unlink(context->cgi->writeFilePath.c_str());
   if (context->cgi->exitStatus)
   {
     struct Context* origin = (*(context->connectContexts))[0];
@@ -96,7 +85,6 @@ void CGIChildHandler(struct Context* context)
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
     delete context->cgi;
     context->cgi = NULL;
-    free(context);
     origin->res = response;
     origin->res->sendToClient(origin);
   }
@@ -108,10 +96,10 @@ void CGIChildHandler(struct Context* context)
     newContext->cgi = context->cgi;
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     struct kevent event;
     EV_SET(&event, newContext->cgi->readFD, EVFILT_READ, EV_ADD, 0, 0, newContext);
     newContext->manager->attachNewEvent(newContext, event);
-    free(context);
   }
 }
 
@@ -120,16 +108,17 @@ void CGIWriteHandler(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
-  if ((writeSize = write(context->cgi->writeFD, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
+  if ((writeSize = write(context->cgi->writeFD, &req.body->c_str()[context->totalIOSize], req.body->size() - context->totalIOSize)) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
-  if (context->totalIOSize >= req.body.size()) // If write finished
+  if (context->totalIOSize >= req.body->size()) // If write finished
   {
+    delete (req.body);
+    req.body = NULL;
     close(context->cgi->writeFD);
     context->cgi->CGIChildEvent(context);
-    free (context);
   }
 }
 
@@ -197,6 +186,7 @@ void handleEvent(struct kevent* event)
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
       clearContexts(eventData);
+      eventData->req = NULL;
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
@@ -230,15 +220,16 @@ void writeFileHandle(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
-  if ((writeSize = write(context->fd, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
+  if ((writeSize = write(context->fd, &req.body->c_str()[context->totalIOSize], req.body->size() - context->totalIOSize)) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
-  if (context->totalIOSize >= req.body.size()) // If write finished
+  if (context->totalIOSize >= req.body->size()) // If write finished
   {
+    delete (req.body);
+    req.body = NULL;
     close(context->fd);
-    free(context);
   }
 }
 
@@ -327,6 +318,9 @@ void clearContexts(struct Context* context)
   // 내부에서 본인 제외 모두 삭제.
   HTTPResponse* res = NULL;
   HTTPRequest* req = NULL;
+  std::set<HTTPRequest*> reqSets;
+  std::set<HTTPResponse*> resSets;
+  std::set<CGI*> cgiSets;
 
   for (
           std::vector<struct Context*>::iterator it = context->connectContexts->begin();
@@ -338,17 +332,31 @@ void clearContexts(struct Context* context)
 
     if (data == context)
     {
+      if (data->req)
+      {
+        reqSets.insert(data->req);
+      }
+      if (data->res)
+      {
+        resSets.insert(data->res);
+      }
+      if (data->cgi)
+      {
+        cgiSets.insert(data->cgi);
+      }
       continue;
     }
     if (data->req)
     {
-      req = data->req;
-      data->req = NULL;
+      reqSets.insert(data->req);
     }
     if (data->res)
     {
-      res = data->res;
-      data->res = NULL;
+      resSets.insert(data->res);
+    }
+    if (data->cgi)
+    {
+      cgiSets.insert(data->cgi);
     }
     if (data->ioBuffer != NULL)
     {
@@ -361,15 +369,17 @@ void clearContexts(struct Context* context)
       data = NULL;
     }
   }
-  if (res != NULL)
+  for (std::set<HTTPResponse*>::iterator it = resSets.begin(); it != resSets.end(); ++it)
   {
-    delete (res);
-    res = NULL;
+    delete (*it);
   }
-  if (req != NULL)
+  for (std::set<HTTPRequest*>::iterator it = reqSets.begin(); it != reqSets.end(); ++it)
   {
-    delete (req);
-    req = NULL;
+    delete (*it);
+  }
+  for (std::set<CGI*>::iterator it = cgiSets.begin(); it != cgiSets.end(); ++it)
+  {
+    delete (*it);
   }
   context->connectContexts->clear();
   context->connectContexts->push_back(context);
