@@ -342,21 +342,6 @@ FileDescriptor HTTPResponse::getFd() const
   return _fileFd;
 }
 
-std::string gen_random_string(const int len) {
-    static const char alphanum[] =
-        "0123456789"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz";
-    std::string tmp_s;
-    srand((unsigned)time(NULL) * getpid());     
-    tmp_s.reserve(len);
-
-    for (int i = 0; i < len; ++i) {
-        tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
-    }
-    return tmp_s;
-}
-
 void HTTPResponse::sendToClient(struct Context* context)
 {
   clearContexts(context);
@@ -368,14 +353,14 @@ void HTTPResponse::sendToClient(struct Context* context)
   // * (0) Handle Cookie
   Server& server = context->manager->getMatchedServer(*context->req);
   server._sessionStorage.clearExpiredID(); // clear expired session.
-  int sessionStatus = server.isSessionValid(*context->req);
+  int sessionStatus = server.getSessionStatus(*context->req);
   if (sessionStatus == SESSION_UNSET) // create session_id and pass to client
   {
-      std::string NEW_SESSION_ID = gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
+      std::string NEW_SESSION_ID = Session::gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
       this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) 
                                           + "=" + NEW_SESSION_ID + "; " 
                                           + "Expires=" + HTTPResponse::getDateByHourOffset(+SESSION_EXPIRE_HOUR)));
-      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(SESSION_EXPIRE_HOUR)); 
+      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(+SESSION_EXPIRE_HOUR)); 
   } 
   else if (sessionStatus == SESSION_INVALID) // unset client's session-cookie.
   {
@@ -387,34 +372,6 @@ void HTTPResponse::sendToClient(struct Context* context)
   else // valid client session
     std::cout << "# Client session validated\n";
 
-
-  /*
-  std::map<std::string, std::string>::const_iterator headerString_itr = context->req->headers.find("Cookie");
-  if (headerString_itr != context->req->headers.end()) // if header has Cookie.
-  {  
-    const std::string cookies = headerString_itr->second;
-    const size_t id_loc = cookies.find(SESSION_KEY);
-    if (id_loc != std::string::npos) // if session id exists,
-    {
-      const size_t idStartLoc = id_loc + std::string(SESSION_KEY).size() + 1;
-      const std::string receivedId = cookies.substr(idStartLoc, SESSION_ID_LENGH);
-      if (!(server._sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
-      {
-        std::cout << "[ Validation failed ]\n";
-        this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) + "=" + Session::gen_random_string(SESSION_ID_LENGH) + "; " + "Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";")); // set past date to delete cookie.
-      }
-      else
-        std::cout << "[ Valication success ]\n";
-    }
-    else // if session id doesn't exist, then set token cookie to client, then also save it to connection_info.
-    {
-      const int OFFSET = 1; // expires in 1 hour.
-      std::string NEW_SESSION_ID = gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
-      this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) + "=" + NEW_SESSION_ID + "; " + "expires=" + HTTPResponse::getDateByHourOffset(+OFFSET))); // set client's id
-      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(+OFFSET));
-    }
-  }
-  */
 
   // * (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);

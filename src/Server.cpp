@@ -10,7 +10,7 @@
 // if there is no cookie in request --> return -1
 // else, if valid id --> return  1
 // else, if not valid --> return 0
-int Server::isSessionValid(const HTTPRequest& req)
+int Server::getSessionStatus(const HTTPRequest& req)
 {
   std::map<std::string, std::string>::const_iterator headerString_itr = req.headers.find("Cookie");
   if (headerString_itr != req.headers.end()) // if header has Cookie.
