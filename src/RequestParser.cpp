@@ -254,7 +254,7 @@ void RequestParser::getHeader(HTTPRequest* request, size_t begin, size_t endPOS)
       }
       else
       {
-        throw (std::logic_error("header key, value error\n"));
+        throw (std::logic_error("header key, value error (req parser)\n"));
       }
     }
     if (it[i] == ':' && key.empty())
@@ -373,10 +373,6 @@ void RequestParser::parseRequest(struct Context* context)
     context->req->message = new std::string("");
     context->req->body = new std::string("");
     gettimeofday(&context->req->baseTime, NULL);
-  }
-  else
-  {
-    std::cout << "NOT NULL REQ\n";
   }
   if (context->req->status != END && context->req->status != ERROR)
   {
