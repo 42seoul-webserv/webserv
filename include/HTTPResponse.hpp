@@ -14,6 +14,7 @@
 #include <map>
 #include <ctime>
 #include "WebservDefines.hpp"
+#include "Session.hpp"
 
 struct Context;
 /**
@@ -85,10 +86,14 @@ public:
     이런 응답이 왔다면 브라우저는 / 주소로 리다이렉트합니다. */
     static t_pair LOCATION(const std::string& redirect_location);
 
+    static std::string getDateByYearOffset(int year_diff);
+    static std::string getDateByHourOffset(int hour_diff);
+
 private: // Helper functions
     static std::string GET_DAY(long tm_wday);
     static std::string GET_MON(long tm_wmon);
     static std::string getDate();
+    // 현재 시간 기준 과거 시간 대를 string 으로 반환.
 };
 
 /**----------------------

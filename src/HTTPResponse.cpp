@@ -60,6 +60,23 @@ std::string HeaderType::GET_MON(long tm_wmon)
   }
 }
 
+std::string ft_itos_width(int num, int minimum_width)
+{
+  std::string origin = ft_itos(num);
+  std::string result;
+  if (origin.size() < minimum_width)
+  {
+    for (int i = 0; i < minimum_width - origin.size(); i++)
+    {
+      result.append("0");
+    }
+    result.append(origin);
+    return (result);
+  }
+  else
+    return (origin);
+}
+
 std::string HeaderType::getDate()
 {
   time_t curTime = time(NULL);          // get current time info
@@ -70,8 +87,40 @@ std::string HeaderType::getDate()
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
-           " GMT";
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
+           ft_itos_width(pLocal->tm_hour, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
+  return (result);
+}
+
+// ! WARN: need to handle [Date + diff --> next day / previous day] ...etc
+std::string HeaderType::getDateByYearOffset(int year_diff)
+{
+  time_t curTime = time(NULL);          // get current time info
+  struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
+  if (pLocal == NULL)
+  {
+    // ...
+    return ("null");
+  }
+  std::string result;
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900 + year_diff) + " " +
+           ft_itos_width(pLocal->tm_hour, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
+  return (result);
+}
+
+// ! WARN: need to handle [Date + diff --> next day / previous day] ...etc
+std::string HeaderType::getDateByHourOffset(int hour_diff)
+{
+  time_t curTime = time(NULL);          // get current time info
+  struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
+  if (pLocal == NULL)
+  {
+    // ...
+    return ("null");
+  }
+  std::string result;
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
+           ft_itos_width(pLocal->tm_hour + hour_diff, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
   return (result);
 }
 
@@ -296,11 +345,34 @@ FileDescriptor HTTPResponse::getFd() const
 void HTTPResponse::sendToClient(struct Context* context)
 {
   context->res = this;
-
+  // 인증된 세션의 경우 화면을 이동해도 로그인이 풀리지 않고 로그아웃하기 전까지 유지.
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
 
-  // (1) Send Header
+  // * (0) Handle Cookie
+  Server& server = context->manager->getMatchedServer(*context->req);
+  server._sessionStorage.clearExpiredID(); // clear expired session.
+  int sessionStatus = server.getSessionStatus(*context->req);
+  if (sessionStatus == SESSION_UNSET) // create session_id and pass to client
+  {
+      std::string NEW_SESSION_ID = Session::gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
+      this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) 
+                                          + "=" + NEW_SESSION_ID + "; " 
+                                          + "Expires=" + HTTPResponse::getDateByHourOffset(+SESSION_EXPIRE_HOUR)));
+      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(+SESSION_EXPIRE_HOUR)); 
+  } 
+  else if (sessionStatus == SESSION_INVALID) // unset client's session-cookie.
+  {
+    this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) + "=" 
+                                          + Session::gen_random_string(SESSION_ID_LENGH) + "; " 
+                                          + "Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";"
+                                          )); // set past date to delete cookie.
+  }
+  else // valid client session
+    std::cout << "# Client session validated\n";
+
+
+  // * (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->connectContexts = context->connectContexts;
   newSendContext->connectContexts->push_back(newSendContext);
@@ -322,7 +394,7 @@ void HTTPResponse::sendToClient(struct Context* context)
     EV_SET(&event, newSendContext->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
     context->manager->attachNewEvent(newSendContext, event);
   }
-  // (2) Send Body
+  // * (2) Send Body
   if (this->getFd() >= 0 && this->getContentLength() > 0 && this->getStatusCode() != ST_NO_CONTENT)
   {
     struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
@@ -358,6 +430,9 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     }
     return;
   }
+  std::cout << sendSize << '\n';
+  context->ioBuffer[sendSize - 1] = 0;
+      std::cout << context->ioBuffer << '\n';
   // partial send handle
   if (sendSize < context->bufferSize)
   {
@@ -421,6 +496,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
   }
   else // 데이터가 들어왔다면, 소켓에 버퍼에 있는 데이터를 전송하는 socket send event를 등록.
   {
+    std::cout << buffer << '\n';
     context->totalIOSize += current_rd_size; // 읽은 길이를 누적.
     // Content_length와 누적 읽은 길이가 같아지면 file_fd 닫고 file_fd에 -1대입.
     bool is_read_finished = false;

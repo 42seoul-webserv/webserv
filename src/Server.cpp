@@ -4,8 +4,30 @@
 #include "CGI.hpp"
 #include <fcntl.h>
 #include <unistd.h>
+#include <dirent.h>
 
-// TODO : autoindex
+// if there is no cookie in request --> return -1
+// else, if valid id --> return  1
+// else, if not valid --> return 0
+int Server::getSessionStatus(const HTTPRequest& req)
+{
+  std::map<std::string, std::string>::const_iterator headerString_itr = req.headers.find("Cookie");
+  if (headerString_itr != req.headers.end()) // if header has Cookie.
+  {
+    const std::string cookies = headerString_itr->second;
+    const size_t id_loc = cookies.find(SESSION_KEY);
+    if (id_loc != std::string::npos) // if session id exists,
+    {
+      const size_t idStartLoc = id_loc + std::string(SESSION_KEY).size() + 1;
+      const std::string receivedId = cookies.substr(idStartLoc, SESSION_ID_LENGH);
+      if (!(this->_sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
+        return (SESSION_INVALID);
+      else
+        return (SESSION_VALID);
+    }
+  }
+  return (SESSION_UNSET);
+}
 
 std::string Server::getRealFilePath(const HTTPRequest& req)
 {
@@ -21,11 +43,11 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
       if (filePath.length() == 1)
       {
         if (req.method == GET)
-          filePath = _root + _index;
+          filePath = _root + "/" + _index;
       }
       else
       {
-        filePath = _root + filePath;
+        filePath = _root + "/" + filePath;
       }
     }
     else // there are no matched location
@@ -37,6 +59,7 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
   {
     filePath = (loc->convertURLToLocationPath(req.url));
   }
+  std::cout << "file path from server : " << filePath << std::endl;
   return (filePath);
 }
 
@@ -101,16 +124,61 @@ FileDescriptor Server::getErrorPageFd(const StatusCode& stCode)
     return (open(itr->second.c_str(), O_RDONLY)); // will return -1 or regular FD
 }
 
+#define READ  (0)
+#define WRITE (1)
+
+static FileDescriptor createIndexPage(const std::string& filePath)
+{
+  std::cout << "Creating autoindex page...\n";
+  int pipe_fd[2];
+  if (pipe(pipe_fd) < 0)
+  {
+    throw(std::runtime_error("createIndexPage : pipe() returned -1"));
+  }
+  // write html to pipe_fd[WRITE]
+  const std::string html_start = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>autoindex</title></head><body>";
+  write(pipe_fd[WRITE], html_start.c_str(), html_start.size());
+
+  // 줄 바꿈은 <br>만 넣으면 된다.
+  const std::string body_1 = "<h1> index of " + filePath + "</h1>" + "<hr/>";
+  write(pipe_fd[WRITE], body_1.c_str(), body_1.size());
+
+  DIR *dir = opendir(filePath.c_str());
+  if (dir == NULL)
+  {
+    write(pipe_fd[WRITE], "Unable to parse directory's index", html_start.size());
+  }
+  else
+  {
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        continue;
+      // <a href="">Label</a>
+      const std::string body_2 = "<a href=\"" + filePath + "/" + entry->d_name + ">" + std::string(entry->d_name) + "</a><br>";
+      write(pipe_fd[WRITE], body_2.c_str(), body_2.size());
+    }
+    closedir(dir);
+  }
+  const std::string html_end = "</body></html>";
+  write(pipe_fd[WRITE], html_end.c_str(), html_end.size());
+  close(pipe_fd[WRITE]);
+  // FIX: kqueue에 등록해야 한다. kqueue쪽에서 close하는거에 이벤트가 발생하기 때문이다. 
+  return (pipe_fd[READ]);
+}
+
+
 
 // TODO: Location과 directory는 분리해야 한다.
 // 127.0.0.1:4242/directory 로 보냈을때 location 정보가 YoupiBanne와 합쳐짐.
-
 HTTPResponse* Server::processGETRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
   // check matched location
   std::string filePath = getRealFilePath(req);
+  std::cout << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -127,7 +195,7 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
     if (DEBUG_MODE)
-      printLog(filePath + "NOT FOUND\n", PRINT_RED);
+      printLog(filePath + " NOT FOUND\n", PRINT_RED);
     const StatusCode RETURN_STATUS = ST_NOT_FOUND;
     HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(getErrorPageFd(RETURN_STATUS));
@@ -136,16 +204,22 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
   else
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(open(filePath.c_str(), O_RDONLY));
+    Location* loc = getMatchedLocation(req);
+    if (loc && loc->_autoindex == true) // if autoindex : on
+    {
+      std::cout << "creating auto index...\n";
+      response->setFd(createIndexPage(filePath));
+    }
+    else // if autoindex : off
+    {
+      response->setFd(open(filePath.c_str(), O_RDONLY));
+    }
     return (response);
   }
 }
 
 // Process POST reqeust
 // Test on bash : curl -X POST http://127.0.0.1:4242/repository/test -d "Hello, World"
-// TODO: 현재는 POST 요청시 생성할 파일명까지 명시하지만,
-// TODO: 사실 요청은 경로만 입력되있고 이걸 서버가 알아서 판단, 파일을 생성한뒤 그 파일에 대한 identifier를 response해야 함.
-// TODO: 이 부분은 form-data 처리랑도 연관 있으니 추후 토의후 마저 구현할 것.
 // 참고 내용 : http://blog.storyg.co/rest-api-response-body-best-pratics
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
 {//std::cerr <<"inpost" << std::endl;
@@ -350,7 +424,10 @@ void Server::processRequest(struct Context* context)
   }
   context->res = response;
   if (context->res && response->getFd() > 0)
+  {
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
+    std::cout << "GET response content len : " << response->getContentLength() << std::endl;
+  }
   response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
 }
 

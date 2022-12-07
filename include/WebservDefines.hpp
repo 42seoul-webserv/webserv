@@ -11,6 +11,10 @@
 #define THREAD_MODE (0)
 #define DEBUG_MODE (0)
 
+#define SESSION_ID_LENGH (15)
+#define SESSION_KEY ("WEBSERV_ID")
+#define SESSION_EXPIRE_HOUR (+1)
+
 // colors
 #define PRINT_RED     "\x1b[31m"
 #define PRINT_GREEN   "\x1b[32m"
