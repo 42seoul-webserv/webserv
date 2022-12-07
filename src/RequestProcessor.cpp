@@ -71,14 +71,14 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     try
     {
       std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
-      std::string contentLengthString;
-      contentLengthString.assign(it->second);
-      if (contentLengthString.empty())
+      if (it == req.headers.end())
+        throw (std::logic_error(""));
+      if (it->second.empty())
       {
         return (ST_LENGTH_REQUIRED);
       }
-      int contentLength = ft_stoi(contentLengthString);
-      if (matchedServer._clientMaxBodySize < contentLength)
+      int contentLength = ft_stoi(it->second);
+      if (loc->clientMaxBodySize < contentLength)
       {
         return (ST_PAYLOAD_TOO_LARGE);
       }
@@ -112,13 +112,13 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     try
     {
       std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
-      std::string contentLengthString;
-      contentLengthString.assign(it->second);
-      if (contentLengthString.empty())
+      if (it == req.headers.end())
+        throw (std::logic_error(""));
+      if (it->second.empty())
       {
         return (ST_LENGTH_REQUIRED);
       }
-      int contentLength = ft_stoi(contentLengthString);
+      int contentLength = ft_stoi(it->second);
       if (loc->clientMaxBodySize < contentLength)
       {
         return (ST_PAYLOAD_TOO_LARGE);
