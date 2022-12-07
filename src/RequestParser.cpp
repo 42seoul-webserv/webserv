@@ -145,7 +145,7 @@ void RequestParser::checkHeaderValid(HTTPRequest* request)
   {
     return;
   }
-  if (request->method == GET || request->method == HEAD)
+  if (request->method == GET || request->method == HEAD || request->method == DELETE)
   {
     request->status = END;
     return;

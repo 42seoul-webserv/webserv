@@ -70,7 +70,9 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     try
     {
-      std::string contentLengthString = req.headers.at("Content-Length");
+      std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
+      std::string contentLengthString;
+      contentLengthString.assign(it->second);
       if (contentLengthString.empty())
       {
         return (ST_LENGTH_REQUIRED);
@@ -83,7 +85,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     catch (std::exception& e)
     {
-      if (req.method != GET && req.method != HEAD)
+      if (req.method != GET && req.method != HEAD && req.method != DELETE)
       {
         return (ST_LENGTH_REQUIRED);
       }
@@ -109,7 +111,9 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     try
     {
-      std::string contentLengthString = req.headers.at("Content-Length");
+      std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
+      std::string contentLengthString;
+      contentLengthString.assign(it->second);
       if (contentLengthString.empty())
       {
         return (ST_LENGTH_REQUIRED);
@@ -122,7 +126,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     catch (std::exception& e)
     {
-      if (req.method != GET && req.method != HEAD)
+      if (req.method != GET && req.method != HEAD && req.method != DELETE)
       {
         return (ST_LENGTH_REQUIRED);
       }
