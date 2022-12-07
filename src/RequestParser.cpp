@@ -374,6 +374,10 @@ void RequestParser::parseRequest(struct Context* context)
     context->req->body = new std::string("");
     gettimeofday(&context->req->baseTime, NULL);
   }
+  else
+  {
+    std::cout << "NOT NULL REQ\n";
+  }
   if (context->req->status != END && context->req->status != ERROR)
   {
     try
@@ -388,6 +392,8 @@ void RequestParser::parseRequest(struct Context* context)
   }
   if (context->req->status == ERROR || context->req->status == END)
   {
+    if (context->req->message == NULL)
+      return ;
     delete (context->req->message);
     context->req->message = NULL;
   }

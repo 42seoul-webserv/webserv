@@ -377,6 +377,8 @@ void HTTPResponse::sendToClient(struct Context* context)
   newSendContext->connectContexts = context->connectContexts;
   newSendContext->connectContexts->push_back(newSendContext);
   newSendContext->res = this;
+  newSendContext->pipeFD[0] = context->pipeFD[0];
+  newSendContext->pipeFD[1] = context->pipeFD[1];
 
   // add header content
   std::string header = this->getHeader().toString() + "\n";
@@ -403,6 +405,8 @@ void HTTPResponse::sendToClient(struct Context* context)
     newReadContext->res = this;
     newReadContext->req = context->req;
     newReadContext->threadKQ = context->threadKQ;
+    newReadContext->pipeFD[0] = context->pipeFD[0];
+    newReadContext->pipeFD[1] = context->pipeFD[1];
     struct kevent _event;
     EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
     context->manager->attachNewEvent(newReadContext, _event);
@@ -417,9 +421,13 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   {
     printLog("sk send handler called\n", PRINT_CYAN);
   }
+  if (context->ioBuffer == NULL)
+  {
+    std::cout << "NULL\n";
+    return ;
+  }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
   ssize_t sendSize;
-
   if ((sendSize = send(context->fd, context->ioBuffer, context->bufferSize, MSG_DONTWAIT)) < 0)
   {
     if (DEBUG_MODE)
@@ -430,9 +438,6 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     }
     return;
   }
-  std::cout << sendSize << '\n';
-  context->ioBuffer[sendSize - 1] = 0;
-      std::cout << context->ioBuffer << '\n';
   // partial send handle
   if (sendSize < context->bufferSize)
   {
@@ -449,6 +454,8 @@ void HTTPResponse::socketSendHandler(struct Context* context)
       newReadContext->threadKQ = context->threadKQ;
       newReadContext->totalIOSize = context->totalIOSize;
       newReadContext->connectContexts = context->connectContexts;
+      newReadContext->pipeFD[0] = context->pipeFD[0];
+      newReadContext->pipeFD[1] = context->pipeFD[1];
       newReadContext->connectContexts->push_back(newReadContext);
       struct kevent _event;
       EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
@@ -496,13 +503,14 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
   }
   else // 데이터가 들어왔다면, 소켓에 버퍼에 있는 데이터를 전송하는 socket send event를 등록.
   {
-    std::cout << buffer << '\n';
     context->totalIOSize += current_rd_size; // 읽은 길이를 누적.
     // Content_length와 누적 읽은 길이가 같아지면 file_fd 닫고 file_fd에 -1대입.
     bool is_read_finished = false;
     if (context->totalIOSize >= context->res->getContentLength())
     {
       close(context->res->_fileFd); // fd_file을 닫고.
+      if (context->pipeFD[1] > 0)
+        close(context->pipeFD[1]);
       context->res->_fileFd = -1;   // socketSendHandler가 file_fd가 -1이면 소켓을 종료.
       is_read_finished = true; // 마지막에 context delete하기 위함.
     }
@@ -516,6 +524,8 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     newSendContext->threadKQ = context->threadKQ;
     newSendContext->bufferSize = current_rd_size;
     newSendContext->totalIOSize = context->totalIOSize;
+    newSendContext->pipeFD[0] = context->pipeFD[0];
+    newSendContext->pipeFD[1] = context->pipeFD[1];
     EV_SET(&event, context->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
     context->manager->attachNewEvent(newSendContext, event);
     // read handler가 중복 호출 되는 것을 방지함

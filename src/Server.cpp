@@ -59,7 +59,6 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
   {
     filePath = (loc->convertURLToLocationPath(req.url));
   }
-  std::cout << "file path from server : " << filePath << std::endl;
   return (filePath);
 }
 
@@ -127,26 +126,28 @@ FileDescriptor Server::getErrorPageFd(const StatusCode& stCode)
 #define READ  (0)
 #define WRITE (1)
 
-static FileDescriptor createIndexPage(const std::string& filePath)
+static FileDescriptor createIndexPage(struct Context* context, const std::string& filePath)
 {
-  std::cout << "Creating autoindex page...\n";
-  int pipe_fd[2];
+  std::string content = "";
+  struct Context* newContext = new struct Context;
+  *newContext = *context;
+  FileDescriptor* pipe_fd = context->pipeFD;
+
   if (pipe(pipe_fd) < 0)
   {
     throw(std::runtime_error("createIndexPage : pipe() returned -1"));
   }
   // write html to pipe_fd[WRITE]
-  const std::string html_start = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>autoindex</title></head><body>";
-  write(pipe_fd[WRITE], html_start.c_str(), html_start.size());
-
+  const std::string html_start = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>autoindex</title></head><body>\n";
+  content += html_start;
   // 줄 바꿈은 <br>만 넣으면 된다.
-  const std::string body_1 = "<h1> index of " + filePath + "</h1>" + "<hr/>";
-  write(pipe_fd[WRITE], body_1.c_str(), body_1.size());
+  const std::string body_1 = "<h1> index of " + filePath + "</h1>" + "<hr/>\n";
+  content += body_1;
 
   DIR *dir = opendir(filePath.c_str());
   if (dir == NULL)
   {
-    write(pipe_fd[WRITE], "Unable to parse directory's index", html_start.size());
+    content += "Unable to parse directory's index\n";
   }
   else
   {
@@ -156,15 +157,30 @@ static FileDescriptor createIndexPage(const std::string& filePath)
       if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
         continue;
       // <a href="">Label</a>
-      const std::string body_2 = "<a href=\"" + filePath + "/" + entry->d_name + ">" + std::string(entry->d_name) + "</a><br>";
-      write(pipe_fd[WRITE], body_2.c_str(), body_2.size());
+      const std::string body_2 = "<a href=\"" + filePath + "/" + entry->d_name + "\">" + std::string(entry->d_name) + "</a><br>\n";
+      content += body_2;
     }
     closedir(dir);
   }
   const std::string html_end = "</body></html>";
-  write(pipe_fd[WRITE], html_end.c_str(), html_end.size());
-  close(pipe_fd[WRITE]);
-  // FIX: kqueue에 등록해야 한다. kqueue쪽에서 close하는거에 이벤트가 발생하기 때문이다. 
+  content += html_end;
+  // attach write pipe event
+  const size_t CONTENT_SIZE = content.size();
+  struct kevent ev;
+  newContext->req = context->req;
+  newContext->res = context->res;
+  newContext->fd = context->fd;
+  newContext->handler = writePipeHandler;
+  newContext->connectContexts->push_back(newContext);
+  newContext->ioBuffer = new char[CONTENT_SIZE];
+  newContext->totalIOSize = CONTENT_SIZE;
+  newContext->pipeFD[0] = context->pipeFD[0];
+  newContext->pipeFD[1] = context->pipeFD[1];
+  context->req = NULL;
+  memcpy(newContext->ioBuffer, content.c_str(), CONTENT_SIZE);
+  EV_SET(&ev, pipe_fd[WRITE], EVFILT_WRITE, EV_ADD, 0, 0, newContext);
+  context->manager->attachNewEvent(newContext, ev);
+  // FIX: kqueue에 등록해야 한다. kqueue쪽에서 close하는거에 이벤트가 발생하기 때문이다.
   return (pipe_fd[READ]);
 }
 
@@ -178,7 +194,6 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
 
   // check matched location
   std::string filePath = getRealFilePath(req);
-  std::cout << filePath << std::endl;
 
   if (filePath == "FAILED")
   {
@@ -207,8 +222,9 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
     Location* loc = getMatchedLocation(req);
     if (loc && loc->_autoindex == true) // if autoindex : on
     {
-      std::cout << "creating auto index...\n";
-      response->setFd(createIndexPage(filePath));
+      context->res = response;
+      response->setFd(createIndexPage(context, filePath));
+      return (NULL);
     }
     else // if autoindex : off
     {
@@ -246,7 +262,6 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0777);
     if (writeFileFD <= -1 || access(filePath.c_str(), R_OK | W_OK) == FAILED)
     {
-      std::cout << filePath.c_str() << "," << writeFileFD << "\n";
       const StatusCode RETURN_STATUS = ST_NOT_FOUND;
       response = new HTTPResponse(RETURN_STATUS, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
       response->setFd(getErrorPageFd(RETURN_STATUS));
@@ -263,6 +278,8 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     newContext->connectContexts = context->connectContexts;
     newContext->connectContexts->push_back(newContext);
     newContext->totalIOSize = 0;
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
@@ -309,6 +326,8 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     newContext->totalIOSize = 0;
     newContext->connectContexts = context->connectContexts;
     newContext->connectContexts->push_back(newContext);
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
@@ -396,10 +415,6 @@ void Server::processRequest(struct Context* context)
     case POST:
     {
       response = (processPOSTRequest(context));
-      if (!response)//cgi
-      {
-        return;
-      }
       break ;
     }
     case PUT:
@@ -422,13 +437,14 @@ void Server::processRequest(struct Context* context)
       throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
     }
   }
+  if (!response)
+  {
+    return;
+  }
   context->res = response;
   if (context->res && response->getFd() > 0)
-  {
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
-    std::cout << "GET response content len : " << response->getContentLength() << std::endl;
-  }
-  response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
+  response->sendToClient(context);
 }
 
 const Location* getClosestMatchedLocation_recur(const Server& matchedServer, const std::string& subUrl)
