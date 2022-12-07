@@ -126,7 +126,7 @@ FileDescriptor Server::getErrorPageFd(const StatusCode& stCode)
 #define READ  (0)
 #define WRITE (1)
 
-static FileDescriptor createIndexPage(struct Context* context, const std::string& filePath)
+static FileDescriptor createIndexPage(struct Context* context, const std::string& filePath, Location& location)
 {
   std::string content = "";
   struct Context* newContext = new struct Context;
@@ -154,11 +154,25 @@ static FileDescriptor createIndexPage(struct Context* context, const std::string
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL)
     {
-      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+      if (strcmp(entry->d_name, ".") == 0 /* || strcmp(entry->d_name, "..") == 0*/)
         continue;
-      // <a href="">Label</a>
-      const std::string body_2 = "<a href=\"" + filePath + "/" + entry->d_name + "\">" + std::string(entry->d_name) + "</a><br>\n";
-      content += body_2;
+      struct stat sb;
+      std::string body_2 = "<h4>";
+      std::string subdir = filePath + "/" + entry->d_name;
+      stat(subdir.c_str(), &sb);
+      if (strcmp(entry->d_name, "..") == 0)
+      {
+        body_2 += "<a href=\"" + location._location + "/" + "\">" + std::string(entry->d_name) + "</a><br>";
+      }
+      else if (S_ISDIR(sb.st_mode)) // if directory
+      {
+        body_2 += "<a href=\"" + location._location + "/" + entry->d_name + "\">" + std::string(entry->d_name) + "</a><br>";
+      }
+      else // if file
+      {
+        body_2 += "<a href=\"" + filePath + "/" + entry->d_name + "\">" + std::string(entry->d_name) + "</a><br>\n";
+      }
+      content += (body_2 + "</h4>");
     }
     closedir(dir);
   }
@@ -223,7 +237,7 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
     if (loc && loc->_autoindex == true) // if autoindex : on
     {
       context->res = response;
-      response->setFd(createIndexPage(context, filePath));
+      response->setFd(createIndexPage(context, filePath, *loc));
       return (NULL);
     }
     else // if autoindex : off
