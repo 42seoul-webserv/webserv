@@ -9,7 +9,7 @@
 #define FAILED (-1)
 #define THREAD_NO 20
 #define THREAD_MODE (0)
-#define DEBUG_MODE (0)
+#define DEBUG_MODE (true)
 
 #define SESSION_ID_LENGH (15)
 #define SESSION_KEY ("WEBSERV_ID")

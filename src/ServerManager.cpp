@@ -209,7 +209,7 @@ int ServerManager::attachNewEvent(struct Context* context, const struct kevent& 
       std::cout << event.ident << "(ident) (attach) \n";
       std::cout << strerror(errno) << " (attach) \n";
       std::cout << context->threadKQ << " (attach) \n";
-      std::cout << context->req->status << " (attach) \n";
+//      std::cout << context->req->status << " (attach) \n";
     }
     return (FAILED);
   }

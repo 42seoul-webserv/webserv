@@ -155,6 +155,8 @@ void CGI::attachFileWriteEvent(struct Context* context)
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
   newContext->connectContexts->push_back(newContext);
+  newContext->pipeFD[0] = context->pipeFD[0];
+  newContext->pipeFD[1] = context->pipeFD[1];
   struct kevent event;
   EV_SET(&event, newContext->cgi->writeFD, EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   newContext->manager->attachNewEvent(newContext, event);
@@ -195,6 +197,8 @@ void CGI::CGIChildEvent(struct Context* context)
   newContext->threadKQ = context->threadKQ;
   newContext->connectContexts = context->connectContexts;
   newContext->connectContexts->push_back(newContext);
+  newContext->pipeFD[0] = context->pipeFD[0];
+  newContext->pipeFD[1] = context->pipeFD[1];
   while (true)
   {
     newContext->cgi->CGIfork(newContext);

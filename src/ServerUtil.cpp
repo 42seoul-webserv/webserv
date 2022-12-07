@@ -97,6 +97,8 @@ void CGIChildHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = context->connectContexts;
     newContext->connectContexts->push_back(newContext);
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
     struct kevent event;
     EV_SET(&event, newContext->cgi->readFD, EVFILT_READ, EV_ADD, 0, 0, newContext);
     newContext->manager->attachNewEvent(newContext, event);
@@ -167,6 +169,8 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = new std::vector<struct Context*>();
     newContext->connectContexts->push_back(newContext);
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
@@ -182,6 +186,14 @@ void handleEvent(struct kevent* event)
   {
     if (event->filter != EVFILT_PROC && (event->flags & EV_EOF || event->fflags & EV_EOF))
     {
+      struct stat st;
+      if (fstat(event->ident, &st) != FAILED && S_ISFIFO(st.st_mode))
+      {
+        if (event->filter == EVFILT_WRITE)
+          close (eventData->pipeFD[1]);
+        std::cout << "OK?\n";
+        return ;
+      }
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
@@ -230,6 +242,25 @@ void writeFileHandle(struct Context* context)
     delete (req.body);
     req.body = NULL;
     close(context->fd);
+  }
+}
+
+void writePipeHandler(struct Context* context)
+{// partial write 고려 안함.
+  if (write(context->pipeFD[1], context->ioBuffer, context->totalIOSize) < 0)
+  {
+    printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
+  }
+  else
+  {
+    delete (context->ioBuffer);
+    context->ioBuffer = NULL;
+    // write done...
+    struct kevent ev;
+    EV_SET(&ev, context->pipeFD[1], EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+    context->manager->attachNewEvent(context, ev);
+    context->res->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(context->res->getFd())));
+    context->res->sendToClient(context);
   }
 }
 

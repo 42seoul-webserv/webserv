@@ -88,6 +88,8 @@ ThreadPool::ThreadPool(size_t threadNumber):
 ThreadPool::~ThreadPool()
 {
   _stopAll = true;
+  if (!THREAD_MODE)
+    return ;
   for (size_t i = 0; i < NUM_THREADS; ++i)
   {
     pthread_join(_workerThreads[i], NULL);
