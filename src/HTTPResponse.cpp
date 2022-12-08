@@ -430,7 +430,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   }
   if (context->ioBuffer == NULL)
   {
-    std::cout << "NULL\n";
+    //std::cout << "NULL\n";
     return ;
   }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.

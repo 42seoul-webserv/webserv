@@ -245,7 +245,7 @@ void writeFileHandle(struct Context* context)
 }
 
 void writePipeHandler(struct Context* context)
-{// partial write 고려 안함.
+{
   if (write(context->pipeFD[1], context->ioBuffer, context->totalIOSize) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
@@ -254,7 +254,6 @@ void writePipeHandler(struct Context* context)
   {
     delete (context->ioBuffer);
     context->ioBuffer = NULL;
-    // write done...
     struct kevent ev;
     EV_SET(&ev, context->pipeFD[1], EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
     context->manager->attachNewEvent(context, ev);
@@ -407,6 +406,12 @@ void clearContexts(struct Context* context)
   }
   for (std::set<CGI*>::iterator it = cgiSets.begin(); it != cgiSets.end(); ++it)
   {
+    if (context->cgi != NULL)
+    {
+      struct kevent event;
+      EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0, NULL);
+      context->manager->attachNewEvent(context, event);
+    }
     delete (*it);
   }
   context->connectContexts->clear();

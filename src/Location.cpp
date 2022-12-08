@@ -27,7 +27,9 @@ std::string Location::convertURLToLocationPath(const std::string& url) const
 {
   std::string result = _root;
   std::string filePath;
-  filePath = url.substr(this->_location.size(), std::string::npos);
+
+  if (url.size() >= _location.size())
+    filePath = url.substr(this->_location.size(), std::string::npos);
   result = _root + filePath;
   struct stat sb;
   // if last url-chunk is directory, add location's _index to url. [ Ex. /YoupiBane => /YoupiBane/index.html ]

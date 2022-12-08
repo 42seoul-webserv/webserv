@@ -41,8 +41,6 @@ CGI::~CGI()
 void CGI::parseBody(HTTPResponse* res, size_t count)
 {
   res->addHeader("Content-Length", ft_itos(FdGetFileSize(readFD) - count));
-//  std::cerr << std::endl;
-//  std::cerr << res->getHeader().toString() <<std::endl;
 }
 
 void CGI::parseHeader(HTTPResponse* res, std::string &message)
@@ -353,8 +351,12 @@ void CGI::setFilePath()
 {
   std::string infilepath;
   std::string outfilepath;
-  static size_t fileCount;
+  static ssize_t fileCount;
 
+  if (fileCount == INT32_MAX)
+  {
+    fileCount = 0;
+  }
   infilepath.assign(ft_getcwd());
   infilepath.append("/tempfile/in");
   infilepath.append(ft_itos(fileCount));
