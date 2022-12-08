@@ -32,10 +32,13 @@ std::string Location::convertURLToLocationPath(const std::string& url) const
   struct stat sb;
   // if last url-chunk is directory, add location's _index to url. [ Ex. /YoupiBane => /YoupiBane/index.html ]
   if (stat(result.c_str(), &sb) != -1 && S_ISDIR(sb.st_mode))
-    result += ("/" + _index);
+  {
+    if (this->_autoindex == false)
+      result += ("/" + _index);
+  }
   return (result);
 }
-
+/*
 bool Location::isCGIRequest(const std::string& file)
 {
   for (
@@ -50,7 +53,7 @@ bool Location::isCGIRequest(const std::string& file)
     }
   }
   return (false);
-}
+}*/
 
 bool Location::isRedirect() const
 {

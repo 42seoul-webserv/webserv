@@ -8,7 +8,8 @@
 #include "RequestParser.hpp"
 #include "HTTPResponse.hpp"
 #include "ThreadPool.hpp"
-
+#include "CGI.hpp"
+#include <sys/stat.h>
 class ServerManager;
 
 struct Context
@@ -17,6 +18,7 @@ struct Context
     struct sockaddr_in addr;
     void (* handler)(struct Context* obj);
     ServerManager* manager;
+    CGI* cgi;
     HTTPRequest* req;
     HTTPResponse* res; // -> for file FD, ContentLength... etc
     char* ioBuffer;
@@ -24,6 +26,7 @@ struct Context
     size_t  totalIOSize; // 보낼 때 마다 합산.
     FileDescriptor threadKQ;
     std::vector<struct Context*>* connectContexts;
+    FileDescriptor pipeFD[2];
 
     Context(){}
     Context(int _fd,
@@ -34,6 +37,7 @@ struct Context
             addr(_addr),
             handler(_handler),
             manager(_manager),
+            cgi(NULL),
             req(NULL),
             res(NULL),
             ioBuffer(NULL),
@@ -42,6 +46,8 @@ struct Context
             threadKQ(0),
             connectContexts(NULL)
     {
+      pipeFD[0] = -1;
+      pipeFD[1] = -1;
     }
     ~Context()
     {
@@ -55,18 +61,15 @@ struct Context
         {
           struct Context* context = *it;
 
-          if (context->req != NULL)
-            {}//delete (context->req);
           if (context->ioBuffer != NULL)
             delete (context->ioBuffer);
           // 이렇게 안하면 재귀 호출됨...
           if (context != this)
-            free (context);
+            free(context);
         }
         // 중복되는 자료.
         delete (this->connectContexts);
       }
-      //delete (this->res);
     }
 };
 
@@ -87,7 +90,7 @@ public:
     void run();
     void initServers();
     void attachServerEvent(Server& server);
-    void attachNewEvent(struct Context* context, const struct kevent& event);
+    int attachNewEvent(struct Context* context, const struct kevent& event);
     FileDescriptor getKqueue() const;
     std::string getServerName(in_port_t port_num) const;
     std::vector<Server>& getServerList();
@@ -100,6 +103,8 @@ void socketReceiveHandler(struct Context* context);
 void acceptHandler(struct Context* context);
 void handleEvent(struct kevent* event);
 void writeFileHandle(struct Context* context);
+void writePipeHandler(struct Context* context);
+void CGIWriteHandler(struct Context* context);
 void clearContexts(struct Context* context);
-
+void CGIChildHandler(struct Context* context);
 #endif //SERVERMANAGER_HPP

@@ -311,7 +311,7 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex) {
       // if has redirection
       if (!redirects.empty() && redirects.size() == 2) {
         std::vector<std::string>::const_iterator itr = redirects.begin();
-        location._redirect.first = static_cast<StatusCode>(std::stod(*itr));
+        location._redirect.first = static_cast<StatusCode>(ft_stoi(*itr));
         itr++;
         location._redirect.second = *itr;
       }
@@ -322,11 +322,20 @@ void ConfigParser::getLocationAttr(Server& server, unsigned int serverIndex) {
           location.clientMaxBodySize = ft_stoi(*(GetNodeElem(serverIndex,
                                                              temp->category,
                                                              "client_max_body_size").begin()));
-        } // FIXME crash 가능성
+        }
         else {
           location.clientMaxBodySize = DEFAULT_CLIENT_MAX_BODY_SIZE;
         }
         location.cgiInfo = GetNodeElem(serverIndex, temp->category, "cgi_info");
+
+        if (!GetNodeElem(serverIndex,
+                         temp->category,
+                         "autoindex").begin()->empty()) {
+          location._autoindex = (*(GetNodeElem(serverIndex, temp->category,"autoindex").begin()) == "on") ? true : false;
+        }
+        else { // if no autoindex option.
+          location._autoindex = false;
+        }
         setLocationDefault(server, location);
         server._locations.push_back(location);
         location.allowMethods.clear();
@@ -377,6 +386,7 @@ void ConfigParser::displayServer(Server& server)
       std::cout << server._locations[i].allowMethods[k] << " ";
     }
     std::cout << std::endl;
+    std::cout << "_autoindex : " << (server._locations[i]._autoindex ? "on" : "off") << std::endl;
     std::cout << "_cgiInfo : ";
     for (
             unsigned int k = 0; k < server._locations[i].cgiInfo.size(); ++k
@@ -401,7 +411,7 @@ void ConfigParser::getErrorPage(std::map<StatusCode, std::string>& _errorPage,
             it != errorPageNode->elem.end(); ++it
             )
     {
-      _errorPage[static_cast<StatusCode>(std::stod(it->first))] = *(it->second.begin());
+      _errorPage[static_cast<StatusCode>(ft_stoi(it->first))] = *(it->second.begin());
     }
   }
 }
@@ -412,7 +422,7 @@ void ConfigParser::getRedirect(Server &server, unsigned int serverIndex)
   if (!redirects.empty() && redirects.size() == 2)
   {
     std::vector<std::string>::const_iterator itr = redirects.begin();
-    server._redirect.first = static_cast<StatusCode>(std::stod(*itr)) ;
+    server._redirect.first = static_cast<StatusCode>(ft_stoi(*itr)) ;
     itr++;
     server._redirect.second = *itr;
   }

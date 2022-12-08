@@ -58,7 +58,7 @@ static void* jobHandler(void *_threadPool)
       }
       pthread_mutex_unlock(tp.getMutex());
     }
-    else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
+    else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE || event.filter == EVFILT_PROC)
     {
       newEvent = &event;
     }
@@ -88,6 +88,8 @@ ThreadPool::ThreadPool(size_t threadNumber):
 ThreadPool::~ThreadPool()
 {
   _stopAll = true;
+  if (!THREAD_MODE)
+    return ;
   for (size_t i = 0; i < NUM_THREADS; ++i)
   {
     pthread_join(_workerThreads[i], NULL);

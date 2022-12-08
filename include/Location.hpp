@@ -13,10 +13,11 @@ public:
     int clientMaxBodySize;  // (--> max size of client body request)   --> defaults to 8000 bytes
     std::vector<std::string> cgiInfo;      // ex. name: cgi_tester, arg: hello_world
     std::pair<StatusCode, std::string> _redirect;   // ex. 301 https://profile.intra.42.fr/
+    bool _autoindex; // autoindex flag (on | off)
 
 public:
     bool isMatchedLocation(const std::string& url) const;
-    bool isCGIRequest(const std::string& file);
+  //  bool isCGIRequest(const std::string& file);
 
     // check if server has valid redirection setting.
     bool isRedirect() const;

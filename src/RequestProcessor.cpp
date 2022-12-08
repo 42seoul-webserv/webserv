@@ -3,6 +3,7 @@
 #include "HTTPRequest.hpp"
 #include "ServerManager.hpp"
 #include "WebservDefines.hpp"
+#include "CGI.hpp"
 
 static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
 {
@@ -54,35 +55,37 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
   {
     // if not root
     // http://127.0.0.1:4242/directory/nop/ 와 같은 경우도 고려해야 함.
-    if (req.url != "/")
-    {
-      const StatusCode st = checkValidUrl_recur(matchedServer, req.url);
-      return (st);
-    }
+    // if (req.url != "/")
+    // {
+    //   const StatusCode st = checkValidUrl_recur(matchedServer, req.url);
+    //   return (st);
+    // }
     if (!isAllowedMethod(matchedServer._allowMethods, req.method))
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-    if (req.chunkedFlag == true)
+    if (req.chunkedFlag)
     {
       return (ST_OK);
     }
     try
     {
-      std::string contentLengthString = req.headers.at("Content-Length");
-      if (contentLengthString.empty())
+      std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
+      if (it == req.headers.end())
+        throw (std::logic_error(""));
+      if (it->second.empty())
       {
         return (ST_LENGTH_REQUIRED);
       }
-      int contentLength = ft_stoi(contentLengthString);
-      if (matchedServer._clientMaxBodySize < contentLength)
+      int contentLength = ft_stoi(it->second);
+      if (loc->clientMaxBodySize < contentLength)
       {
         return (ST_PAYLOAD_TOO_LARGE);
       }
     }
     catch (std::exception& e)
     {
-      if (req.method != GET && req.method != HEAD)
+      if (req.method != GET && req.method != HEAD && req.method != DELETE)
       {
         return (ST_LENGTH_REQUIRED);
       }
@@ -94,18 +97,28 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-    if (req.chunkedFlag == true)
+    if (isCGIRequest(matchedServer.getRealFilePath(req), loc))
     {
       return (ST_OK);
     }
+    if (req.chunkedFlag == true && req.body->size() <= loc->clientMaxBodySize)
+    {
+      return (ST_OK);
+    }
+    if (loc->clientMaxBodySize < req.body->size())
+    {
+      return (ST_PAYLOAD_TOO_LARGE);
+    }
     try
     {
-      std::string contentLengthString = req.headers.at("Content-Length");
-      if (contentLengthString.empty())
+      std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Length");
+      if (it == req.headers.end())
+        throw (std::logic_error(""));
+      if (it->second.empty())
       {
         return (ST_LENGTH_REQUIRED);
       }
-      int contentLength = ft_stoi(contentLengthString);
+      int contentLength = ft_stoi(it->second);
       if (loc->clientMaxBodySize < contentLength)
       {
         return (ST_PAYLOAD_TOO_LARGE);
@@ -113,7 +126,7 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     }
     catch (std::exception& e)
     {
-      if (req.method != GET && req.method != HEAD)
+      if (req.method != GET && req.method != HEAD && req.method != DELETE)
       {
         return (ST_LENGTH_REQUIRED);
       }
@@ -136,9 +149,13 @@ void RequestProcessor::processRequest(struct Context* context)
     if (DEBUG_MODE)
       printLog(*req.message, PRINT_RED);
     HTTPResponse* response = new HTTPResponse(ST_BAD_REQUEST, "bad request", context->manager->getServerName(context->addr.sin_port));
-    context->res = response;
+    Server& server = _serverManager.getMatchedServer(req);
 
+    context->res = response;
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+    response->setFd(server.getErrorPageFd(ST_BAD_REQUEST));
+    if (response->getFd() > 0)
+      response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
     response->sendToClient(context);
     return;
   }
@@ -150,10 +167,13 @@ void RequestProcessor::processRequest(struct Context* context)
 
     if (status != ST_OK)
     {
-      HTTPResponse* response = new HTTPResponse(status, "", context->manager->getServerName(context->addr.sin_port));
+      HTTPResponse* response = new HTTPResponse(status, "No", context->manager->getServerName(context->addr.sin_port));
       context->res = response;
 
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+      response->setFd(server.getErrorPageFd(status));
+      if (response->getFd() > 0)
+        response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
       response->sendToClient(context);
       if (req.status == HEADEROK)
       {
@@ -171,6 +191,7 @@ void RequestProcessor::processRequest(struct Context* context)
       // set location header.
       response->addHeader(HTTPResponse::LOCATION(redirect_data.second));
       response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+      response->setFd(-1);
       response->sendToClient(context);
       return ;
     }

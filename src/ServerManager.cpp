@@ -1,5 +1,6 @@
 #include "ServerManager.hpp"
 #include "ThreadPool.hpp"
+#include <cstring>
 
 ServerManager::ServerManager(const std::string& configFilePath) :
         _processor(*this),
@@ -52,7 +53,9 @@ void ServerManager::run()
     { // time limit expired -> never happen
       printLog("time limit expired\n", PRINT_BLUE);
     }
-    else if (event.filter == EVFILT_READ || event.filter == EVFILT_WRITE)
+    else if (event.filter == EVFILT_READ \
+            || event.filter == EVFILT_WRITE \
+            || event.filter == EVFILT_PROC)
     {
       if (THREAD_MODE)
       {
@@ -78,6 +81,17 @@ void ServerManager::initServers()
           )
   {
     server->openServer();
+    for (
+        std::vector<Server>::iterator temp = _serverList.begin();
+        temp != server;
+        ++temp
+        )
+    {
+      if ((*temp)._serverPort == (*server)._serverPort && (*temp)._serverName == (*server)._serverName)
+        throw (std::runtime_error("Same port and Same server\n"));
+      if ((*temp)._serverPort == (*server)._serverPort)
+        return ;
+    }
     attachServerEvent(*server);
   }
 }
@@ -178,7 +192,7 @@ Server& ServerManager::getMatchedServer(const HTTPRequest& req)
   return (_serverList[0]);
 }
 
-void ServerManager::attachNewEvent(struct Context* context, const struct kevent& event)
+int ServerManager::attachNewEvent(struct Context* context, const struct kevent& event)
 {
   FileDescriptor kq;
 
@@ -191,6 +205,13 @@ void ServerManager::attachNewEvent(struct Context* context, const struct kevent&
     if (DEBUG_MODE)
     {
       printLog("event attach failed\n", PRINT_YELLOW);
+      std::cout << kq << " (attach) \n";
+      std::cout << event.ident << "(ident) (attach) \n";
+      std::cout << strerror(errno) << " (attach) \n";
+      std::cout << context->threadKQ << " (attach) \n";
+//      std::cout << context->req->status << " (attach) \n";
     }
+    return (FAILED);
   }
+  return (0);
 }

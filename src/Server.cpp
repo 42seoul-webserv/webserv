@@ -1,10 +1,33 @@
 #include "Server.hpp"
 #include "HTTPResponse.hpp"
 #include "ServerManager.hpp"
+#include "CGI.hpp"
 #include <fcntl.h>
 #include <unistd.h>
+#include <dirent.h>
 
-// TODO : autoindex
+// if there is no cookie in request --> return -1
+// else, if valid id --> return  1
+// else, if not valid --> return 0
+int Server::getSessionStatus(const HTTPRequest& req)
+{
+  std::map<std::string, std::string>::const_iterator headerString_itr = req.headers.find("Cookie");
+  if (headerString_itr != req.headers.end()) // if header has Cookie.
+  {
+    const std::string cookies = headerString_itr->second;
+    const size_t id_loc = cookies.find(SESSION_KEY);
+    if (id_loc != std::string::npos) // if session id exists,
+    {
+      const size_t idStartLoc = id_loc + std::string(SESSION_KEY).size() + 1;
+      const std::string receivedId = cookies.substr(idStartLoc, SESSION_ID_LENGH);
+      if (!(this->_sessionStorage.isValid_ID(receivedId))) // if sessionID does not match.
+        return (SESSION_INVALID);
+      else
+        return (SESSION_VALID);
+    }
+  }
+  return (SESSION_UNSET);
+}
 
 std::string Server::getRealFilePath(const HTTPRequest& req)
 {
@@ -20,11 +43,11 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
       if (filePath.length() == 1)
       {
         if (req.method == GET)
-          filePath = _root + _index;
+          filePath = _root + "/" + _index;
       }
       else
       {
-        filePath = _root + filePath;
+        filePath = _root + "/" + filePath;
       }
     }
     else // there are no matched location
@@ -100,11 +123,86 @@ FileDescriptor Server::getErrorPageFd(const StatusCode& stCode)
     return (open(itr->second.c_str(), O_RDONLY)); // will return -1 or regular FD
 }
 
+#define READ  (0)
+#define WRITE (1)
+
+static FileDescriptor createIndexPage(struct Context* context, const std::string& filePath, Location& location)
+{
+  std::string content = "";
+  struct Context* newContext = new struct Context;
+  *newContext = *context;
+  FileDescriptor* pipe_fd = context->pipeFD;
+
+  if (pipe(pipe_fd) < 0)
+  {
+    throw(std::runtime_error("createIndexPage : pipe() returned -1"));
+  }
+  // write html to pipe_fd[WRITE]
+  const std::string html_start = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>autoindex</title></head><body>\n";
+  content += html_start;
+  // 줄 바꿈은 <br>만 넣으면 된다.
+  const std::string body_1 = "<h1> index of " + filePath + "</h1>" + "<hr/>\n";
+  content += body_1;
+
+  DIR *dir = opendir(filePath.c_str());
+  if (dir == NULL)
+  {
+    content += "Unable to parse directory's index\n";
+  }
+  else
+  {
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+      if (strcmp(entry->d_name, ".") == 0 /* || strcmp(entry->d_name, "..") == 0*/)
+        continue;
+      struct stat sb;
+      std::string body_2 = "<h4>";
+      std::string subdir = filePath + "/" + entry->d_name;
+      stat(subdir.c_str(), &sb);
+      if (strcmp(entry->d_name, "..") == 0)
+      {
+        body_2 += "<a href=\"" + location._location + "/" + "\">" + std::string(entry->d_name) + "</a><br>";
+      }
+      else if (S_ISDIR(sb.st_mode)) // if directory
+      {
+        body_2 += "<a href=\"" + location._location + "/" + entry->d_name + "\">" + std::string(entry->d_name) + "</a><br>";
+      }
+      else // if file
+      {
+        body_2 += "<a href=\"" + filePath + "/" + entry->d_name + "\">" + std::string(entry->d_name) + "</a><br>\n";
+      }
+      content += (body_2 + "</h4>");
+    }
+    closedir(dir);
+  }
+  const std::string html_end = "</body></html>";
+  content += html_end;
+  // attach write pipe event
+  const size_t CONTENT_SIZE = content.size();
+  struct kevent ev;
+  newContext->req = context->req;
+  newContext->res = context->res;
+  newContext->fd = context->fd;
+  newContext->handler = writePipeHandler;
+  newContext->connectContexts->push_back(newContext);
+  newContext->ioBuffer = new char[CONTENT_SIZE];
+  newContext->totalIOSize = CONTENT_SIZE;
+  newContext->pipeFD[0] = context->pipeFD[0];
+  newContext->pipeFD[1] = context->pipeFD[1];
+  context->req = NULL;
+  memcpy(newContext->ioBuffer, content.c_str(), CONTENT_SIZE);
+  EV_SET(&ev, pipe_fd[WRITE], EVFILT_WRITE, EV_ADD, 0, 0, newContext);
+  context->manager->attachNewEvent(newContext, ev);
+  // FIX: kqueue에 등록해야 한다. kqueue쪽에서 close하는거에 이벤트가 발생하기 때문이다.
+  return (pipe_fd[READ]);
+}
+
+
 
 // TODO: Location과 directory는 분리해야 한다.
 // 127.0.0.1:4242/directory 로 보냈을때 location 정보가 YoupiBanne와 합쳐짐.
-
-HTTPResponse* Server::processGETRequest(const struct Context* context)
+HTTPResponse* Server::processGETRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
 
@@ -118,17 +216,15 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
-  // check this file is CGI path
-  //if (CGI)
-  //{
-  //  cgiRequest(req, filePath);
-  //  return ;
-  //}
-  // check is valid file
+  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  {
+    CGIProcess(context);
+    return (NULL);
+  }
   if (access(filePath.c_str(), R_OK) == FAILED)
   {
     if (DEBUG_MODE)
-      printLog(filePath + "NOT FOUND\n", PRINT_RED);
+      printLog(filePath + " NOT FOUND\n", PRINT_RED);
     const StatusCode RETURN_STATUS = ST_NOT_FOUND;
     HTTPResponse* response = new HTTPResponse(RETURN_STATUS, std::string("not found"), context->manager->getServerName(context->addr.sin_port));
     response->setFd(getErrorPageFd(RETURN_STATUS));
@@ -137,19 +233,26 @@ HTTPResponse* Server::processGETRequest(const struct Context* context)
   else
   {
     HTTPResponse* response = new HTTPResponse(ST_OK, std::string("OK"), context->manager->getServerName(context->addr.sin_port));
-    response->setFd(open(filePath.c_str(), O_RDONLY));
+    Location* loc = getMatchedLocation(req);
+    if (loc && loc->_autoindex == true) // if autoindex : on
+    {
+      context->res = response;
+      response->setFd(createIndexPage(context, filePath, *loc));
+      return (NULL);
+    }
+    else // if autoindex : off
+    {
+      response->setFd(open(filePath.c_str(), O_RDONLY));
+    }
     return (response);
   }
 }
 
 // Process POST reqeust
 // Test on bash : curl -X POST http://127.0.0.1:4242/repository/test -d "Hello, World"
-// TODO: 현재는 POST 요청시 생성할 파일명까지 명시하지만,
-// TODO: 사실 요청은 경로만 입력되있고 이걸 서버가 알아서 판단, 파일을 생성한뒤 그 파일에 대한 identifier를 response해야 함.
-// TODO: 이 부분은 form-data 처리랑도 연관 있으니 추후 토의후 마저 구현할 것.
 // 참고 내용 : http://blog.storyg.co/rest-api-response-body-best-pratics
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
-{
+{//std::cerr <<"inpost" << std::endl;
   HTTPRequest& req = *context->req;
 
   // check matched location
@@ -162,28 +265,36 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
+  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  {
+    CGIProcess(context);
+    return (NULL);
+  }
   else
   {
     HTTPResponse* response = NULL;
     FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0777);
     if (writeFileFD <= -1 || access(filePath.c_str(), R_OK | W_OK) == FAILED)
     {
-      std::cout << filePath.c_str() << "," << writeFileFD << "\n";
       const StatusCode RETURN_STATUS = ST_NOT_FOUND;
       response = new HTTPResponse(RETURN_STATUS, std::string("File is not available"), context->manager->getServerName(context->addr.sin_port));
       response->setFd(getErrorPageFd(RETURN_STATUS));
       return (response);
     }
-    response = new HTTPResponse(ST_ACCEPTED, std::string("Accepted"), context->manager->getServerName(context->addr.sin_port));
+    response = new HTTPResponse(ST_ACCEPTED, std::string("ACCEPTED"), context->manager->getServerName(context->addr.sin_port));
     response->addHeader("Content-Location", filePath);
     response->setFd(-1);
     // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
-    newContext->res = new HTTPResponse(*response);
-    newContext->req = new HTTPRequest(*context->req);
-    newContext->fd = writeFileFD;
+    newContext->res = response;
+    newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
     newContext->totalIOSize = 0;
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
+    response->_writeFD = writeFileFD;
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
@@ -211,8 +322,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
   {
     HTTPResponse* response = NULL;
 
-    // FIXME : 왜 이미 있는 파일의 경우 fd가 쟈꾸 -1이 되지...?
-    FileDescriptor writeFileFD = open(filePath.c_str(), O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
+    FileDescriptor writeFileFD = open(filePath.c_str(), O_WRONLY |O_CREAT | O_TRUNC | O_NONBLOCK, 0777);
     if (writeFileFD <= -1)
     {
       const StatusCode RETURN_STATUS = ST_BAD_REQUEST;
@@ -225,13 +335,15 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     response->setFd(-1);
     // prepare event context
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
-    newContext->res = new HTTPResponse(*response);
-    newContext->req = new HTTPRequest(*context->req);
-  //  newContext->fd = writeFileFD;
+    newContext->res = response;
+    newContext->req = context->req;
     newContext->threadKQ = context->threadKQ;
-  //  newContext->connectContexts = context->connectContexts;
-  //  newContext->connectContexts->push_back(newContext);
     newContext->totalIOSize = 0;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
+    response->_writeFD = writeFileFD;
     // attach event
     struct kevent event;
     EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD , 0, 0, newContext);
@@ -294,7 +406,7 @@ HTTPResponse* Server::processDELETERequest(const struct Context* context)
   }
   else
   {
-    HTTPResponse* response = new HTTPResponse(ST_OK, std::string("Delete file requested"), context->manager->getServerName(context->addr.sin_port));
+    HTTPResponse* response = new HTTPResponse(ST_ACCEPTED, std::string("Delete file requested"), context->manager->getServerName(context->addr.sin_port));
     if (unlink(filePath.c_str()) == FAILED)
       response->setStatus(ST_INTERNAL_SERVER_ERROR, "Server Error");
     response->setFd(-1);
@@ -341,10 +453,14 @@ void Server::processRequest(struct Context* context)
       throw (std::runtime_error("Undefined method not handled\n")); // 발생하면 안되는 문제라서 의도적으로 핸들링 안함.
     }
   }
+  if (!response)
+  {
+    return;
+  }
   context->res = response;
   if (context->res && response->getFd() > 0)
     response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(response->getFd())));
-  response->sendToClient(context); // FIXME : 이런 형태로 고쳐져야함.
+  response->sendToClient(context);
 }
 
 const Location* getClosestMatchedLocation_recur(const Server& matchedServer, const std::string& subUrl)
@@ -369,6 +485,31 @@ const Location* getClosestMatchedLocation_recur(const Server& matchedServer, con
 
 Location* Server::getMatchedLocation(const HTTPRequest& req)
 {
+  size_t extensionPOS = req.url.find(".");
+  size_t delimPOS;
+  std::string extension;
+
+  if (req.method == POST && extensionPOS != std::string::npos)
+  {
+    extension.assign("/cgi-");
+    delimPOS = req.url.find("/", extensionPOS);
+    if (delimPOS == std::string::npos)
+    {
+      extension.append(req.url.begin() + extensionPOS + 1, req.url.end());
+    }
+    else
+    {
+      extension.append(req.url.begin() + extensionPOS + 1, req.url.begin() + delimPOS);
+    }
+    for (std::vector<Location>::iterator it = _locations.begin(); it != _locations.end(); ++it)
+    {
+      if (it->_location == extension)
+      {
+        Location &loc = *it;
+        return (&loc);
+      }
+    }
+  }
   // location matching algorithm.
   return (const_cast<Location *>(getClosestMatchedLocation_recur(*this, req.url)));
 }

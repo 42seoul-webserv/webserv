@@ -1,8 +1,9 @@
 #include "ServerManager.hpp"
 #include "RequestProcessor.hpp"
 #include "HTTPResponse.hpp"
+#include "CGI.hpp"
 #include <sstream>
-#include <sys/stat.h>
+#include <set>
 
 void printLog(const std::string& log, const std::string& color = PRINT_RESET)
 {
@@ -46,9 +47,87 @@ std::string getClientIP(struct sockaddr_in* addr)
   return (str);
 }
 
+void CGIParseHandler(struct Context* context)
+{
+  char buffer[BUFFER_SIZE];
+  std::string message;
+  size_t bodyPOS;
+  size_t readCount;
+
+  readCount = read(context->cgi->readFD, buffer, BUFFER_SIZE);
+  message.assign(buffer, readCount);
+  bodyPOS = message.find("\r\n\r\n");
+  if (bodyPOS == std::string::npos)
+  {
+    return;
+  }
+  else
+  {
+    message.resize(bodyPOS + 4);
+    struct Context* origin = (*(context->connectContexts))[0];
+    close(origin->cgi->readFD);
+    origin->cgi->readFD = open(origin->cgi->readFilePath.c_str(), O_RDONLY);
+    lseek(origin->cgi->readFD, message.size() ,SEEK_SET);
+    origin->cgi->parseCGI(origin, message);
+    origin->cgi->pid = -1;
+    origin->res->sendToClient(origin);
+  }
+}
+
+void CGIChildHandler(struct Context* context)
+{   
+  waitpid(context->cgi->pid, &context->cgi->exitStatus, 0);
+  if (context->cgi->exitStatus)
+  {
+    struct Context* origin = (*(context->connectContexts))[0];
+    HTTPResponse* response = new HTTPResponse(ST_BAD_GATEWAY, "gateway broken", context->manager->getServerName(context->addr.sin_port));
+    response->setFd(-1);
+    response->addHeader(HTTPResponseHeader::CONTENT_LENGTH(0));
+    delete context->cgi;
+    context->cgi = NULL;
+    origin->res = response;
+    origin->res->sendToClient(origin);
+  }
+  else
+  {
+    context->cgi->readFD = open(context->cgi->readFilePath.c_str(), O_RDONLY);
+    struct Context* newContext = new struct Context(context->fd, context->addr, CGIParseHandler, context->manager);
+    newContext->req = context->req;
+    newContext->cgi = context->cgi;
+    newContext->threadKQ = context->threadKQ;
+    newContext->connectContexts = context->connectContexts;
+    newContext->connectContexts->push_back(newContext);
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
+    struct kevent event;
+    EV_SET(&event, newContext->cgi->readFD, EVFILT_READ, EV_ADD, 0, 0, newContext);
+    newContext->manager->attachNewEvent(newContext, event);
+  }
+}
+
+void CGIWriteHandler(struct Context* context)
+{
+  HTTPRequest& req = *context->req;
+
+  ssize_t writeSize = 0;
+  if ((writeSize = write(context->cgi->writeFD, &req.body->c_str()[context->totalIOSize], req.body->size() - context->totalIOSize)) < 0)
+  {
+    printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
+  }
+  context->totalIOSize += writeSize; // get total write size
+  if (context->totalIOSize >= req.body->size()) // If write finished
+  {
+    delete (req.body);
+    req.body = NULL;
+    close(context->cgi->writeFD);
+    context->cgi->CGIChildEvent(context);
+  }
+}
+
 void socketReceiveHandler(struct Context* context)
 {
-//  printLog("sk recv handler called\n", PRINT_CYAN);
+	if (DEBUG_MODE)
+		printLog("sk recv handler called\n", PRINT_CYAN);
   if (!context)
     throw (std::runtime_error("NULL context"));
   context->manager->getRequestParser().parseRequest(context);
@@ -67,6 +146,8 @@ void acceptHandler(struct Context* context)
   {
     if (DEBUG_MODE)
       printLog("error:" + getClientIP(&context->addr) + " : accept failed\n", PRINT_RED);
+    if (THREAD_MODE)
+      delete (context);
     return ;
   }
   else
@@ -76,8 +157,8 @@ void acceptHandler(struct Context* context)
     {
       throw (std::runtime_error("fcntl non block failed\n"));
     }
-    struct linger _linger = {1, 0};
-    if (setsockopt(newSocket, SOL_SOCKET, SO_LINGER, &_linger, sizeof(_linger)) < 0 )
+    struct linger optLinger = {1, 0};
+    if (setsockopt(newSocket, SOL_SOCKET, SO_LINGER, &optLinger, sizeof(optLinger)) < 0 )
     {
       throw (std::runtime_error("Socket opt failed\n"));
     }
@@ -88,7 +169,8 @@ void acceptHandler(struct Context* context)
     newContext->threadKQ = context->threadKQ;
     newContext->connectContexts = new std::vector<struct Context*>();
     newContext->connectContexts->push_back(newContext);
-
+    newContext->pipeFD[0] = context->pipeFD[0];
+    newContext->pipeFD[1] = context->pipeFD[1];
     struct kevent event;
     EV_SET(&event, newSocket, EVFILT_READ, EV_ADD, 0, 0, newContext);
     context->manager->attachNewEvent(context, event);
@@ -102,11 +184,21 @@ void handleEvent(struct kevent* event)
   struct Context* eventData = static_cast<struct Context*>(event->udata);
   try
   {
-    if (event->flags & EV_EOF || event->fflags & EV_EOF)
+    if (event->filter != EVFILT_PROC && (event->flags & EV_EOF || event->fflags & EV_EOF))
     {
+      struct stat st;
+      if (fstat(event->ident, &st) != FAILED && S_ISFIFO(st.st_mode))
+      {
+        if (event->filter == EVFILT_WRITE)
+          close (eventData->pipeFD[1]);
+        std::cout << "OK?\n";
+        return ;
+      }
       printLog("Client closed connection : " + getClientIP(&eventData->addr) + "\n", PRINT_YELLOW);
       shutdown(eventData->fd, SHUT_RDWR);
       close(eventData->fd);
+      clearContexts(eventData);
+      eventData->req = NULL;
       delete (eventData);
     }
     else if (event->flags & EV_ERROR)
@@ -140,19 +232,35 @@ void writeFileHandle(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
-  if ((writeSize = write(context->fd, &req.body.c_str()[context->totalIOSize], req.body.size() - context->totalIOSize)) < 0)
+  if ((writeSize = write(context->fd, &req.body->c_str()[context->totalIOSize], req.body->size() - context->totalIOSize)) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
-  if (context->totalIOSize >= req.body.size()) // If write finished
+  if (context->totalIOSize >= req.body->size()) // If write finished
   {
-    close(context->fd);
-    if (context->req != NULL)
-    {
-      delete (context->req);
-    }
-    delete (context);
+    delete (req.body);
+    req.body = NULL;
+//    close(context->fd);
+  }
+}
+
+void writePipeHandler(struct Context* context)
+{// partial write 고려 안함.
+  if (write(context->pipeFD[1], context->ioBuffer, context->totalIOSize) < 0)
+  {
+    printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
+  }
+  else
+  {
+    delete (context->ioBuffer);
+    context->ioBuffer = NULL;
+    // write done...
+    struct kevent ev;
+    EV_SET(&ev, context->pipeFD[1], EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+    context->manager->attachNewEvent(context, ev);
+    context->res->addHeader(HTTPResponseHeader::CONTENT_LENGTH(FdGetFileSize(context->res->getFd())));
+    context->res->sendToClient(context);
   }
 }
 
@@ -240,6 +348,10 @@ void clearContexts(struct Context* context)
 {
   // 내부에서 본인 제외 모두 삭제.
   HTTPResponse* res = NULL;
+  HTTPRequest* req = NULL;
+  std::set<HTTPRequest*> reqSets;
+  std::set<HTTPResponse*> resSets;
+  std::set<CGI*> cgiSets;
 
   for (
           std::vector<struct Context*>::iterator it = context->connectContexts->begin();
@@ -250,15 +362,33 @@ void clearContexts(struct Context* context)
     struct Context* data = *it;
 
     if (data == context)
-      continue;
-
-    if (data->req != NULL)
     {
-      delete (data->req);
-      data->req = NULL;
+      if (data->req)
+      {
+        reqSets.insert(data->req);
+      }
+      if (data->res)
+      {
+        resSets.insert(data->res);
+      }
+      if (data->cgi)
+      {
+        cgiSets.insert(data->cgi);
+      }
+      continue;
+    }
+    if (data->req)
+    {
+      reqSets.insert(data->req);
     }
     if (data->res)
-      res = data->res;
+    {
+      resSets.insert(data->res);
+    }
+    if (data->cgi)
+    {
+      cgiSets.insert(data->cgi);
+    }
     if (data->ioBuffer != NULL)
     {
       delete (data->ioBuffer);
@@ -270,10 +400,17 @@ void clearContexts(struct Context* context)
       data = NULL;
     }
   }
-  if (res != NULL)
+  for (std::set<HTTPResponse*>::iterator it = resSets.begin(); it != resSets.end(); ++it)
   {
-    delete (res);
-    res = NULL;
+    delete (*it);
+  }
+  for (std::set<HTTPRequest*>::iterator it = reqSets.begin(); it != reqSets.end(); ++it)
+  {
+    delete (*it);
+  }
+  for (std::set<CGI*>::iterator it = cgiSets.begin(); it != cgiSets.end(); ++it)
+  {
+    delete (*it);
   }
   context->connectContexts->clear();
   context->connectContexts->push_back(context);

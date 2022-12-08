@@ -60,6 +60,23 @@ std::string HeaderType::GET_MON(long tm_wmon)
   }
 }
 
+std::string ft_itos_width(int num, int minimum_width)
+{
+  std::string origin = ft_itos(num);
+  std::string result;
+  if (origin.size() < minimum_width)
+  {
+    for (int i = 0; i < minimum_width - origin.size(); i++)
+    {
+      result.append("0");
+    }
+    result.append(origin);
+    return (result);
+  }
+  else
+    return (origin);
+}
+
 std::string HeaderType::getDate()
 {
   time_t curTime = time(NULL);          // get current time info
@@ -70,8 +87,40 @@ std::string HeaderType::getDate()
     return ("null");
   }
   std::string result;
-  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos(pLocal->tm_mday) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) +
-           " GMT";
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
+           ft_itos_width(pLocal->tm_hour, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
+  return (result);
+}
+
+// ! WARN: need to handle [Date + diff --> next day / previous day] ...etc
+std::string HeaderType::getDateByYearOffset(int year_diff)
+{
+  time_t curTime = time(NULL);          // get current time info
+  struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
+  if (pLocal == NULL)
+  {
+    // ...
+    return ("null");
+  }
+  std::string result;
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900 + year_diff) + " " +
+           ft_itos_width(pLocal->tm_hour, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
+  return (result);
+}
+
+// ! WARN: need to handle [Date + diff --> next day / previous day] ...etc
+std::string HeaderType::getDateByHourOffset(int hour_diff)
+{
+  time_t curTime = time(NULL);          // get current time info
+  struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
+  if (pLocal == NULL)
+  {
+    // ...
+    return ("null");
+  }
+  std::string result;
+  result = GET_DAY(pLocal->tm_wday) + ", " + ft_itos_width(pLocal->tm_mday, 2) + " " + GET_MON(pLocal->tm_mon) + " " + ft_itos(pLocal->tm_year + 1900) + " " +
+           ft_itos_width(pLocal->tm_hour + hour_diff, 2) + ":" + ft_itos_width(pLocal->tm_min, 2) + ":" + ft_itos_width(pLocal->tm_sec, 2) + " GMT";
   return (result);
 }
 
@@ -270,12 +319,18 @@ HTTPResponseHeader::HTTPResponseHeader(const HTTPResponseHeader& header)
 
 HTTPResponse::HTTPResponse(const int& statusCode, const std::string& statusMessage, const std::string& serverName)
         :
-        HTTPResponseHeader("HTTP/1.1", statusCode, statusMessage, serverName)
+        HTTPResponseHeader("HTTP/1.1", statusCode, statusMessage, serverName),
+        _readFD(-1),
+        _writeFD(-1)
 {
 }
 
 HTTPResponse::~HTTPResponse()
 {
+  if (_readFD > 0)
+    close(_readFD);
+  if (_writeFD > 0)
+    close(_writeFD);
 }
 
 void HTTPResponse::setFd(const FileDescriptor& fd)
@@ -295,15 +350,41 @@ FileDescriptor HTTPResponse::getFd() const
 
 void HTTPResponse::sendToClient(struct Context* context)
 {
-  clearContexts(context); // FIX: 여기서 터진다!
+  context->res = this;
+  // 인증된 세션의 경우 화면을 이동해도 로그인이 풀리지 않고 로그아웃하기 전까지 유지.
   if (this->getHeader().getStatusCode() >= 400)
     this->addHeader("Connection", "close");
 
-  // (1) Send Header
+  // * (0) Handle Cookie
+  Server& server = context->manager->getMatchedServer(*context->req);
+  server._sessionStorage.clearExpiredID(); // clear expired session.
+  int sessionStatus = server.getSessionStatus(*context->req);
+  if (sessionStatus == SESSION_UNSET) // create session_id and pass to client
+  {
+      std::string NEW_SESSION_ID = Session::gen_random_string(SESSION_ID_LENGH); // !WARN : this method is very insecure!
+      this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) 
+                                          + "=" + NEW_SESSION_ID + "; " 
+                                          + "Expires=" + HTTPResponse::getDateByHourOffset(+SESSION_EXPIRE_HOUR)));
+      server._sessionStorage.add(NEW_SESSION_ID, WS::Time().getByHourOffset(+SESSION_EXPIRE_HOUR)); 
+  } 
+  else if (sessionStatus == SESSION_INVALID) // unset client's session-cookie.
+  {
+    this->addHeader(HTTPResponse::SET_COOKIE(std::string(SESSION_KEY) + "=" 
+                                          + Session::gen_random_string(SESSION_ID_LENGH) + "; " 
+                                          + "Expires=" + HTTPResponse::getDateByYearOffset(-1) + ";"
+                                          )); // set past date to delete cookie.
+  }
+  else // valid client session
+    std::cout << "# Client session validated\n";
+
+
+  // * (1) Send Header
   struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
   newSendContext->connectContexts = context->connectContexts;
   newSendContext->connectContexts->push_back(newSendContext);
-  newSendContext->res = new HTTPResponse(*this);
+  newSendContext->res = this;
+  newSendContext->pipeFD[0] = context->pipeFD[0];
+  newSendContext->pipeFD[1] = context->pipeFD[1];
 
   // add header content
   std::string header = this->getHeader().toString() + "\n";
@@ -311,8 +392,7 @@ void HTTPResponse::sendToClient(struct Context* context)
   memmove(newSendContext->ioBuffer, header.c_str(), header.size());
   newSendContext->bufferSize = header.size();
   newSendContext->threadKQ = context->threadKQ;
-//  newSendContext->req = context->req;
-  newSendContext->req = new HTTPRequest(*context->req);
+  newSendContext->req = context->req;
 
   struct kevent event;
   EV_SET(&event, newSendContext->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
@@ -322,15 +402,18 @@ void HTTPResponse::sendToClient(struct Context* context)
     EV_SET(&event, newSendContext->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
     context->manager->attachNewEvent(newSendContext, event);
   }
-  // (2) Send Body
+  // * (2) Send Body
   if (this->getFd() >= 0 && this->getContentLength() > 0 && this->getStatusCode() != ST_NO_CONTENT)
   {
     struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
     newReadContext->connectContexts = context->connectContexts;
     newReadContext->connectContexts->push_back(newReadContext);
-    newReadContext->res = new HTTPResponse(*this);
-    newReadContext->req = new HTTPRequest(*context->req);
+    newReadContext->res = this;
+    newReadContext->req = context->req;
     newReadContext->threadKQ = context->threadKQ;
+    newReadContext->pipeFD[0] = context->pipeFD[0];
+    newReadContext->pipeFD[1] = context->pipeFD[1];
+    this->_readFD = this->_fileFd;
     struct kevent _event;
     EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
     context->manager->attachNewEvent(newReadContext, _event);
@@ -345,9 +428,13 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   {
     printLog("sk send handler called\n", PRINT_CYAN);
   }
+  if (context->ioBuffer == NULL)
+  {
+    std::cout << "NULL\n";
+    return ;
+  }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
   ssize_t sendSize;
-
   if ((sendSize = send(context->fd, context->ioBuffer, context->bufferSize, MSG_DONTWAIT)) < 0)
   {
     if (DEBUG_MODE)
@@ -370,17 +457,34 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     if (context->res->_fileFd > 0 && context->res->getContentLength() > context->totalIOSize)
     {
       struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
-      newReadContext->res = new HTTPResponse(*context->res);
+      newReadContext->res = context->res;
       newReadContext->threadKQ = context->threadKQ;
       newReadContext->totalIOSize = context->totalIOSize;
       newReadContext->connectContexts = context->connectContexts;
+      newReadContext->pipeFD[0] = context->pipeFD[0];
+      newReadContext->pipeFD[1] = context->pipeFD[1];
       newReadContext->connectContexts->push_back(newReadContext);
+      newReadContext->res->_readFD = context->res->_fileFd;
       struct kevent _event;
       EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
       context->manager->attachNewEvent(newReadContext, _event);
     }
     else
     {
+      if (context->res->getContentLength() == 0 || context->res->getContentLength() >= context->totalIOSize)
+      {
+        if (context->res->_readFD > 0)
+        {
+          close(context->res->_readFD);
+          context->res->_readFD = -1;
+        }
+        if (context->res->_writeFD > 0)
+        {
+          close(context->res->_writeFD);
+          context->res->_writeFD = -1;
+        }
+      }
+      // if bad request, close connection
       if (context->res->_status_code >= 400)
       {
         shutdown(context->fd, SHUT_RDWR);
@@ -414,7 +518,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     {
       printLog("error: client: " + getClientIP(&context->addr) + " : read failed\n", PRINT_RED);
     }
-    close(context->res->_fileFd);
+//    close(context->res->_fileFd);
     delete[] (buffer);
     buffer = NULL;
   }
@@ -425,7 +529,9 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     bool is_read_finished = false;
     if (context->totalIOSize >= context->res->getContentLength())
     {
-      close(context->res->_fileFd); // fd_file을 닫고.
+//      close(context->res->_fileFd); // fd_file을 닫고.
+      if (context->pipeFD[1] > 0)
+        close(context->pipeFD[1]);
       context->res->_fileFd = -1;   // socketSendHandler가 file_fd가 -1이면 소켓을 종료.
       is_read_finished = true; // 마지막에 context delete하기 위함.
     }
@@ -434,12 +540,13 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     struct Context* newSendContext = new struct Context(context->fd, context->addr, socketSendHandler, context->manager);
     newSendContext->connectContexts = context->connectContexts;
     newSendContext->connectContexts->push_back(newSendContext);
-//    newSendContext->res = context->res;
-    newSendContext->res = new HTTPResponse(*context->res);
+    newSendContext->res = context->res;
     newSendContext->ioBuffer = buffer;
     newSendContext->threadKQ = context->threadKQ;
     newSendContext->bufferSize = current_rd_size;
     newSendContext->totalIOSize = context->totalIOSize;
+    newSendContext->pipeFD[0] = context->pipeFD[0];
+    newSendContext->pipeFD[1] = context->pipeFD[1];
     EV_SET(&event, context->fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newSendContext);
     context->manager->attachNewEvent(newSendContext, event);
     // read handler가 중복 호출 되는 것을 방지함
