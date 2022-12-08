@@ -241,7 +241,7 @@ void writeFileHandle(struct Context* context)
   {
     delete (req.body);
     req.body = NULL;
-    close(context->fd);
+//    close(context->fd);
   }
 }
 

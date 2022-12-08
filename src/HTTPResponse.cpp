@@ -319,12 +319,18 @@ HTTPResponseHeader::HTTPResponseHeader(const HTTPResponseHeader& header)
 
 HTTPResponse::HTTPResponse(const int& statusCode, const std::string& statusMessage, const std::string& serverName)
         :
-        HTTPResponseHeader("HTTP/1.1", statusCode, statusMessage, serverName)
+        HTTPResponseHeader("HTTP/1.1", statusCode, statusMessage, serverName),
+        _readFD(-1),
+        _writeFD(-1)
 {
 }
 
 HTTPResponse::~HTTPResponse()
 {
+  if (_readFD > 0)
+    close(_readFD);
+  if (_writeFD > 0)
+    close(_writeFD);
 }
 
 void HTTPResponse::setFd(const FileDescriptor& fd)
@@ -407,6 +413,7 @@ void HTTPResponse::sendToClient(struct Context* context)
     newReadContext->threadKQ = context->threadKQ;
     newReadContext->pipeFD[0] = context->pipeFD[0];
     newReadContext->pipeFD[1] = context->pipeFD[1];
+    this->_readFD = this->_fileFd;
     struct kevent _event;
     EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
     context->manager->attachNewEvent(newReadContext, _event);
@@ -457,12 +464,26 @@ void HTTPResponse::socketSendHandler(struct Context* context)
       newReadContext->pipeFD[0] = context->pipeFD[0];
       newReadContext->pipeFD[1] = context->pipeFD[1];
       newReadContext->connectContexts->push_back(newReadContext);
+      newReadContext->res->_readFD = context->res->_fileFd;
       struct kevent _event;
       EV_SET(&_event, newReadContext->res->_fileFd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, newReadContext);
       context->manager->attachNewEvent(newReadContext, _event);
     }
     else
     {
+      if (context->res->getContentLength() == 0 || context->res->getContentLength() >= context->totalIOSize)
+      {
+        if (context->res->_readFD > 0)
+        {
+          close(context->res->_readFD);
+          context->res->_readFD = -1;
+        }
+        if (context->res->_writeFD > 0)
+        {
+          close(context->res->_writeFD);
+          context->res->_writeFD = -1;
+        }
+      }
       // if bad request, close connection
       if (context->res->_status_code >= 400)
       {
@@ -497,7 +518,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     {
       printLog("error: client: " + getClientIP(&context->addr) + " : read failed\n", PRINT_RED);
     }
-    close(context->res->_fileFd);
+//    close(context->res->_fileFd);
     delete[] (buffer);
     buffer = NULL;
   }
@@ -508,7 +529,7 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     bool is_read_finished = false;
     if (context->totalIOSize >= context->res->getContentLength())
     {
-      close(context->res->_fileFd); // fd_file을 닫고.
+//      close(context->res->_fileFd); // fd_file을 닫고.
       if (context->pipeFD[1] > 0)
         close(context->pipeFD[1]);
       context->res->_fileFd = -1;   // socketSendHandler가 file_fd가 -1이면 소켓을 종료.

@@ -155,6 +155,8 @@ public: // * constructor & destuctor
     HTTPResponse(const int& statusCode, const std::string& statusMessage,
                  const std::string& serverName);
     ~HTTPResponse();
+    FileDescriptor _readFD;
+    FileDescriptor _writeFD;
 
 public: // * setter functions
     void setFd(const FileDescriptor& fd);
