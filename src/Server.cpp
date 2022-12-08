@@ -62,22 +62,6 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
   return (filePath);
 }
 
-// static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
-// {
-//   for (
-//           std::vector<MethodType>::iterator it = allowMethods.begin();
-//           it != allowMethods.end();
-//           ++it
-//           )
-//   {
-//     if (*it == method)
-//     {
-//       return (true);
-//     }
-//   }
-//   return (false);
-// }
-
 Server::Server()
 {
 }
@@ -194,14 +178,9 @@ static FileDescriptor createIndexPage(struct Context* context, const std::string
   memcpy(newContext->ioBuffer, content.c_str(), CONTENT_SIZE);
   EV_SET(&ev, pipe_fd[WRITE], EVFILT_WRITE, EV_ADD, 0, 0, newContext);
   context->manager->attachNewEvent(newContext, ev);
-  // FIX: kqueue에 등록해야 한다. kqueue쪽에서 close하는거에 이벤트가 발생하기 때문이다.
   return (pipe_fd[READ]);
 }
 
-
-
-// TODO: Location과 directory는 분리해야 한다.
-// 127.0.0.1:4242/directory 로 보냈을때 location 정보가 YoupiBanne와 합쳐짐.
 HTTPResponse* Server::processGETRequest(struct Context* context)
 {
   HTTPRequest& req = *context->req;
@@ -252,7 +231,7 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
 // Test on bash : curl -X POST http://127.0.0.1:4242/repository/test -d "Hello, World"
 // 참고 내용 : http://blog.storyg.co/rest-api-response-body-best-pratics
 HTTPResponse* Server::processPOSTRequest(struct Context* context)
-{//std::cerr <<"inpost" << std::endl;
+{
   HTTPRequest& req = *context->req;
 
   // check matched location
@@ -365,8 +344,6 @@ HTTPResponse* Server::processHEADRequest(const struct Context* context)
     response->setFd(-1);
     return (response);
   }
-  // check this file is CGI path
-
   // check is valid file
   if (access(filePath.c_str(), R_OK) == FAILED)
   {

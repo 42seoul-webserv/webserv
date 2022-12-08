@@ -110,7 +110,7 @@ void CGIWriteHandler(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
-  std::cout << *req.body << '\n';
+
   if ((writeSize = write(context->cgi->writeFD, &req.body->c_str()[context->totalIOSize], req.body->size() - context->totalIOSize)) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
@@ -134,10 +134,8 @@ void socketReceiveHandler(struct Context* context)
   context->manager->getRequestParser().parseRequest(context);
 }
 
-// TODO : client session time?
 void acceptHandler(struct Context* context)
 {
-//  static uint32_t connections;
   if (DEBUG_MODE)
     printLog("accept handler called\n", PRINT_CYAN);
   socklen_t len = sizeof(context->addr);
@@ -241,7 +239,6 @@ void writeFileHandle(struct Context* context)
   {
     delete (req.body);
     req.body = NULL;
-//    close(context->fd);
   }
 }
 

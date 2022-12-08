@@ -1,7 +1,3 @@
-//
-// Created by 김민규 on 2022/12/06.
-//
-
 #ifndef WEBSERV_SESSION_HPP
 #define WEBSERV_SESSION_HPP
 

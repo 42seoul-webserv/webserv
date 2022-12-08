@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 int main(int argc, char *argv[])
 {
-  mkdir("../tempfile", 0777);// build아니면 고쳐야함 
+  mkdir("../tempfile", 0777);
   if (THREAD_MODE)
     std::cout << "Thread mode is on, thread number is " << THREAD_NO << '\n';
   if (argc == 2)

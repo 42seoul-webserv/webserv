@@ -255,7 +255,7 @@ std::string CGI::ft_getcwd()
     throw (std::runtime_error("getcwd fail"));
   }
   path.assign(buffer);
-  path.erase(path.find("/build"));// 나중에 고쳐야하나
+  path.erase(path.find("/build"));
   return (path);
 }
 void CGI::getPATH(Server server, HTTPRequest& req)
@@ -306,7 +306,6 @@ void CGI::setRequestEnv(HTTPRequest& req)
   for (std::map<std::string, std::string>::const_iterator it = req.headers.begin();\
         it != req.headers.end(); ++it)
   {
-    //transfer(it->frist,key) &key assign
     key.assign(schema);
     for (size_t i = 0; i < it->first.size(); ++i)
     {
@@ -340,12 +339,7 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("CONTENT_TYPE", req.headers.find("Content-Type")->second);
   getPATH(server, req);
   setRequestEnv(req);
-/*  for (size_t i = 0; i < envCount; ++i)
-  {
-    std::cerr << env[i]<< std::endl;
-  }*/
 }
-// fork, pipe init
 
 void CGI::setFilePath()
 {

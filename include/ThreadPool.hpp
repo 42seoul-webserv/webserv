@@ -1,7 +1,3 @@
-//
-// Created by Sungjun Park on 2022/11/26.
-//
-
 #ifndef THREADPOOL_HPP
 #define THREADPOOL_HPP
 
