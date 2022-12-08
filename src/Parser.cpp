@@ -4,7 +4,6 @@
 #include <cctype>
 #include <sstream>
 
-//CommonParser
 bool CommonParser::isNodeElementEmpty(ParserNode node)
 {
   if (node.elem.empty())
@@ -87,7 +86,6 @@ void CommonParser::displayAll()
   }
 }
 
-//ConfigParser
 bool ConfigParser::isValidFile(const std::string& configFilePath)
 {
   std::stack<char> checkStack;
@@ -126,7 +124,6 @@ bool ConfigParser::isValidFile(const std::string& configFilePath)
   return (false);
 }
 
-// private
 void ConfigParser::getElem(ParserNode* temp, const std::string& line)
 {
   std::string key;
@@ -366,7 +363,6 @@ void ConfigParser::displayServer(Server& server)
     std::cout << it->second << std::endl;
   }
   std::cout << std::endl;
-//  std::cout << server._locations.size() << std::endl;
   for (
           unsigned int i = 0; i < server._locations.size(); ++i
           )

@@ -20,7 +20,7 @@ class HTTPResponse;
 
 class Server
 {
-// attributes (getter 사용 불필요하다고 생각해서 public처리)
+
 public:
     FileDescriptor _serverFD;
     struct sockaddr_in _socketAddr;

@@ -6,8 +6,7 @@
 #include "HTTPRequest.hpp"
 #include "Server.hpp"
 # define ENVCOUNT 60
-//void pipeWriteHandler(); -> serverutil
-//void CGIChildHandler();
+
 struct Context;
 
 class CGI
@@ -32,7 +31,7 @@ class CGI
     void parseHeader(HTTPResponse* res, std::string &message);
     void parseBody(HTTPResponse* res, size_t count);
     void parseCGI(struct Context* context, std::string& message);
-    void closeProcess(); //child수거?, response 생성?
+    void closeProcess();
     void setFilePath(); // fork, pipe init
     void setCGIenv(Server server, HTTPRequest& req, struct Context* context);
     void getPATH(Server server, HTTPRequest& req);

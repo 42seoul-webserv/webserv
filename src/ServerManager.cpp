@@ -8,7 +8,6 @@ ServerManager::ServerManager(const std::string& configFilePath) :
 {
   ConfigParser parser;
   _serverList = parser.parseConfigFile(configFilePath);
-//  parser.displayAll();
 }
 
 ServerManager::~ServerManager()
@@ -112,7 +111,6 @@ std::string ServerManager::getServerName(in_port_t port_num) const
 
 void ServerManager::attachServerEvent(Server& server)
 {
-  // TODO: have to control leak?
   struct kevent events[1];
   struct Context* context = new struct Context(server._serverFD, server._socketAddr, acceptHandler, this);
   context->threadKQ = _kqueue;
@@ -209,7 +207,6 @@ int ServerManager::attachNewEvent(struct Context* context, const struct kevent& 
       std::cout << event.ident << "(ident) (attach) \n";
       std::cout << strerror(errno) << " (attach) \n";
       std::cout << context->threadKQ << " (attach) \n";
-//      std::cout << context->req->status << " (attach) \n";
     }
     return (FAILED);
   }

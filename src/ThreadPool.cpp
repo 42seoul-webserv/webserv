@@ -1,6 +1,3 @@
-//
-// Created by Sungjun Park on 2022/11/26.
-//
 #include "ThreadPool.hpp"
 #include "ServerManager.hpp"
 

@@ -46,20 +46,13 @@ StatusCode checkValidUrl_recur(const Server& matchedServer, const std::string& s
 
 StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
 {
-  Server& matchedServer = _serverManager.getMatchedServer(req); // FIX: 여기서 터짐.
+  Server& matchedServer = _serverManager.getMatchedServer(req);
 
   // find _location
   Location* loc = matchedServer.getMatchedLocation(req);
   // check _location
   if (loc == NULL) // _root case
   {
-    // if not root
-    // http://127.0.0.1:4242/directory/nop/ 와 같은 경우도 고려해야 함.
-    // if (req.url != "/")
-    // {
-    //   const StatusCode st = checkValidUrl_recur(matchedServer, req.url);
-    //   return (st);
-    // }
     if (!isAllowedMethod(matchedServer._allowMethods, req.method))
     {
       return (ST_METHOD_NOT_ALLOWED);

@@ -179,9 +179,6 @@ void RequestParser::checkStartLineValid(HTTPRequest* request)
   {
     return;
   }
-  /* request message 확인
-  std::cerr << "request message" << std::endl;
-  std::cerr<< *request->message << std::endl;*/
   if (request->method == UNDEFINED || \
             !request->url.size() || !request->version.size())
   {
@@ -314,11 +311,6 @@ void RequestParser::checkCRLF(HTTPRequest* request)
 
   if (endPOS != std::string::npos)
   {
-    //request message
-    //std::string temp;
-    //temp.assign(request->message->begin(), request->message->begin() + endPOS);
-    //std::cerr << "requeset" << std::endl;
-    //std::cerr << temp << std::endl;
     request->checkLevel = STARTLINE;
     getStartLine(request, nowPOS);
     getQuery(request);
@@ -334,10 +326,6 @@ void RequestParser::readRequest(FileDescriptor fd, HTTPRequest* request)
   {
     throw (std::runtime_error("receive failed\n"));
   }
-  //request message print
-/*std::string temp;
-temp.assign(buffer);
-std::cerr << temp << std::endl;*/
   if (!request->body->size())
   {
     (*request->message) += buffer;
@@ -357,10 +345,6 @@ std::cerr << temp << std::endl;*/
     case BODY:
       parseBody(request);
   }
- /* std::cout << "requse heder chekc" << std::endl;
-  std::cout << *request->message << std::endl;
-  std::cout << "requse body chekc" << std::endl;
-  std::cout << request->body << std::endl;*/
 }
 
 void RequestParser::parseRequest(struct Context* context)

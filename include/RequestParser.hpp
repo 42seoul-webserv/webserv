@@ -22,8 +22,6 @@ private:
     std::string::iterator getOneLine(std::string& str, \
                         std::string::iterator it, std::string::iterator end);
 public:
-    //  RequestParser();
-    // ~RequestParser();
     void parseRequest(struct Context* context);
     void displayAll(HTTPRequest* request);
 };

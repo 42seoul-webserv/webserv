@@ -83,7 +83,6 @@ std::string HeaderType::getDate()
   struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
   if (pLocal == NULL)
   {
-    // ...
     return ("null");
   }
   std::string result;
@@ -99,7 +98,6 @@ std::string HeaderType::getDateByYearOffset(int year_diff)
   struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
   if (pLocal == NULL)
   {
-    // ...
     return ("null");
   }
   std::string result;
@@ -115,7 +113,6 @@ std::string HeaderType::getDateByHourOffset(int hour_diff)
   struct tm* pLocal = gmtime(&curTime); // convert to struct for easy use
   if (pLocal == NULL)
   {
-    // ...
     return ("null");
   }
   std::string result;
@@ -430,7 +427,6 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   }
   if (context->ioBuffer == NULL)
   {
-    //std::cout << "NULL\n";
     return ;
   }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
@@ -518,7 +514,6 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     {
       printLog("error: client: " + getClientIP(&context->addr) + " : read failed\n", PRINT_RED);
     }
-//    close(context->res->_fileFd);
     delete[] (buffer);
     buffer = NULL;
   }
@@ -529,7 +524,6 @@ void HTTPResponse::bodyFdReadHandler(struct Context* context)
     bool is_read_finished = false;
     if (context->totalIOSize >= context->res->getContentLength())
     {
-//      close(context->res->_fileFd); // fd_file을 닫고.
       if (context->pipeFD[1] > 0)
         close(context->pipeFD[1]);
       context->res->_fileFd = -1;   // socketSendHandler가 file_fd가 -1이면 소켓을 종료.
