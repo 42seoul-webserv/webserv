@@ -349,7 +349,7 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
 }
 // fork, pipe init
 
-void CGI::setFilePath(CGI* cgi)
+void CGI::setFilePath()
 {
   std::string infilepath;
   std::string outfilepath;
@@ -372,11 +372,11 @@ void CGIProcess(struct Context* context)
   Server& server = context->manager->getMatchedServer(req);
 
   context->cgi->setCGIenv(server, req, context);
-  context->cgi->setFilePath(context->cgi);
+  context->cgi->setFilePath();
   context->cgi->attachFileWriteEvent(context);
 }
 
-bool isCGIRequest(const std::string& file, Location* loc)
+bool isCGIRequest(Location* loc)
 {
   if (loc == NULL)
     return (false);

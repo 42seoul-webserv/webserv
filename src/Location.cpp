@@ -38,22 +38,6 @@ std::string Location::convertURLToLocationPath(const std::string& url) const
   }
   return (result);
 }
-/*
-bool Location::isCGIRequest(const std::string& file)
-{
-  for (
-          std::vector<std::string>::iterator it = cgiInfo.begin();
-          it != cgiInfo.end();
-          ++it
-          )
-  {
-    if (file == *it)
-    {
-      return (true);
-    }
-  }
-  return (false);
-}*/
 
 bool Location::isRedirect() const
 {

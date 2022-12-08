@@ -62,21 +62,21 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
   return (filePath);
 }
 
-static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
-{
-  for (
-          std::vector<MethodType>::iterator it = allowMethods.begin();
-          it != allowMethods.end();
-          ++it
-          )
-  {
-    if (*it == method)
-    {
-      return (true);
-    }
-  }
-  return (false);
-}
+// static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
+// {
+//   for (
+//           std::vector<MethodType>::iterator it = allowMethods.begin();
+//           it != allowMethods.end();
+//           ++it
+//           )
+//   {
+//     if (*it == method)
+//     {
+//       return (true);
+//     }
+//   }
+//   return (false);
+// }
 
 Server::Server()
 {
@@ -216,7 +216,7 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
-  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  else if (isCGIRequest(getMatchedLocation(req)))
   {
     CGIProcess(context);
     return (NULL);
@@ -265,7 +265,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
-  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  else if (isCGIRequest(getMatchedLocation(req)))
   {
     CGIProcess(context);
     return (NULL);

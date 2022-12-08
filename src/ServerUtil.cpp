@@ -115,7 +115,7 @@ void CGIWriteHandler(struct Context* context)
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
-  if (context->totalIOSize >= req.body->size()) // If write finished
+  if (context->totalIOSize >= static_cast<ssize_t>(req.body->size())) // If write finished
   {
     delete (req.body);
     req.body = NULL;
@@ -228,7 +228,6 @@ void handleEvent(struct kevent* event)
 // nonblocking write.
 void writeFileHandle(struct Context* context)
 {
-  HTTPResponse& res = *context->res;
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
@@ -237,7 +236,7 @@ void writeFileHandle(struct Context* context)
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
-  if (context->totalIOSize >= req.body->size()) // If write finished
+  if (context->totalIOSize >= static_cast<ssize_t>(req.body->size())) // If write finished
   {
     delete (req.body);
     req.body = NULL;
@@ -347,8 +346,6 @@ long FdGetFileSize(int fd)
 void clearContexts(struct Context* context)
 {
   // 내부에서 본인 제외 모두 삭제.
-  HTTPResponse* res = NULL;
-  HTTPRequest* req = NULL;
   std::set<HTTPRequest*> reqSets;
   std::set<HTTPResponse*> resSets;
   std::set<CGI*> cgiSets;
