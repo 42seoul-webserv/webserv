@@ -337,6 +337,7 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
   addEnv("SCRIPT_NAME", "webserv/1.1");
   addEnv("QUERY_STRING", encodePercentEncoding(getQueryFullPath(req)));
   addEnv("REMOTE_ADDR", getClientIP(&context->addr));
+  addEnv("CONTENT_TYPE", req.headers.find("Content-Type")->second);
   getPATH(server, req);
   setRequestEnv(req);
 /*  for (size_t i = 0; i < envCount; ++i)

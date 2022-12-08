@@ -110,6 +110,7 @@ void CGIWriteHandler(struct Context* context)
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
+  std::cout << *req.body << '\n';
   if ((writeSize = write(context->cgi->writeFD, &req.body->c_str()[context->totalIOSize], req.body->size() - context->totalIOSize)) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
