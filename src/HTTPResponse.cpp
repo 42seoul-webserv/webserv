@@ -64,9 +64,9 @@ std::string ft_itos_width(int num, int minimum_width)
 {
   std::string origin = ft_itos(num);
   std::string result;
-  if (origin.size() < minimum_width)
+  if (origin.size() < static_cast<size_t>(minimum_width))
   {
-    for (int i = 0; i < minimum_width - origin.size(); i++)
+    for (size_t i = 0; i < static_cast<size_t>(minimum_width) - origin.size(); i++)
     {
       result.append("0");
     }
@@ -218,28 +218,28 @@ void HTTPResponseHeader::addHeader(const std::string& key, const std::string& va
 void HTTPResponseHeader::setVersion(const std::string& version)
 {
   this->_version = version;
-};
+}
 
 void HTTPResponseHeader::setStatus(const int& statusCode, const std::string& statusMessage)
 {
   this->_status_code = statusCode;
   this->_statusMessage = statusMessage;
-};
+}
 
 std::string HTTPResponseHeader::getVersion() const
 {
   return this->_version;
-};
+}
 
 int HTTPResponseHeader::getStatusCode() const
 {
   return this->_status_code;
-};
+}
 
 std::string HTTPResponseHeader::getStatusMessage() const
 {
   return this->_statusMessage;
-};
+}
 
 const std::map<std::string, std::string>& HTTPResponseHeader::getDescription() const
 {
@@ -430,7 +430,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   }
   if (context->ioBuffer == NULL)
   {
-    std::cout << "NULL\n";
+    //std::cout << "NULL\n";
     return ;
   }
   // 이 콜백은 socekt send 가능한 시점에서 호출되기 때문에, 이대로만 사용하면 된다.
@@ -446,7 +446,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
     return;
   }
   // partial send handle
-  if (sendSize < context->bufferSize)
+  if (sendSize < static_cast<ssize_t>(context->bufferSize))
   {
     memmove(context->ioBuffer, &context->ioBuffer[sendSize], context->bufferSize - sendSize);
     context->bufferSize = context->bufferSize - sendSize;
@@ -454,7 +454,7 @@ void HTTPResponse::socketSendHandler(struct Context* context)
   else
   {
     // enable read event
-    if (context->res->_fileFd > 0 && context->res->getContentLength() > context->totalIOSize)
+    if (context->res->_fileFd > 0 && context->res->getContentLength() >  context->totalIOSize)
     {
       struct Context* newReadContext = new struct Context(context->fd, context->addr, bodyFdReadHandler, context->manager);
       newReadContext->res = context->res;

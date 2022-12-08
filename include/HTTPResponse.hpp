@@ -174,4 +174,4 @@ private: // * helper functions
     static std::string getClientIP(const struct sockaddr_in* addr);
 };
 
-#endif // HTTPResponse.hpp
+#endif

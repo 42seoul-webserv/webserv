@@ -27,7 +27,9 @@ std::string Location::convertURLToLocationPath(const std::string& url) const
 {
   std::string result = _root;
   std::string filePath;
-  filePath = url.substr(this->_location.size(), std::string::npos);
+
+  if (url.size() >= _location.size())
+    filePath = url.substr(this->_location.size(), std::string::npos);
   result = _root + filePath;
   struct stat sb;
   // if last url-chunk is directory, add location's _index to url. [ Ex. /YoupiBane => /YoupiBane/index.html ]
@@ -38,22 +40,6 @@ std::string Location::convertURLToLocationPath(const std::string& url) const
   }
   return (result);
 }
-/*
-bool Location::isCGIRequest(const std::string& file)
-{
-  for (
-          std::vector<std::string>::iterator it = cgiInfo.begin();
-          it != cgiInfo.end();
-          ++it
-          )
-  {
-    if (file == *it)
-    {
-      return (true);
-    }
-  }
-  return (false);
-}*/
 
 bool Location::isRedirect() const
 {

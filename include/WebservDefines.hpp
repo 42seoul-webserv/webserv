@@ -9,7 +9,7 @@
 #define FAILED (-1)
 #define THREAD_NO 20
 #define THREAD_MODE (0)
-#define DEBUG_MODE (true)
+#define DEBUG_MODE (0)
 
 #define SESSION_ID_LENGH (15)
 #define SESSION_KEY ("WEBSERV_ID")
@@ -65,7 +65,7 @@ typedef enum
     ST_NOT_IMPLEMENTED = 501,
     ST_BAD_GATEWAY = 502,
     ST_SERVICE_UNAVAILABLE = 503,
-    ST_ERROR = -1,
+    ST_ERROR = -1
 } StatusCode;
 
 void printLog(const std::string& log, const std::string& color);

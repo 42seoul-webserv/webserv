@@ -23,7 +23,7 @@ struct Context
     HTTPResponse* res; // -> for file FD, ContentLength... etc
     char* ioBuffer;
     size_t  bufferSize;
-    size_t  totalIOSize; // 보낼 때 마다 합산.
+    ssize_t  totalIOSize; // 보낼 때 마다 합산.
     FileDescriptor threadKQ;
     std::vector<struct Context*>* connectContexts;
     FileDescriptor pipeFD[2];

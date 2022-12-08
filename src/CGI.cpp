@@ -41,8 +41,6 @@ CGI::~CGI()
 void CGI::parseBody(HTTPResponse* res, size_t count)
 {
   res->addHeader("Content-Length", ft_itos(FdGetFileSize(readFD) - count));
-//  std::cerr << std::endl;
-//  std::cerr << res->getHeader().toString() <<std::endl;
 }
 
 void CGI::parseHeader(HTTPResponse* res, std::string &message)
@@ -349,12 +347,16 @@ void CGI::setCGIenv(Server server, HTTPRequest& req, struct Context* context)
 }
 // fork, pipe init
 
-void CGI::setFilePath(CGI* cgi)
+void CGI::setFilePath()
 {
   std::string infilepath;
   std::string outfilepath;
-  static size_t fileCount;
+  static ssize_t fileCount;
 
+  if (fileCount == INT32_MAX)
+  {
+    fileCount = 0;
+  }
   infilepath.assign(ft_getcwd());
   infilepath.append("/tempfile/in");
   infilepath.append(ft_itos(fileCount));
@@ -372,11 +374,11 @@ void CGIProcess(struct Context* context)
   Server& server = context->manager->getMatchedServer(req);
 
   context->cgi->setCGIenv(server, req, context);
-  context->cgi->setFilePath(context->cgi);
+  context->cgi->setFilePath();
   context->cgi->attachFileWriteEvent(context);
 }
 
-bool isCGIRequest(const std::string& file, Location* loc)
+bool isCGIRequest(Location* loc)
 {
   if (loc == NULL)
     return (false);

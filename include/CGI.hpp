@@ -33,7 +33,7 @@ class CGI
     void parseBody(HTTPResponse* res, size_t count);
     void parseCGI(struct Context* context, std::string& message);
     void closeProcess(); //child수거?, response 생성?
-    void setFilePath(CGI* cgi); // fork, pipe init
+    void setFilePath(); // fork, pipe init
     void setCGIenv(Server server, HTTPRequest& req, struct Context* context);
     void getPATH(Server server, HTTPRequest& req);
     void setRequestEnv(HTTPRequest& req);
@@ -46,5 +46,5 @@ class CGI
 };
 
 void CGIProcess(struct Context* context); //processinit, kevent(fd), 
-bool isCGIRequest(const std::string& file, Location* loc);//cgi 확인
+bool isCGIRequest(Location* loc);//cgi 확인
 #endif

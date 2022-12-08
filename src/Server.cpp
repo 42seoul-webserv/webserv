@@ -62,21 +62,21 @@ std::string Server::getRealFilePath(const HTTPRequest& req)
   return (filePath);
 }
 
-static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
-{
-  for (
-          std::vector<MethodType>::iterator it = allowMethods.begin();
-          it != allowMethods.end();
-          ++it
-          )
-  {
-    if (*it == method)
-    {
-      return (true);
-    }
-  }
-  return (false);
-}
+// static bool isAllowedMethod(std::vector<MethodType>& allowMethods, MethodType method)
+// {
+//   for (
+//           std::vector<MethodType>::iterator it = allowMethods.begin();
+//           it != allowMethods.end();
+//           ++it
+//           )
+//   {
+//     if (*it == method)
+//     {
+//       return (true);
+//     }
+//   }
+//   return (false);
+// }
 
 Server::Server()
 {
@@ -216,7 +216,7 @@ HTTPResponse* Server::processGETRequest(struct Context* context)
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
-  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  else if (isCGIRequest(getMatchedLocation(req)))
   {
     CGIProcess(context);
     return (NULL);
@@ -265,7 +265,7 @@ HTTPResponse* Server::processPOSTRequest(struct Context* context)
     response->setFd(getErrorPageFd(RETURN_STATUS));
     return (response);
   }
-  else if (isCGIRequest(filePath, getMatchedLocation(req)))
+  else if (isCGIRequest(getMatchedLocation(req)))
   {
     CGIProcess(context);
     return (NULL);
@@ -346,7 +346,7 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     response->_writeFD = writeFileFD;
     // attach event
     struct kevent event;
-    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD , 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);
     return (response);
   }

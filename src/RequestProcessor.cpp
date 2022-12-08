@@ -97,15 +97,15 @@ StatusCode RequestProcessor::checkValidHeader(const HTTPRequest& req)
     {
       return (ST_METHOD_NOT_ALLOWED);
     }
-    if (isCGIRequest(matchedServer.getRealFilePath(req), loc))
+    if (isCGIRequest(loc))
     {
       return (ST_OK);
     }
-    if (req.chunkedFlag == true && req.body->size() <= loc->clientMaxBodySize)
+    if (req.chunkedFlag == true && req.body->size() <= static_cast<size_t>(loc->clientMaxBodySize))
     {
       return (ST_OK);
     }
-    if (loc->clientMaxBodySize < req.body->size())
+    if (static_cast<size_t>(loc->clientMaxBodySize) < req.body->size())
     {
       return (ST_PAYLOAD_TOO_LARGE);
     }

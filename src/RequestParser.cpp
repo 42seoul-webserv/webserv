@@ -70,7 +70,6 @@ void RequestParser::parseChunked(HTTPRequest* request)
   std::string::iterator it;
   std::string::iterator end;
   long int length_int;
-  char* endptr;
   std::string length_str;
   std::string val;
 

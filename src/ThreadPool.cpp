@@ -31,7 +31,7 @@ static void* jobHandler(void *_threadPool)
     { // time limit expired -> never happen
       continue;
     }
-    else if (event.ident == tp._serverKQ)
+    else if (event.ident == static_cast<uintptr_t>(tp._serverKQ))
     {
       pthread_mutex_lock(tp.getMutex());
       if (!tp._eventQueue.empty())

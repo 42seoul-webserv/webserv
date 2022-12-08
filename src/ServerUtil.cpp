@@ -115,7 +115,7 @@ void CGIWriteHandler(struct Context* context)
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
-  if (context->totalIOSize >= req.body->size()) // If write finished
+  if (context->totalIOSize >= static_cast<ssize_t>(req.body->size())) // If write finished
   {
     delete (req.body);
     req.body = NULL;
@@ -228,7 +228,6 @@ void handleEvent(struct kevent* event)
 // nonblocking write.
 void writeFileHandle(struct Context* context)
 {
-  HTTPResponse& res = *context->res;
   HTTPRequest& req = *context->req;
 
   ssize_t writeSize = 0;
@@ -237,7 +236,7 @@ void writeFileHandle(struct Context* context)
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
   }
   context->totalIOSize += writeSize; // get total write size
-  if (context->totalIOSize >= req.body->size()) // If write finished
+  if (context->totalIOSize >= static_cast<ssize_t>(req.body->size())) // If write finished
   {
     delete (req.body);
     req.body = NULL;
@@ -246,7 +245,7 @@ void writeFileHandle(struct Context* context)
 }
 
 void writePipeHandler(struct Context* context)
-{// partial write 고려 안함.
+{
   if (write(context->pipeFD[1], context->ioBuffer, context->totalIOSize) < 0)
   {
     printLog("error\t\t" + getClientIP(&context->addr) + "\t: write failed\n", PRINT_RED);
@@ -255,7 +254,6 @@ void writePipeHandler(struct Context* context)
   {
     delete (context->ioBuffer);
     context->ioBuffer = NULL;
-    // write done...
     struct kevent ev;
     EV_SET(&ev, context->pipeFD[1], EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
     context->manager->attachNewEvent(context, ev);
@@ -347,8 +345,6 @@ long FdGetFileSize(int fd)
 void clearContexts(struct Context* context)
 {
   // 내부에서 본인 제외 모두 삭제.
-  HTTPResponse* res = NULL;
-  HTTPRequest* req = NULL;
   std::set<HTTPRequest*> reqSets;
   std::set<HTTPResponse*> resSets;
   std::set<CGI*> cgiSets;
@@ -410,6 +406,12 @@ void clearContexts(struct Context* context)
   }
   for (std::set<CGI*>::iterator it = cgiSets.begin(); it != cgiSets.end(); ++it)
   {
+    if (context->cgi != NULL)
+    {
+      struct kevent event;
+      EV_SET(&event, context->cgi->pid, EVFILT_PROC, EV_DELETE, 0, 0, NULL);
+      context->manager->attachNewEvent(context, event);
+    }
     delete (*it);
   }
   context->connectContexts->clear();

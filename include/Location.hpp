@@ -17,7 +17,6 @@ public:
 
 public:
     bool isMatchedLocation(const std::string& url) const;
-  //  bool isCGIRequest(const std::string& file);
 
     // check if server has valid redirection setting.
     bool isRedirect() const;
