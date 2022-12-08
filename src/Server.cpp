@@ -227,14 +227,14 @@ HTTPResponse* Server::processPUTRequest(struct Context* context)
     struct Context* newContext = new struct Context(writeFileFD, context->addr, writeFileHandle, context->manager);
     newContext->res = new HTTPResponse(*response);
     newContext->req = new HTTPRequest(*context->req);
-    newContext->fd = writeFileFD;
+  //  newContext->fd = writeFileFD;
     newContext->threadKQ = context->threadKQ;
-    newContext->connectContexts = context->connectContexts;
-    newContext->connectContexts->push_back(newContext);
+  //  newContext->connectContexts = context->connectContexts;
+  //  newContext->connectContexts->push_back(newContext);
     newContext->totalIOSize = 0;
     // attach event
     struct kevent event;
-    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, newContext);
+    EV_SET(&event, writeFileFD, EVFILT_WRITE, EV_ADD , 0, 0, newContext);
     context->manager->attachNewEvent(newContext, event);
     return (response);
   }
